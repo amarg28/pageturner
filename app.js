@@ -868,16 +868,26 @@ async function confirmImport(){
   if(!pendingImport)return;
   const btn=document.querySelector('#import-preview .btn-primary');
   btn.disabled=true;btn.textContent='Importing…';
-  let count=0;
-  for(const b of pendingImport.books){
-    b.num=books.length+count+1;
-    await saveBook(b);books.push(b);count++;
-    if(count%5===0)btn.textContent=`Importing… ${count}/${pendingImport.books.length}`;
+  const toInsert=pendingImport.books.map((b,i)=>({...bookToDb({...b,num:books.length+i+1})}));
+  // Batch insert in chunks of 50
+  const chunkSize=50;
+  let inserted=0;
+  for(let i=0;i<toInsert.length;i+=chunkSize){
+    const chunk=toInsert.slice(i,i+chunkSize);
+    const{data,error}=await sb.from('books').insert(chunk).select();
+    if(error){console.error('Batch insert error:',error);alert('Import failed: '+error.message);btn.disabled=false;btn.textContent='Try again';return;}
+    // Map returned IDs back to local books
+    (data||[]).forEach((row,j)=>{
+      const localBook={...pendingImport.books[i+j],id:row.id,num:row.num};
+      books.push(localBook);
+    });
+    inserted+=chunk.length;
+    btn.textContent=`Importing… ${inserted}/${toInsert.length}`;
   }
   pendingImport=null;
   document.getElementById('import-preview').style.display='none';
   renderLibrary();go('library');enrichMissing();
-  alert(`Imported ${count} books successfully!`);
+  alert(`Imported ${inserted} book${inserted!==1?'s':''} successfully!`);
 }
 
 // ── STATS ───────────────────────────────────────────────────────────────────
