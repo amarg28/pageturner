@@ -6,6 +6,7 @@
 <title>PageTurner</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -34,6 +35,32 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .tab.on{background:var(--bg2);color:var(--tx0);font-weight:500}
 .tab:hover:not(.on){background:var(--bg2)}
 .panel{display:none}.panel.on{display:block}
+
+/* AUTH SCREEN */
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--bg0);border:0.5px solid var(--bd2);border-radius:var(--rxl);padding:40px;max-width:420px;width:100%}
+.auth-logo{font-family:'Lora',serif;font-size:28px;font-weight:400;letter-spacing:-.02em;margin-bottom:6px}
+.auth-logo em{font-style:italic;color:var(--amber)}
+.auth-tagline{font-size:13px;color:var(--tx1);margin-bottom:32px}
+.auth-tabs{display:flex;gap:0;margin-bottom:24px;border:0.5px solid var(--bd2);border-radius:var(--r);overflow:hidden}
+.auth-tab{flex:1;padding:9px;background:none;border:none;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;color:var(--tx1);transition:all .15s}
+.auth-tab.on{background:var(--amber);color:#fff;font-weight:500}
+.auth-field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.auth-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)}
+.auth-input{padding:10px 12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg1);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx0);outline:none;transition:border-color .15s}
+.auth-input:focus{border-color:var(--amber)}
+.auth-btn{width:100%;padding:11px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.auth-btn:hover{opacity:.85}
+.auth-btn:disabled{opacity:.45;cursor:not-allowed}
+.auth-error{font-size:12px;color:var(--coral);margin-top:10px;padding:8px 12px;background:var(--coral-l);border-radius:var(--r);display:none}
+.auth-success{font-size:12px;color:var(--teal);margin-top:10px;padding:8px 12px;background:var(--teal-l);border-radius:var(--r);display:none}
+
+/* USER MENU */
+.user-menu{display:flex;align-items:center;gap:8px}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--amber);font-family:'Lora',serif}
+.user-email{font-size:12px;color:var(--tx1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.signout-btn{font-size:12px;padding:5px 10px;border:0.5px solid var(--bd2);border-radius:var(--r);background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif;transition:all .12s}
+.signout-btn:hover{background:var(--bg2)}
 
 /* STAT STRIP */
 .stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px}
@@ -172,7 +199,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .api-save{padding:6px 12px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
 .api-note{font-size:11px;color:var(--amber);width:100%}
 
-/* ── BOOK PAGE ── */
+/* BOOK PAGE */
 .book-page{animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .bp-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx1);cursor:pointer;margin-bottom:20px;padding:6px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg0);transition:all .12s}
@@ -182,7 +209,6 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .bp-cover img{width:100%;height:100%;object-fit:cover;display:block}
 .bp-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
 .bp-cover-ph-text{font-family:'Lora',serif;font-size:14px;font-style:italic;color:var(--tx1);line-height:1.5}
-.bp-meta{}
 .bp-title{font-family:'Lora',serif;font-size:28px;font-weight:500;line-height:1.2;margin-bottom:6px;letter-spacing:-.02em}
 .bp-author{font-size:15px;color:var(--tx1);margin-bottom:16px}
 .bp-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
@@ -192,23 +218,15 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .bp-score{background:var(--bg1);border:0.5px solid var(--bd);border-radius:var(--r);padding:10px 12px;text-align:center}
 .bp-score-l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);margin-bottom:4px}
 .bp-score-v{font-size:20px;font-family:'Lora',serif;font-weight:500}
-.bp-score-v.hi{color:var(--teal)}
-.bp-score-v.mid{color:var(--amber)}
-.bp-score-v.lo{color:var(--coral)}
+.bp-score-v.hi{color:var(--teal)}.bp-score-v.mid{color:var(--amber)}.bp-score-v.lo{color:var(--coral)}
 .bp-read-info{display:flex;gap:16px;font-size:12px;color:var(--tx1);flex-wrap:wrap}
 .bp-read-item{display:flex;flex-direction:column;gap:2px}
 .bp-read-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2)}
-
 .bp-body{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
-.bp-main{}
 .bp-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
 .bp-section-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:12px}
-.bp-description{font-size:14px;line-height:1.7;color:var(--tx0)}
-.bp-notes{font-size:14px;line-height:1.7;color:var(--tx0)}
 .bp-retro-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .bp-retro-pill{font-size:10px;background:var(--amber-l);color:var(--amber);padding:3px 10px;border-radius:100px;font-weight:500}
-
-/* AI ANALYSIS SECTION */
 .ai-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
 .ai-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .ai-section-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)}
@@ -219,8 +237,6 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .ai-result-empty{font-size:13px;color:var(--tx1);font-style:italic}
 .ai-predicted-rating{display:inline-flex;align-items:center;gap:8px;background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:var(--r);padding:8px 14px;margin-bottom:14px;font-size:13px;font-weight:500;color:var(--amber)}
 .ai-predicted-num{font-size:22px;font-family:'Lora',serif}
-
-/* SIMILAR BOOKS */
 .similar-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
 .similar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .similar-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)}
@@ -234,9 +250,6 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .similar-book-author{font-size:11px;color:var(--tx1);margin-bottom:4px}
 .similar-reason{font-size:11px;color:var(--tx2);line-height:1.4}
 .similar-in-library{font-size:10px;background:var(--teal-l);color:var(--teal);padding:2px 7px;border-radius:100px;display:inline-block;margin-top:3px}
-
-/* SIDEBAR */
-.bp-sidebar{}
 .sidebar-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:14px}
 .sidebar-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:12px}
 .ol-rating-big{font-size:36px;font-family:'Lora',serif;font-weight:500;color:var(--amber);line-height:1}
@@ -245,9 +258,9 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .ol-meta-row:last-child{border-bottom:none}
 .ol-meta-label{color:var(--tx2)}
 .ol-meta-value{color:var(--tx0);font-weight:500;text-align:right;max-width:60%}
-
 .empty{text-align:center;padding:60px 20px;color:var(--tx1);font-size:13px;grid-column:1/-1}
 .empty-icon{font-size:36px;margin-bottom:12px}
+.loading-books{text-align:center;padding:60px 20px;color:var(--tx1);font-size:13px;grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:12px}
 
 @media(max-width:700px){
   .bp-hero{grid-template-columns:1fr}
@@ -258,241 +271,421 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 </style>
 </head>
 <body>
-<div class="shell">
-  <div class="topbar">
-    <div class="logo" onclick="go('library')">page<em>turner</em></div>
-    <nav class="tabs">
-      <button class="tab on" onclick="go('library')">Library</button>
-      <button class="tab" onclick="go('stats')">Stats</button>
-      <button class="tab" onclick="go('add')">Add Book</button>
-      <button class="tab" onclick="go('chat')">Ask AI</button>
-    </nav>
-  </div>
 
-  <!-- LIBRARY -->
-  <div id="p-library" class="panel on">
-    <div id="enrich-bar" class="enrich-bar" style="display:none">
-      <div class="spinner"></div>
-      <span id="enrich-msg">Fetching covers from Open Library…</span>
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">page<em>turner</em></div>
+    <div class="auth-tagline">Your personal reading dashboard</div>
+    <div class="auth-tabs">
+      <button class="auth-tab on" onclick="switchAuthTab('signin')">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
     </div>
-    <div class="stat-strip" id="quick-stats"></div>
-    <div class="controls">
-      <input type="text" class="search-box" placeholder="Search title or author…" oninput="renderBooks()" id="q">
-      <select class="fsel" onchange="renderBooks()" id="gf"><option value="">All genres</option></select>
-      <select class="fsel" onchange="renderBooks()" id="ff">
-        <option value="">All formats</option>
-        <option>Print</option><option>EBook</option><option>Audiobook</option>
-      </select>
-      <button class="sort-btn on" id="sb-date" onclick="setSort('date')">Recent</button>
-      <button class="sort-btn" id="sb-rating" onclick="setSort('rating')">Rating</button>
-      <button class="sort-btn" id="sb-speed" onclick="setSort('speed')">Speed</button>
-    </div>
-    <div class="shelf" id="shelf"></div>
-  </div>
-
-  <!-- BOOK PAGE -->
-  <div id="p-book" class="panel"></div>
-
-  <!-- STATS -->
-  <div id="p-stats" class="panel">
-    <div class="stat-strip" id="stats-cards"></div>
-    <div class="chart-card">
-      <div class="chart-head">Ratings distribution</div>
-      <div class="chart-legend">
-        <span><span class="ldot" style="background:#1D9E75"></span>High (8–10)</span>
-        <span><span class="ldot" style="background:#BA7517"></span>Mid (6–7)</span>
-        <span><span class="ldot" style="background:#D85A30"></span>Low (1–5)</span>
+    <div id="auth-form">
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')authSubmit()">
       </div>
-      <div style="position:relative;width:100%;height:210px"><canvas id="cRating" role="img" aria-label="Ratings">Ratings.</canvas></div>
-    </div>
-    <div class="two-col">
-      <div class="chart-card">
-        <div class="chart-head">Reading pace</div>
-        <div style="position:relative;width:100%;height:190px"><canvas id="cPace" role="img" aria-label="Pace">Pace.</canvas></div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
       </div>
-      <div class="chart-card">
-        <div class="chart-head">Format breakdown</div>
-        <div style="position:relative;width:100%;height:190px"><canvas id="cFmt" role="img" aria-label="Formats">Formats.</canvas></div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-head">Initial vs retrospective rating</div>
-      <div style="position:relative;width:100%;height:210px"><canvas id="cRetro" role="img" aria-label="Retro">Retro.</canvas></div>
+      <button class="auth-btn" id="auth-btn" onclick="authSubmit()">Sign in</button>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-success" id="auth-success"></div>
     </div>
   </div>
+</div>
 
-  <!-- ADD BOOK -->
-  <div id="p-add" class="panel">
-    <div class="add-wrap">
-      <div style="font-size:13px;font-weight:500;margin-bottom:14px;color:var(--tx1)">Search Open Library to add a book</div>
-      <div class="book-search-box">
-        <input class="book-search-input" id="ol-q" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')olSearch()">
-        <button class="btn-search" id="ol-btn" onclick="olSearch()">Search</button>
-      </div>
-      <div id="ol-results" style="display:none"></div>
-      <div id="edition-section" style="display:none"></div>
-      <div id="book-form" style="display:none"></div>
-      <div class="upload-zone" onclick="document.getElementById('csv-file').click()">
-        <div class="upload-icon">⬆</div>
-        <div class="upload-title">Or upload a CSV from Google Sheets</div>
-        <div class="upload-sub">File → Download → CSV · columns auto-detected</div>
-        <input type="file" id="csv-file" style="display:none" accept=".csv" onchange="importCSV(event)">
-      </div>
-    </div>
-  </div>
-
-  <!-- CHAT -->
-  <div id="p-chat" class="panel">
-    <div class="apibar">
-      <label>Anthropic API Key</label>
-      <input type="password" class="api-in" id="ak" placeholder="sk-ant-api03-…">
-      <button class="api-save" onclick="saveKey()">Save</button>
-      <div class="api-note">Get a free key at console.anthropic.com — stored only in your browser.</div>
-    </div>
-    <div class="chat-wrap">
-      <div class="chat-head">
-        <div class="chat-avatar">B</div>
-        <div><div class="chat-name">Book Advisor</div><div class="chat-status" id="chat-status">Ready</div></div>
-      </div>
-      <div class="chat-msgs" id="chat-msgs">
-        <div class="msg msg-a">
-          <div class="bubble">Hi! I've been through your library. Strong opinions, great taste — I can see patterns across your reads. What are you in the mood for?</div>
-          <div class="msg-lbl">Book Advisor</div>
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+  <div class="shell">
+    <div class="topbar">
+      <div class="logo" onclick="go('library')">page<em>turner</em></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <nav class="tabs">
+          <button class="tab on" onclick="go('library')">Library</button>
+          <button class="tab" onclick="go('stats')">Stats</button>
+          <button class="tab" onclick="go('add')">Add Book</button>
+          <button class="tab" onclick="go('chat')">Ask AI</button>
+        </nav>
+        <div class="user-menu">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-email" id="user-email"></div>
+          <button class="signout-btn" onclick="signOut()">Sign out</button>
         </div>
       </div>
-      <div class="chips">
-        <button class="chip" onclick="chip(this.textContent)">Something like Misery</button>
-        <button class="chip" onclick="chip(this.textContent)">Surprise me</button>
-        <button class="chip" onclick="chip(this.textContent)">Best sci-fi I haven't read</button>
-        <button class="chip" onclick="chip(this.textContent)">Quick read for tonight</button>
-        <button class="chip" onclick="chip(this.textContent)">What would I rate Dune?</button>
+    </div>
+
+    <!-- LIBRARY -->
+    <div id="p-library" class="panel on">
+      <div id="enrich-bar" class="enrich-bar" style="display:none">
+        <div class="spinner"></div>
+        <span id="enrich-msg">Fetching covers…</span>
       </div>
-      <div class="chat-input-row">
-        <textarea class="chat-ta" id="chat-in" rows="1" placeholder="Ask about books…" onkeydown="chatKey(event)"></textarea>
-        <button class="send" id="send-btn" onclick="sendMsg()">↑</button>
+      <div class="stat-strip" id="quick-stats"></div>
+      <div class="controls">
+        <input type="text" class="search-box" placeholder="Search title or author…" oninput="renderBooks()" id="q">
+        <select class="fsel" onchange="renderBooks()" id="gf"><option value="">All genres</option></select>
+        <select class="fsel" onchange="renderBooks()" id="ff">
+          <option value="">All formats</option>
+          <option>Print</option><option>EBook</option><option>Audiobook</option>
+        </select>
+        <button class="sort-btn on" id="sb-date" onclick="setSort('date')">Recent</button>
+        <button class="sort-btn" id="sb-rating" onclick="setSort('rating')">Rating</button>
+        <button class="sort-btn" id="sb-speed" onclick="setSort('speed')">Speed</button>
+      </div>
+      <div class="shelf" id="shelf"></div>
+    </div>
+
+    <!-- BOOK PAGE -->
+    <div id="p-book" class="panel"></div>
+
+    <!-- STATS -->
+    <div id="p-stats" class="panel">
+      <div class="stat-strip" id="stats-cards"></div>
+      <div class="chart-card">
+        <div class="chart-head">Ratings distribution</div>
+        <div class="chart-legend">
+          <span><span class="ldot" style="background:#1D9E75"></span>High (8–10)</span>
+          <span><span class="ldot" style="background:#BA7517"></span>Mid (6–7)</span>
+          <span><span class="ldot" style="background:#D85A30"></span>Low (1–5)</span>
+        </div>
+        <div style="position:relative;width:100%;height:210px"><canvas id="cRating" role="img" aria-label="Ratings">Ratings.</canvas></div>
+      </div>
+      <div class="two-col">
+        <div class="chart-card">
+          <div class="chart-head">Reading pace</div>
+          <div style="position:relative;width:100%;height:190px"><canvas id="cPace" role="img" aria-label="Pace">Pace.</canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">Format breakdown</div>
+          <div style="position:relative;width:100%;height:190px"><canvas id="cFmt" role="img" aria-label="Formats">Formats.</canvas></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">Initial vs retrospective rating</div>
+        <div style="position:relative;width:100%;height:210px"><canvas id="cRetro" role="img" aria-label="Retro">Retro.</canvas></div>
+      </div>
+    </div>
+
+    <!-- ADD BOOK -->
+    <div id="p-add" class="panel">
+      <div class="add-wrap">
+        <div style="font-size:13px;font-weight:500;margin-bottom:14px;color:var(--tx1)">Search Open Library to add a book</div>
+        <div class="book-search-box">
+          <input class="book-search-input" id="ol-q" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')olSearch()">
+          <button class="btn-search" id="ol-btn" onclick="olSearch()">Search</button>
+        </div>
+        <div id="ol-results" style="display:none"></div>
+        <div id="edition-section" style="display:none"></div>
+        <div id="book-form" style="display:none"></div>
+        <div class="upload-zone" onclick="document.getElementById('csv-file').click()">
+          <div class="upload-icon">⬆</div>
+          <div class="upload-title">Or upload a CSV from Google Sheets</div>
+          <div class="upload-sub">File → Download → CSV · columns auto-detected</div>
+          <input type="file" id="csv-file" style="display:none" accept=".csv" onchange="importCSV(event)">
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="p-chat" class="panel">
+      <div class="apibar">
+        <label>Anthropic API Key</label>
+        <input type="password" class="api-in" id="ak" placeholder="sk-ant-api03-…">
+        <button class="api-save" onclick="saveKey()">Save</button>
+        <div class="api-note">Get a free key at console.anthropic.com — stored only in your browser.</div>
+      </div>
+      <div class="chat-wrap">
+        <div class="chat-head">
+          <div class="chat-avatar">B</div>
+          <div><div class="chat-name">Book Advisor</div><div class="chat-status" id="chat-status">Ready</div></div>
+        </div>
+        <div class="chat-msgs" id="chat-msgs">
+          <div class="msg msg-a">
+            <div class="bubble">Hi! I've been through your library. Strong opinions, great taste — I can see patterns across your reads. What are you in the mood for?</div>
+            <div class="msg-lbl">Book Advisor</div>
+          </div>
+        </div>
+        <div class="chips">
+          <button class="chip" onclick="chip(this.textContent)">Something like Misery</button>
+          <button class="chip" onclick="chip(this.textContent)">Surprise me</button>
+          <button class="chip" onclick="chip(this.textContent)">Best sci-fi I haven't read</button>
+          <button class="chip" onclick="chip(this.textContent)">Quick read for tonight</button>
+          <button class="chip" onclick="chip(this.textContent)">What would I rate Dune?</button>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-ta" id="chat-in" rows="1" placeholder="Ask about books…" onkeydown="chatKey(event)"></textarea>
+          <button class="send" id="send-btn" onclick="sendMsg()">↑</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-const SEED=[
-  {num:1,title:"Children of Time",author:"Adrian Tchaikovsky",rating:8,retro:9,pages:599,year:2015,format:"Print",genre:"Science Fiction",fiction:"Fiction",series:"Series",notes:"Really fun read. Great world building. And it made me really love spiders",start:"2025-01-01",end:"2025-01-22",days:21,ppd:28.52,origin:"Bookstore",retroThoughts:"Really stuck with me. I still remember all of the different Portias. Fantastic!",coverId:null,olKey:null,description:""},
-  {num:2,title:"Lapvona",author:"Ottessa Moshfegh",rating:6,retro:7,pages:304,year:2022,format:"Print",genre:"Magical Realism, Historical, Literary",fiction:"Fiction",series:"Stand-alone",notes:"Weird, easy read.",start:"2025-01-22",end:"2025-01-25",days:3,ppd:101.33,origin:"Bookstore",retroThoughts:"Weird, kind of grotesque, but memorable.",coverId:null,olKey:null,description:""},
-  {num:3,title:"Wild Seed",author:"Octavia Butler",rating:9,retro:7,pages:298,year:1980,format:"Print",genre:"Science Fiction, Fantasy",fiction:"Fiction",series:"Series",notes:"I loved this. Very fun, good characters",start:"2025-01-25",end:"2025-01-28",days:3,ppd:99.33,origin:"Bookstore",retroThoughts:"Great start to a series, but knowing where it goes is disappointing.",coverId:null,olKey:null,description:""},
-  {num:4,title:"Children of Ruin",author:"Adrian Tchaikovsky",rating:5,retro:4,pages:597,year:2019,format:"Print",genre:"Science Fiction",fiction:"Fiction",series:"Series",notes:"Too similar to the first one.",start:"2025-01-29",end:"2025-02-04",days:6,ppd:99.50,origin:"Bookstore",retroThoughts:"A slog. Did not like the octopuses.",coverId:null,olKey:null,description:""},
-  {num:5,title:"Mind of My Mind",author:"Octavia Butler",rating:7,retro:6,pages:224,year:1977,format:"Print",genre:"Science Fiction, Fantasy",fiction:"Fiction",series:"Series",notes:"I think I just like Octavia Butler.",start:"2025-02-04",end:"2025-02-07",days:3,ppd:74.67,origin:"Bookstore",retroThoughts:"Was fine. Don't remember it too well.",coverId:null,olKey:null,description:""},
-  {num:6,title:"Gideon the Ninth",author:"Tamsyn Muir",rating:7,retro:7,pages:464,year:2019,format:"EBook",genre:"Science Fiction, Fantasy, Queer",fiction:"Fiction",series:"Series",notes:"Slow start, then hard to put down",start:"2025-02-07",end:"2025-02-12",days:5,ppd:92.80,origin:"🏴‍☠️",retroThoughts:"Loved the story. Great re-read candidate.",coverId:null,olKey:null,description:""},
-  {num:7,title:"Clay's Ark",author:"Octavia Butler",rating:7,retro:7,pages:225,year:1984,format:"Print",genre:"Science Fiction",fiction:"Fiction",series:"Series",notes:"Great story, needed more fleshing out",start:"2025-02-12",end:"2025-02-14",days:2,ppd:112.50,origin:"Bookstore",retroThoughts:"Would have benefited from being longer.",coverId:null,olKey:null,description:""},
-  {num:8,title:"Medusa's Child",author:"John J. Nance",rating:5,retro:6,pages:451,year:1997,format:"Print",genre:"Thriller",fiction:"Fiction",series:"Stand-alone",notes:"So much filler.",start:"2025-02-14",end:"2025-02-17",days:3,ppd:150.33,origin:"Free Library",retroThoughts:"Ridiculous, mid-writing, but a simple thriller.",coverId:null,olKey:null,description:""},
-  {num:9,title:"Patternmaster",author:"Octavia Butler",rating:6,retro:6,pages:191,year:1976,format:"Print",genre:"Science Fiction",fiction:"Fiction",series:"Series",notes:"More like an early draft",start:"2025-02-17",end:"2025-02-18",days:1,ppd:191.00,origin:"Bookstore",retroThoughts:"Meh. Needed more fleshing out.",coverId:null,olKey:null,description:""},
-  {num:10,title:"The Golden Spoon",author:"Jessa Maxwell",rating:5,retro:5,pages:288,year:2023,format:"EBook",genre:"Mystery, Thriller",fiction:"Fiction",series:"Stand-alone",notes:"Mid-level writing was a distraction",start:"2025-02-19",end:"2025-02-21",days:2,ppd:144.00,origin:"Library",retroThoughts:"Not my thing.",coverId:null,olKey:null,description:""},
-  {num:11,title:"Harrow the Ninth",author:"Tamsyn Muir",rating:7,retro:7,pages:538,year:2020,format:"EBook",genre:"Science Fiction, Fantasy, Queer",fiction:"Fiction",series:"Stand-alone",notes:"First half slow, second half brilliant",start:"2025-02-21",end:"2025-03-04",days:11,ppd:48.91,origin:"🏴‍☠️",retroThoughts:"The second-person reveal was fantastic.",coverId:null,olKey:null,description:""},
-  {num:12,title:"All That's Left in the World",author:"Erik J. Brown",rating:6,retro:5,pages:352,year:2022,format:"EBook",genre:"Queer, Dystopian, Romance, Young Adult",fiction:"Fiction",series:"Series",notes:"Too many forced pop culture references",start:"2025-03-04",end:"2025-03-06",days:2,ppd:176.00,origin:"Library",retroThoughts:"Haven't thought about it since.",coverId:null,olKey:null,description:""},
-  {num:13,title:"Foul Play",author:"Janet Evanovich",rating:4,retro:2,pages:228,year:1989,format:"EBook",genre:"Mystery, Romance",fiction:"Fiction",series:"Stand-alone",notes:"Nothing happens",start:"2025-03-06",end:"2025-03-07",days:1,ppd:228.00,origin:"Library",retroThoughts:"Did anything actually happen?",coverId:null,olKey:null,description:""},
-  {num:14,title:"Meddling Kids",author:"Edgar Cantero",rating:8,retro:7,pages:330,year:2017,format:"EBook",genre:"Mystery, Horror",fiction:"Fiction",series:"Stand-alone",notes:"Fun, scary, fast paced",start:"2025-03-07",end:"2025-03-10",days:3,ppd:110.00,origin:"Library",retroThoughts:"Fun and memorable.",coverId:null,olKey:null,description:""},
-  {num:15,title:"The Only Light Left Burning",author:"Erik J. Brown",rating:4,retro:4,pages:405,year:2024,format:"EBook",genre:"Queer, Dystopian, Romance, Young Adult",fiction:"Fiction",series:"Series",notes:"Character decisions didn't make sense",start:"2025-03-10",end:"2025-03-13",days:3,ppd:135.00,origin:"Library",retroThoughts:"Disappointing sequel.",coverId:null,olKey:null,description:""},
-  {num:16,title:"The Devourers",author:"Indra Das",rating:7,retro:7,pages:322,year:2016,format:"EBook",genre:"Fantasy, Historical, Queer, Horror",fiction:"Fiction",series:"Stand-alone",notes:"Gruesome but funny",start:"2025-03-13",end:"2025-03-17",days:4,ppd:80.50,origin:"Library",retroThoughts:"Good concept. Liked the trans allegory.",coverId:null,olKey:null,description:""},
-  {num:17,title:"The House in the Cerulean Sea",author:"TJ Klune",rating:7,retro:6,pages:398,year:2020,format:"EBook",genre:"Fantasy, Queer",fiction:"Fiction",series:"Series",notes:"",start:"2025-03-17",end:"2025-03-20",days:3,ppd:132.67,origin:"🏴‍☠️",retroThoughts:"Enjoyed reading it more than thinking about it.",coverId:null,olKey:null,description:""},
-  {num:18,title:"Misery",author:"Stephen King",rating:8,retro:9,pages:369,year:1987,format:"Print",genre:"Horror, Thriller",fiction:"Fiction",series:"Stand-alone",notes:"",start:"2025-03-21",end:"2025-03-24",days:3,ppd:123.00,origin:"Bookstore",retroThoughts:"A masterpiece. One of the highlights of my year.",coverId:null,olKey:null,description:""}
-];
+// ── SUPABASE ──────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pXCqvV-FD4kS9simoOWJwQ_QukAxvgu';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let books=JSON.parse(localStorage.getItem('pt_books')||'null')||SEED.map(b=>({...b}));
-let sort='date',chartsDrawn=false,chatHistory=[];
-let apiKey=localStorage.getItem('pt_ak')||'';
-let olResults=[],selResult=null,editions=[],selEdition=null,editionFilter='all';
-let currentBookNum=null;
+// ── STATE ─────────────────────────────────────────────────────────────────
+let books = [];
+let currentUser = null;
+let sort = 'date', chartsDrawn = false, chatHistory = [];
+let apiKey = localStorage.getItem('pt_ak') || '';
+let olResults = [], selResult = null, editions = [], selEdition = null, editionFilter = 'all';
+let authMode = 'signin';
 
-function save(){localStorage.setItem('pt_books',JSON.stringify(books));}
-function coverUrl(id,size='M'){return id?`https://covers.openlibrary.org/b/id/${id}-${size}.jpg`:null;}
+// ── AUTH ──────────────────────────────────────────────────────────────────
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('on', (i===0&&mode==='signin')||(i===1&&mode==='signup')));
+  document.getElementById('auth-btn').textContent = mode === 'signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
 
-// ── ENRICH ────────────────────────────────────────────────────────────────
-async function enrichAll(){
-  const needs=books.filter(b=>!b.coverId&&!b._enriched);
-  if(!needs.length)return;
-  document.getElementById('enrich-bar').style.display='flex';
-  for(let i=0;i<needs.length;i++){
-    const b=needs[i];
-    document.getElementById('enrich-msg').textContent=`Fetching covers… ${i+1}/${needs.length}`;
-    try{
-      const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
-      const d=await r.json();
-      const doc=d.docs?.[0];
-      if(doc){b.coverId=doc.cover_i||null;b.olKey=doc.key||null;b.description=doc.first_sentence?.value||b.description||'';}
-    }catch(e){}
-    b._enriched=true;save();renderBooks();
-    await new Promise(res=>setTimeout(res,120));
+async function authSubmit() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const btn = document.getElementById('auth-btn');
+  const errEl = document.getElementById('auth-error');
+  const okEl = document.getElementById('auth-success');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  btn.disabled = true;
+  btn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
+  try {
+    let result;
+    if (authMode === 'signin') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+    }
+    if (result.error) throw result.error;
+    if (authMode === 'signup' && !result.data?.session) {
+      okEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+      okEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Create account';
+      return;
+    }
+  } catch (e) {
+    showAuthError(e.message || 'Something went wrong.');
+    btn.disabled = false;
+    btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
   }
-  document.getElementById('enrich-bar').style.display='none';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  books = []; chartsDrawn = false; chatHistory = [];
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+}
+
+// ── SESSION LISTENER ──────────────────────────────────────────────────────
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const initials = currentUser.email.slice(0,1).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-email').textContent = currentUser.email;
+    if (apiKey) document.getElementById('ak').value = apiKey;
+    await loadBooks();
+  } else {
+    currentUser = null;
+  }
+});
+
+// ── DATABASE ──────────────────────────────────────────────────────────────
+async function loadBooks() {
+  document.getElementById('shelf').innerHTML = `<div class="loading-books"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><span>Loading your library…</span></div>`;
+  const { data, error } = await sb.from('books').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  books = (data || []).map(dbToBook);
+  renderBooks();
+  enrichMissingCovers();
+}
+
+function dbToBook(row) {
+  return {
+    id: row.id,
+    num: row.num || row.id,
+    title: row.title,
+    author: row.author || '',
+    rating: row.rating || 0,
+    retro: row.retro || 0,
+    pages: row.pages || 0,
+    year: row.year || 0,
+    format: row.format || 'Print',
+    genre: row.genre || '',
+    fiction: row.fiction || 'Fiction',
+    series: row.series || 'Stand-alone',
+    notes: row.notes || '',
+    start: row.start_date || '',
+    end: row.end_date || '',
+    days: row.days || 0,
+    ppd: row.ppd || 0,
+    origin: row.origin || '',
+    retroThoughts: row.retro_thoughts || '',
+    coverId: row.cover_id || null,
+    olKey: row.ol_key || null,
+    isbn: row.isbn || '',
+    description: row.description || '',
+    _enriched: !!row.cover_id
+  };
+}
+
+function bookToDb(b) {
+  return {
+    user_id: currentUser.id,
+    num: b.num,
+    title: b.title,
+    author: b.author,
+    rating: b.rating,
+    retro: b.retro,
+    pages: b.pages,
+    year: b.year,
+    format: b.format,
+    genre: b.genre,
+    fiction: b.fiction,
+    series: b.series,
+    notes: b.notes,
+    start_date: b.start,
+    end_date: b.end,
+    days: b.days,
+    ppd: b.ppd,
+    origin: b.origin,
+    retro_thoughts: b.retroThoughts,
+    cover_id: b.coverId,
+    ol_key: b.olKey,
+    isbn: b.isbn,
+    description: b.description
+  };
+}
+
+async function saveBook(b) {
+  if (b.id && typeof b.id === 'string' && b.id.includes('-')) {
+    // Has a real UUID — update
+    const { error } = await sb.from('books').update(bookToDb(b)).eq('id', b.id);
+    if (error) console.error('Update error:', error);
+  } else {
+    // New book — insert
+    const { data, error } = await sb.from('books').insert(bookToDb(b)).select().single();
+    if (error) { console.error('Insert error:', error); return; }
+    b.id = data.id;
+  }
+}
+
+async function enrichMissingCovers() {
+  const needs = books.filter(b => !b.coverId && !b._enriching);
+  if (!needs.length) return;
+  document.getElementById('enrich-bar').style.display = 'flex';
+  for (let i = 0; i < needs.length; i++) {
+    const b = needs[i];
+    b._enriching = true;
+    document.getElementById('enrich-msg').textContent = `Fetching covers… ${i+1}/${needs.length}`;
+    try {
+      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
+      const d = await r.json();
+      const doc = d.docs?.[0];
+      if (doc) {
+        b.coverId = doc.cover_i || null;
+        b.olKey = doc.key || null;
+        b.description = doc.first_sentence?.value || b.description || '';
+        b._enriched = true;
+        await saveBook(b);
+        renderBooks();
+      }
+    } catch(e) {}
+    await new Promise(res => setTimeout(res, 150));
+  }
+  document.getElementById('enrich-bar').style.display = 'none';
 }
 
 // ── LIBRARY ───────────────────────────────────────────────────────────────
-function pipClass(r){return r>=8?'pip-hi':r>=6?'pip-mid':'pip-lo';}
+function coverUrl(id, size='M') { return id ? `https://covers.openlibrary.org/b/id/${id}-${size}.jpg` : null; }
+function pipClass(r) { return r>=8?'pip-hi':r>=6?'pip-mid':'pip-lo'; }
 
-function renderBooks(){
-  const q=(document.getElementById('q')?.value||'').toLowerCase();
-  const gf=document.getElementById('gf')?.value||'';
-  const ff=document.getElementById('ff')?.value||'';
-  const genres=new Set();
-  books.forEach(b=>b.genre.split(',').forEach(g=>genres.add(g.trim())));
-  const gsel=document.getElementById('gf');const gcur=gsel.value;
-  gsel.innerHTML='<option value="">All genres</option>';
-  [...genres].sort().forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;if(g===gcur)o.selected=true;gsel.appendChild(o);});
-  let list=books.filter(b=>(!q||b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q))&&(!gf||b.genre.toLowerCase().includes(gf.toLowerCase()))&&(!ff||b.format===ff));
-  if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);
-  else if(sort==='speed')list.sort((a,b)=>b.ppd-a.ppd);
+function renderBooks() {
+  if (!books.length) {
+    document.getElementById('quick-stats').innerHTML = `
+      <div class="stat"><div class="stat-l">Books</div><div class="stat-v">0</div></div>`;
+    document.getElementById('shelf').innerHTML = `<div class="empty"><div class="empty-icon">📚</div>Your library is empty.<br><br><span style="font-size:12px">Head to <strong>Add Book</strong> to get started.</span></div>`;
+    return;
+  }
+  const q = (document.getElementById('q')?.value || '').toLowerCase();
+  const gf = document.getElementById('gf')?.value || '';
+  const ff = document.getElementById('ff')?.value || '';
+  const genres = new Set();
+  books.forEach(b => b.genre.split(',').forEach(g => genres.add(g.trim())));
+  const gsel = document.getElementById('gf'); const gcur = gsel.value;
+  gsel.innerHTML = '<option value="">All genres</option>';
+  [...genres].sort().forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; if (g===gcur) o.selected=true; gsel.appendChild(o); });
+  let list = books.filter(b => (!q||b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q))&&(!gf||b.genre.toLowerCase().includes(gf.toLowerCase()))&&(!ff||b.format===ff));
+  if (sort==='rating') list.sort((a,b)=>b.rating-a.rating);
+  else if (sort==='speed') list.sort((a,b)=>b.ppd-a.ppd);
   else list.sort((a,b)=>new Date(b.end)-new Date(a.end));
-  const avg=(books.reduce((s,b)=>s+b.rating,0)/books.length).toFixed(1);
-  const pages=books.reduce((s,b)=>s+b.pages,0);
-  const ppd=Math.round(books.reduce((s,b)=>s+b.ppd,0)/books.length);
-  document.getElementById('quick-stats').innerHTML=`
+  const avg = (books.reduce((s,b)=>s+b.rating,0)/books.length).toFixed(1);
+  const pages = books.reduce((s,b)=>s+b.pages,0);
+  const ppd = Math.round(books.reduce((s,b)=>s+b.ppd,0)/books.length);
+  document.getElementById('quick-stats').innerHTML = `
     <div class="stat"><div class="stat-l">Books</div><div class="stat-v">${books.length}</div></div>
     <div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div>
     <div class="stat"><div class="stat-l">Pages</div><div class="stat-v">${pages.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Avg pace</div><div class="stat-v">${ppd}</div><div class="stat-s">pages/day</div></div>
     <div class="stat"><div class="stat-l">Days read</div><div class="stat-v">${books.reduce((s,b)=>s+b.days,0)}</div></div>`;
-  if(!list.length){document.getElementById('shelf').innerHTML='<div class="empty"><div class="empty-icon">📚</div>No books match.</div>';return;}
-  document.getElementById('shelf').innerHTML=list.map(b=>{
-    const cover=b.coverId?`<img class="cover-img" src="${coverUrl(b.coverId)}" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-placeholder" style="display:none"><span class="cover-placeholder-text">${b.title}</span></div>`:`<div class="cover-placeholder"><span class="cover-placeholder-text">${b.title}</span></div>`;
-    const date=b.end?new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'In progress';
-    return`<div class="book-card" onclick="openBookPage(${b.num})">
+  if (!list.length) { document.getElementById('shelf').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>No books match your search.</div>'; return; }
+  document.getElementById('shelf').innerHTML = list.map(b => {
+    const cover = b.coverId ? `<img class="cover-img" src="${coverUrl(b.coverId)}" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-placeholder" style="display:none"><span class="cover-placeholder-text">${b.title}</span></div>` : `<div class="cover-placeholder"><span class="cover-placeholder-text">${b.title}</span></div>`;
+    const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'In progress';
+    const bookId = b.id || b.num;
+    return `<div class="book-card" onclick="openBookPage('${bookId}')">
       <div class="cover-wrap">${cover}<div class="rating-pip ${pipClass(b.rating)}">${b.rating}</div></div>
       <div class="card-title">${b.title}</div>
       <div class="card-author">${b.author}</div>
-      <div class="card-meta">${date} · ${Math.round(b.ppd)} p/day</div>
+      <div class="card-meta">${date}${b.ppd?' · '+Math.round(b.ppd)+' p/day':''}</div>
     </div>`;
   }).join('');
 }
 
-function setSort(s){sort=s;document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));document.getElementById('sb-'+s).classList.add('on');renderBooks();}
+function setSort(s) { sort=s; document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on')); document.getElementById('sb-'+s).classList.add('on'); renderBooks(); }
 
 // ── BOOK PAGE ─────────────────────────────────────────────────────────────
-async function openBookPage(num){
-  currentBookNum=num;
-  const b=books.find(x=>x.num===num);if(!b)return;
-
-  // Switch to book panel
+async function openBookPage(bookId) {
+  const b = books.find(x => x.id===bookId || String(x.num)===String(bookId));
+  if (!b) return;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('p-book').classList.add('on');
-
-  const coverSrc=b.coverId?coverUrl(b.coverId,'L'):null;
-  const scoreClass=v=>v>=8?'hi':v>=6?'mid':'lo';
-  const genreTags=b.genre.split(',').map(g=>`<span class="bp-tag bp-tag-genre">${g.trim()}</span>`).join('');
-
-  document.getElementById('p-book').innerHTML=`<div class="book-page">
+  const coverSrc = b.coverId ? coverUrl(b.coverId,'L') : null;
+  const sc = v => v>=8?'hi':v>=6?'mid':'lo';
+  const genreTags = b.genre.split(',').map(g=>`<span class="bp-tag bp-tag-genre">${g.trim()}</span>`).join('');
+  const bId = b.id || b.num;
+  document.getElementById('p-book').innerHTML = `<div class="book-page">
     <div class="bp-back" onclick="go('library')">← Back to library</div>
     <div class="bp-hero">
       <div class="bp-cover">
-        ${coverSrc?`<img src="${coverSrc}" alt="${b.title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=bp-cover-ph><span class=bp-cover-ph-text>${b.title}</span></div>'">`:`<div class="bp-cover-ph"><span class="bp-cover-ph-text">${b.title}</span></div>`}
+        ${coverSrc?`<img src="${coverSrc}" alt="${b.title}" loading="lazy">`:`<div class="bp-cover-ph"><span class="bp-cover-ph-text">${b.title}</span></div>`}
       </div>
-      <div class="bp-meta">
+      <div>
         <div class="bp-title">${b.title}</div>
-        <div class="bp-author">${b.author} · ${b.year}</div>
+        <div class="bp-author">${b.author}${b.year?' · '+b.year:''}</div>
         <div class="bp-tags">${genreTags}<span class="bp-tag">${b.format}</span><span class="bp-tag">${b.series}</span><span class="bp-tag">${b.fiction}</span></div>
         <div class="bp-scores">
-          <div class="bp-score"><div class="bp-score-l">Your rating</div><div class="bp-score-v ${scoreClass(b.rating)}">${b.rating}<span style="font-size:13px;opacity:.6">/10</span></div></div>
-          <div class="bp-score"><div class="bp-score-l">Retrospective</div><div class="bp-score-v ${scoreClass(b.retro)}">${b.retro}<span style="font-size:13px;opacity:.6">/10</span></div></div>
+          <div class="bp-score"><div class="bp-score-l">Your rating</div><div class="bp-score-v ${sc(b.rating)}">${b.rating}<span style="font-size:13px;opacity:.6">/10</span></div></div>
+          <div class="bp-score"><div class="bp-score-l">Retrospective</div><div class="bp-score-v ${sc(b.retro)}">${b.retro}<span style="font-size:13px;opacity:.6">/10</span></div></div>
           <div class="bp-score"><div class="bp-score-l">Pages</div><div class="bp-score-v">${b.pages}</div></div>
           <div class="bp-score"><div class="bp-score-l">Pace</div><div class="bp-score-v">${Math.round(b.ppd)}<span style="font-size:11px;opacity:.6"> p/d</span></div></div>
         </div>
@@ -504,253 +697,186 @@ async function openBookPage(num){
         </div>
       </div>
     </div>
-
     <div class="bp-body">
-      <div class="bp-main">
-        ${b.description?`<div class="bp-section"><div class="bp-section-title">About this book</div><div class="bp-description">${b.description}</div></div>`:''}
-        ${b.notes?`<div class="bp-section"><div class="bp-section-title">Notes while reading</div><div class="bp-notes">${b.notes}</div></div>`:''}
-        ${b.retroThoughts?`<div class="bp-section"><div class="bp-retro-header"><span class="bp-retro-pill">Retrospective</span></div><div class="bp-notes">${b.retroThoughts}</div></div>`:''}
-
-        <div class="ai-section" id="ai-section">
+      <div>
+        ${b.description?`<div class="bp-section"><div class="bp-section-title">About this book</div><div style="font-size:14px;line-height:1.7">${b.description}</div></div>`:''}
+        ${b.notes?`<div class="bp-section"><div class="bp-section-title">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
+        ${b.retroThoughts?`<div class="bp-section"><div class="bp-retro-header"><span class="bp-retro-pill">Retrospective</span></div><div style="font-size:14px;line-height:1.7">${b.retroThoughts}</div></div>`:''}
+        <div class="ai-section">
           <div class="ai-section-head">
             <div class="ai-section-title">AI analysis for you</div>
-            <button class="ai-generate-btn" id="ai-gen-btn" onclick="generateAnalysis(${num})">
-              ✦ Generate analysis
-            </button>
+            <button class="ai-generate-btn" id="ai-gen-btn" onclick="generateAnalysis('${bId}')">✦ Generate analysis</button>
           </div>
-          <div id="ai-result-area"><div class="ai-result-empty">Click "Generate analysis" to get a personalised take on whether you'd enjoy this book, based on your reading history.</div></div>
+          <div id="ai-result-area"><div class="ai-result-empty">Click "Generate analysis" for a personalised take based on your reading history.</div></div>
         </div>
-
-        <div class="similar-section" id="similar-section">
+        <div class="similar-section">
           <div class="similar-head">
             <div class="similar-title">Similar books you might enjoy</div>
-            <button class="ai-generate-btn" id="similar-gen-btn" onclick="generateSimilar(${num})" style="background:var(--purple)">
-              ✦ Find similar
-            </button>
+            <button class="ai-generate-btn" id="similar-gen-btn" onclick="generateSimilar('${bId}')" style="background:var(--purple)">✦ Find similar</button>
           </div>
-          <div id="similar-result-area"><div class="ai-result-empty">Click "Find similar" to get AI-curated recommendations based on this book and your taste.</div></div>
+          <div id="similar-result-area"><div class="ai-result-empty">Click "Find similar" for AI-curated recommendations based on this book and your taste.</div></div>
         </div>
       </div>
-
-      <div class="bp-sidebar">
-        <div class="sidebar-card" id="ol-data-card">
-          <div class="sidebar-title">Open Library data</div>
-          <div id="ol-data-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div>
-        </div>
-        <div class="sidebar-card">
-          <div class="sidebar-title">Also by ${b.author.split(' ').slice(-1)[0]}</div>
-          <div id="also-by-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div>
-        </div>
+      <div>
+        <div class="sidebar-card"><div class="sidebar-title">Open Library data</div><div id="ol-data-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+        <div class="sidebar-card"><div class="sidebar-title">Also by ${b.author.split(' ').slice(-1)[0]}</div><div id="also-by-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
       </div>
     </div>
   </div>`;
-
-  // Load OL data and also-by in parallel
   loadOLData(b);
   loadAlsoBy(b);
 }
 
-async function loadOLData(b){
-  try{
-    if(!b.olKey){
-      const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
-      const d=await r.json();
-      const doc=d.docs?.[0];
-      if(doc){b.olKey=doc.key||null;b.coverId=b.coverId||doc.cover_i||null;save();}
+async function loadOLData(b) {
+  try {
+    if (!b.olKey) {
+      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
+      const d = await r.json();
+      const doc = d.docs?.[0];
+      if (doc) { b.olKey = doc.key||null; b.coverId = b.coverId||doc.cover_i||null; await saveBook(b); }
     }
-    if(!b.olKey){document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>';return;}
-    const r2=await fetch(`https://openlibrary.org${b.olKey}.json`);
-    const work=await r2.json();
-    const desc=typeof work.description==='string'?work.description:(work.description?.value||'');
-    if(desc&&!b.description){b.description=desc.slice(0,400)+(desc.length>400?'…':'');save();}
-    const ratings_avg=work.ratings_average?parseFloat(work.ratings_average).toFixed(1):null;
-    const ratings_count=work.ratings_count?work.ratings_count.toLocaleString():null;
-    const want_to_read=work.want_to_read_count?work.want_to_read_count.toLocaleString():null;
-    const rows=[
-      ratings_avg?['OL avg rating',`${ratings_avg} / 5`]:null,
-      ratings_count?['Ratings count',ratings_count]:null,
-      want_to_read?['Want to read',want_to_read]:null,
-      work.first_publish_date?['First published',work.first_publish_date]:null,
-      b.isbn?['ISBN',b.isbn]:null,
+    if (!b.olKey) { document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>'; return; }
+    const r2 = await fetch(`https://openlibrary.org${b.olKey}.json`);
+    const work = await r2.json();
+    const desc = typeof work.description==='string'?work.description:(work.description?.value||'');
+    if (desc && !b.description) { b.description=desc.slice(0,400)+(desc.length>400?'…':''); await saveBook(b); }
+    const ratings_avg = work.ratings_average ? parseFloat(work.ratings_average).toFixed(1) : null;
+    const ratings_count = work.ratings_count ? work.ratings_count.toLocaleString() : null;
+    const rows = [
+      work.first_publish_date ? ['First published', work.first_publish_date] : null,
+      b.isbn ? ['ISBN', b.isbn] : null,
     ].filter(Boolean);
-    document.getElementById('ol-data-inner').innerHTML=rows.length?
-      `${ratings_avg?`<div style="margin-bottom:12px"><div class="ol-rating-big">${ratings_avg}<span style="font-size:16px;opacity:.5">/5</span></div><div class="ol-rating-sub">Average on Open Library${ratings_count?' · '+ratings_count+' ratings':''}</div></div>`:''}`+
-      rows.filter(r=>r[0]!=='OL avg rating'&&r[0]!=='Ratings count').map(([l,v])=>`<div class="ol-meta-row"><span class="ol-meta-label">${l}</span><span class="ol-meta-value">${v}</span></div>`).join('')
-      :'<div style="font-size:12px;color:var(--tx1)">No additional data found.</div>';
-  }catch(e){document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load data.</div>';}
+    document.getElementById('ol-data-inner').innerHTML =
+      `${ratings_avg?`<div style="margin-bottom:12px"><div class="ol-rating-big">${ratings_avg}<span style="font-size:16px;opacity:.5">/5</span></div><div class="ol-rating-sub">Average on Open Library${ratings_count?' · '+ratings_count+' ratings':''}</div></div>`:''}` +
+      rows.map(([l,v])=>`<div class="ol-meta-row"><span class="ol-meta-label">${l}</span><span class="ol-meta-value">${v}</span></div>`).join('') ||
+      '<div style="font-size:12px;color:var(--tx1)">No additional data found.</div>';
+  } catch(e) { document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load data.</div>'; }
 }
 
-async function loadAlsoBy(b){
-  try{
-    const authorQ=b.author.split(' ').slice(-1)[0];
-    const r=await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(b.author)}&limit=6&fields=key,title,cover_i,first_publish_year`);
-    const d=await r.json();
-    const others=(d.docs||[]).filter(x=>x.title.toLowerCase()!==b.title.toLowerCase()).slice(0,4);
-    if(!others.length){document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">No other works found.</div>';return;}
-    document.getElementById('also-by-inner').innerHTML=others.map(w=>{
-      const inLib=books.find(x=>x.title.toLowerCase()===w.title.toLowerCase());
-      const cid=w.cover_i;
-      return`<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--bd)">
+async function loadAlsoBy(b) {
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(b.author)}&limit=6&fields=key,title,cover_i,first_publish_year`);
+    const d = await r.json();
+    const others = (d.docs||[]).filter(x=>x.title.toLowerCase()!==b.title.toLowerCase()).slice(0,4);
+    if (!others.length) { document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">No other works found.</div>'; return; }
+    document.getElementById('also-by-inner').innerHTML = others.map(w => {
+      const inLib = books.find(x=>x.title.toLowerCase()===w.title.toLowerCase());
+      const cid = w.cover_i;
+      return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--bd)">
         ${cid?`<img src="${coverUrl(cid,'S')}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
-        <div>
-          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
-          ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:2px">${w.first_publish_year}</div>`:''}
-          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 6px;border-radius:100px;display:inline-block;margin-top:3px">In your library · ${inLib.rating}/10</div>`:''}
-        </div>
-      </div>`;
+        <div><div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
+        ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:2px">${w.first_publish_year}</div>`:''}
+        ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 6px;border-radius:100px;display:inline-block;margin-top:3px">In your library · ${inLib.rating}/10</div>`:''}
+        </div></div>`;
     }).join('');
-  }catch(e){document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>';}
+  } catch(e) { document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
 }
 
 // ── AI ANALYSIS ────────────────────────────────────────────────────────────
-async function generateAnalysis(num){
-  if(!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
-  const b=books.find(x=>x.num===num);if(!b)return;
-  const btn=document.getElementById('ai-gen-btn');
-  btn.disabled=true;btn.textContent='Generating…';
+async function generateAnalysis(bookId) {
+  if (!apiKey) { alert('Add your Anthropic API key in the Ask AI tab first.'); return; }
+  const b = books.find(x=>x.id===bookId||String(x.num)===String(bookId)); if (!b) return;
+  const btn = document.getElementById('ai-gen-btn');
+  btn.disabled=true; btn.textContent='Generating…';
   document.getElementById('ai-result-area').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your reading history…</div>`;
-
-  const history=books.map(bk=>`"${bk.title}" by ${bk.author}: rated ${bk.rating}/10 (retro: ${bk.retro}/10). Genre: ${bk.genre}. Notes: "${bk.notes||'none'}". Thoughts: "${bk.retroThoughts||'none'}"`).join('\n');
-  const prompt=`You are analysing whether a specific reader will enjoy a book, based on their detailed reading history.
-
-READER'S HISTORY:
-${history}
-
-BOOK TO ANALYSE: "${b.title}" by ${b.author} (${b.year})
-Genre: ${b.genre}
-Description: ${b.description||'Not available'}
-The reader has ${books.find(x=>x.num===num)?'already read this book':'not read this book yet'}.
-Their rating: ${b.rating}/10. Retrospective: ${b.retro}/10.
-
-Provide:
-1. A PREDICTED RATING (just a number 1-10 on its own line starting with "PREDICTED:")
-2. A PERSONALISED ANALYSIS (3-4 sentences) explaining specifically why they would/did like or dislike this book, referencing actual books from their history as comparisons. Be direct and specific — mention actual titles they've read.
-
-Format your response as:
-PREDICTED: [number]
-ANALYSIS: [your analysis]`;
-
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
-    const data=await r.json();
-    if(data.error)throw new Error(data.error.message);
-    const text=data.content?.map(c=>c.text||'').join('')||'';
-    const predMatch=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);
-    const analysisMatch=text.match(/ANALYSIS:\s*([\s\S]+)/i);
-    const predicted=predMatch?parseFloat(predMatch[1]):null;
-    const analysis=analysisMatch?analysisMatch[1].trim():text;
-    document.getElementById('ai-result-area').innerHTML=`
-      ${predicted?`<div class="ai-predicted-rating"><span>Predicted rating</span><span class="ai-predicted-num">${predicted}</span><span style="opacity:.6">/10</span></div>`:''}
-      <div class="ai-result">${analysis.replace(/\n/g,'<br>')}</div>`;
-  }catch(e){
-    document.getElementById('ai-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
-  }
-  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+  const history = books.map(bk=>`"${bk.title}" by ${bk.author}: ${bk.rating}/10 (retro:${bk.retro}/10). Genre:${bk.genre}. Notes:"${bk.notes||'none'}". Thoughts:"${bk.retroThoughts||'none'}"`).join('\n');
+  const prompt = `You are analysing whether a specific reader will enjoy a book, based on their detailed reading history.\n\nREADER'S HISTORY:\n${history}\n\nBOOK TO ANALYSE: "${b.title}" by ${b.author} (${b.year})\nGenre: ${b.genre}\nDescription: ${b.description||'Not available'}\nTheir rating: ${b.rating}/10. Retrospective: ${b.retro}/10.\n\nProvide:\n1. A PREDICTED RATING (1-10) on its own line starting with "PREDICTED:"\n2. A PERSONALISED ANALYSIS (3-4 sentences) referencing actual books from their history.\n\nFormat:\nPREDICTED: [number]\nANALYSIS: [your analysis]`;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content?.map(c=>c.text||'').join('')||'';
+    const pred = text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);
+    const anal = text.match(/ANALYSIS:\s*([\s\S]+)/i);
+    document.getElementById('ai-result-area').innerHTML =
+      `${pred?`<div class="ai-predicted-rating"><span>Predicted rating</span><span class="ai-predicted-num">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span></div>`:''}
+       <div class="ai-result">${(anal?anal[1].trim():text).replace(/\n/g,'<br>')}</div>`;
+  } catch(e) { document.getElementById('ai-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`; }
+  btn.disabled=false; btn.innerHTML='✦ Regenerate';
 }
 
-// ── SIMILAR BOOKS ─────────────────────────────────────────────────────────
-async function generateSimilar(num){
-  if(!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
-  const b=books.find(x=>x.num===num);if(!b)return;
-  const btn=document.getElementById('similar-gen-btn');
-  btn.disabled=true;btn.textContent='Finding…';
+async function generateSimilar(bookId) {
+  if (!apiKey) { alert('Add your Anthropic API key in the Ask AI tab first.'); return; }
+  const b = books.find(x=>x.id===bookId||String(x.num)===String(bookId)); if (!b) return;
+  const btn = document.getElementById('similar-gen-btn');
+  btn.disabled=true; btn.textContent='Finding…';
   document.getElementById('similar-result-area').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Finding books you'd enjoy…</div>`;
-
-  const history=books.map(bk=>`"${bk.title}" by ${bk.author}: ${bk.rating}/10`).join(', ');
-  const prompt=`Based on a reader's history and a specific book they've read, suggest 4 similar books they would enjoy.
-
-THEIR LIBRARY (title: rating): ${history}
-
-REFERENCE BOOK: "${b.title}" by ${b.author} — Genre: ${b.genre}
-
-Rules:
-- Do NOT suggest books already in their library
-- Pick books that match what they LIKED (high ratings) not what they disliked
-- Be specific about WHY each book matches
-
-Respond with ONLY a JSON array, no other text:
-[{"title":"...", "author":"...", "reason":"one sentence why they'd like it based on their specific history"}]`;
-
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
-    const data=await r.json();
-    if(data.error)throw new Error(data.error.message);
-    const text=data.content?.map(c=>c.text||'').join('')||'[]';
-    let recs=[];
-    try{recs=JSON.parse(text.replace(/```json|```/g,'').trim());}catch(e){recs=[];}
-    if(!recs.length){document.getElementById('similar-result-area').innerHTML='<div style="font-size:13px;color:var(--tx1)">Could not generate recommendations.</div>';return;}
-    // Fetch OL covers for each rec
+  const history = books.map(bk=>`"${bk.title}" by ${bk.author}: ${bk.rating}/10`).join(', ');
+  const prompt = `Based on a reader's history and a specific book, suggest 4 similar books they'd enjoy.\n\nLIBRARY: ${history}\n\nREFERENCE BOOK: "${b.title}" by ${b.author} — Genre: ${b.genre}\n\nRules: Do NOT suggest books already in their library. Pick based on what they LIKED (high ratings).\n\nRespond with ONLY a JSON array:\n[{"title":"...", "author":"...", "reason":"one sentence why"}]`;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content?.map(c=>c.text||'').join('')||'[]';
+    let recs = [];
+    try { recs = JSON.parse(text.replace(/```json|```/g,'').trim()); } catch(e) {}
+    if (!recs.length) { document.getElementById('similar-result-area').innerHTML='<div style="font-size:13px;color:var(--tx1)">Could not generate recommendations.</div>'; return; }
     document.getElementById('similar-result-area').innerHTML='<div class="similar-list" id="similar-list"></div>';
-    for(const rec of recs){
-      const inLib=books.find(x=>x.title.toLowerCase()===rec.title.toLowerCase());
-      let coverId=inLib?.coverId||null;
-      if(!coverId){
-        try{
-          const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i,key`);
-          const sd=await sr.json();
-          coverId=sd.docs?.[0]?.cover_i||null;
-        }catch(e){}
+    for (const rec of recs) {
+      const inLib = books.find(x=>x.title.toLowerCase()===rec.title.toLowerCase());
+      let coverId = inLib?.coverId||null;
+      if (!coverId) {
+        try {
+          const sr = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i`);
+          const sd = await sr.json(); coverId = sd.docs?.[0]?.cover_i||null;
+        } catch(e) {}
       }
-      const coverHtml=coverId?`<img class="similar-cover" src="${coverUrl(coverId,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="similar-cover-ph">📖</div>`;
-      const card=document.createElement('div');
+      const card = document.createElement('div');
       card.className='similar-book';
-      if(inLib)card.onclick=()=>openBookPage(inLib.num);
-      card.innerHTML=`${coverHtml}<div class="similar-info"><div class="similar-book-title">${rec.title}</div><div class="similar-book-author">${rec.author}</div><div class="similar-reason">${rec.reason}</div>${inLib?`<span class="similar-in-library">In your library · ${inLib.rating}/10</span>`:''}</div>`;
+      if (inLib) card.onclick = () => openBookPage(inLib.id||inLib.num);
+      card.innerHTML = `${coverId?`<img class="similar-cover" src="${coverUrl(coverId,'S')}" alt="" loading="lazy">`:`<div class="similar-cover-ph">📖</div>`}<div class="similar-info"><div class="similar-book-title">${rec.title}</div><div class="similar-book-author">${rec.author}</div><div class="similar-reason">${rec.reason}</div>${inLib?`<span class="similar-in-library">In your library · ${inLib.rating}/10</span>`:''}</div>`;
       document.getElementById('similar-list')?.appendChild(card);
     }
-  }catch(e){
-    document.getElementById('similar-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
-  }
-  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+  } catch(e) { document.getElementById('similar-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`; }
+  btn.disabled=false; btn.innerHTML='✦ Regenerate';
 }
 
 // ── ADD BOOK ──────────────────────────────────────────────────────────────
-async function olSearch(){
-  const q=document.getElementById('ol-q').value.trim();if(!q)return;
-  const btn=document.getElementById('ol-btn');btn.disabled=true;btn.textContent='Searching…';
-  selResult=null;selEdition=null;
+async function olSearch() {
+  const q = document.getElementById('ol-q').value.trim(); if (!q) return;
+  const btn = document.getElementById('ol-btn'); btn.disabled=true; btn.textContent='Searching…';
+  selResult=null; selEdition=null;
   document.getElementById('edition-section').style.display='none';
   document.getElementById('book-form').style.display='none';
-  try{
-    const r=await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median,edition_count,isbn`);
-    const d=await r.json();olResults=d.docs||[];renderOLResults();
-  }catch(e){document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>';document.getElementById('ol-results').style.display='block';}
-  btn.disabled=false;btn.textContent='Search';
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median,edition_count`);
+    const d = await r.json(); olResults=d.docs||[]; renderOLResults();
+  } catch(e) { document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>'; document.getElementById('ol-results').style.display='block'; }
+  btn.disabled=false; btn.textContent='Search';
 }
 
-function renderOLResults(){
-  const el=document.getElementById('ol-results');
-  if(!olResults.length){el.innerHTML='<div class="results-list" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>';el.style.display='block';return;}
+function renderOLResults() {
+  const el = document.getElementById('ol-results');
+  if (!olResults.length) { el.innerHTML='<div class="results-list" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>'; el.style.display='block'; return; }
   el.innerHTML=`<div class="results-list">${olResults.map((r,i)=>{
     const cid=r.cover_i;
     const cover=cid?`<img class="result-cover" src="${coverUrl(cid,'S')}" alt="" loading="lazy">`:`<div class="result-cover-ph">📖</div>`;
-    const author=(r.author_name||[]).slice(0,2).join(', ')||'Unknown';
-    return`<div class="result-item" id="ri-${i}" onclick="selectResult(${i})">${cover}<div class="result-info"><div class="result-title">${r.title}</div><div class="result-author">${author}</div><div class="result-meta">${[r.first_publish_year,r.edition_count?r.edition_count+' editions':'',r.number_of_pages_median?'~'+r.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div></div></div>`;
+    return`<div class="result-item" id="ri-${i}" onclick="selectResult(${i})">${cover}<div class="result-info"><div class="result-title">${r.title}</div><div class="result-author">${(r.author_name||[]).slice(0,2).join(', ')||'Unknown'}</div><div class="result-meta">${[r.first_publish_year,r.edition_count?r.edition_count+' editions':'',r.number_of_pages_median?'~'+r.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div></div></div>`;
   }).join('')}</div>`;
   el.style.display='block';
 }
 
-async function selectResult(i){
+async function selectResult(i) {
   document.querySelectorAll('.result-item').forEach(el=>el.classList.remove('selected'));
   document.getElementById(`ri-${i}`)?.classList.add('selected');
-  selResult=olResults[i];selEdition=null;
+  selResult=olResults[i]; selEdition=null;
   await loadEditions(selResult.key);
 }
 
-async function loadEditions(workKey){
+async function loadEditions(workKey) {
   const sec=document.getElementById('edition-section');
-  sec.innerHTML=`<div class="edition-section"><div class="edition-title">Loading editions…</div></div>`;sec.style.display='block';
-  try{
-    const r=await fetch(`https://openlibrary.org${workKey}/editions.json?limit=40`);
-    const d=await r.json();
+  sec.innerHTML=`<div class="edition-section"><div class="edition-title">Loading editions…</div></div>`; sec.style.display='block';
+  try {
+    const r = await fetch(`https://openlibrary.org${workKey}/editions.json?limit=40`);
+    const d = await r.json();
     editions=(d.entries||[]).map(e=>({key:e.key,title:e.title||selResult.title,publishers:(e.publishers||[]).join(', '),year:e.publish_date||'',isbn13:(e.isbn_13||[])[0]||(e.isbn_10||[])[0]||'',format:guessFormat(e),pages:e.number_of_pages||null,coverId:e.covers?.[0]||null}));
     renderEditions();
-  }catch(e){sec.innerHTML='<div class="edition-section"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>';}
+  } catch(e) { sec.innerHTML='<div class="edition-section"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>'; }
 }
 
 function guessFormat(e){const fmt=(e.physical_format||'').toLowerCase();if(fmt.includes('ebook')||fmt.includes('digital'))return'EBook';if(fmt.includes('audio'))return'Audiobook';if(fmt.includes('hard'))return'Hardcover';if(fmt.includes('paper')||fmt.includes('mass'))return'Paperback';return'Print';}
 
-function renderEditions(){
+function renderEditions() {
   const sec=document.getElementById('edition-section');
   const filtered=editionFilter==='all'?editions:editions.filter(e=>e.format.toLowerCase().includes(editionFilter));
   const fmtCounts={};editions.forEach(e=>{const f=e.format;fmtCounts[f]=(fmtCounts[f]||0)+1;});
@@ -764,18 +890,15 @@ function renderEditions(){
 }
 
 function setEdFilt(f){editionFilter=f;renderEditions();}
-
 function pickEdition(i){selEdition=editions[i];editionFilter='all';renderEditions();buildForm();}
 
-function buildForm(){
-  if(!selResult)return;
-  const b=selEdition||{};const r=selResult;
+function buildForm() {
+  if (!selResult) return;
+  const b=selEdition||{}; const r=selResult;
   const author=(r.author_name||[]).slice(0,2).join(', ')||'';
   const year=b.year?.match(/\d{4}/)?.[0]||r.first_publish_year||'';
   const pages=b.pages||r.number_of_pages_median||'';
-  const fmt=b.format||'Print';
-  const coverId=b.coverId||r.cover_i||null;
-  const isbn=b.isbn13||'';
+  const fmt=b.format||'Print'; const coverId=b.coverId||r.cover_i||null; const isbn=b.isbn13||'';
   const coverSrc=coverId?coverUrl(coverId,'M'):null;
   document.getElementById('book-form').innerHTML=`<div class="form-card">
     <div class="selected-book-header">
@@ -808,17 +931,33 @@ function buildForm(){
   document.getElementById('book-form').dataset.isbn=isbn;
 }
 
-function submitBook(){
+async function submitBook() {
   const fd=document.getElementById('book-form').dataset;
-  const title=fd.title;if(!title){alert('No book selected.');return;}
+  const title=fd.title; if(!title){alert('No book selected.');return;}
   const start=document.getElementById('f-start').value;
   const end=document.getElementById('f-end').value;
   const pages=parseInt(document.getElementById('f-pages').value)||0;
   const days=(start&&end)?Math.max(1,Math.round((new Date(end)-new Date(start))/86400000)):0;
   const ppd=days>0?pages/days:0;
   const rating=parseFloat(document.getElementById('f-rating').value)||0;
-  books.push({num:books.length+1,title,author:fd.author,rating,retro:rating,pages,year:parseInt(fd.year)||new Date().getFullYear(),format:document.getElementById('f-format').value,genre:fd.genre,fiction:document.getElementById('f-fiction').value,series:document.getElementById('f-series').value,notes:document.getElementById('f-notes').value.trim(),start,end,days,ppd,origin:document.getElementById('f-origin').value.trim(),retroThoughts:document.getElementById('f-retro').value.trim(),coverId:fd.coverId?parseInt(fd.coverId):null,olKey:fd.olKey||null,isbn:fd.isbn||'',description:'',_enriched:true});
-  save();resetAdd();renderBooks();go('library');
+  const newBook={
+    num:books.length+1, title, author:fd.author, rating, retro:rating,
+    pages, year:parseInt(fd.year)||new Date().getFullYear(),
+    format:document.getElementById('f-format').value,
+    genre:fd.genre, fiction:document.getElementById('f-fiction').value,
+    series:document.getElementById('f-series').value,
+    notes:document.getElementById('f-notes').value.trim(),
+    start, end, days, ppd,
+    origin:document.getElementById('f-origin').value.trim(),
+    retroThoughts:document.getElementById('f-retro').value.trim(),
+    coverId:fd.coverId?parseInt(fd.coverId):null,
+    olKey:fd.olKey||null, isbn:fd.isbn||'', description:''
+  };
+  const btn=document.querySelector('#book-form .btn-primary');
+  btn.disabled=true; btn.textContent='Saving…';
+  await saveBook(newBook);
+  books.unshift(newBook);
+  resetAdd(); renderBooks(); go('library');
 }
 
 function resetAdd(){
@@ -829,10 +968,10 @@ function resetAdd(){
   document.getElementById('book-form').style.display='none';
 }
 
-function importCSV(event){
-  const file=event.target.files[0];if(!file)return;
+async function importCSV(event) {
+  const file=event.target.files[0]; if(!file)return;
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     const lines=e.target.result.split('\n').filter(l=>l.trim());
     const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
     const cm={};headers.forEach((h,i)=>cm[h]=i);
@@ -842,15 +981,20 @@ function importCSV(event){
       const row=lines[i].split(',');const title=get(row,'title');if(!title)continue;
       nb.push({num:books.length+nb.length+1,title,author:get(row,'author'),rating:parseFloat(get(row,'rating'))||0,retro:parseFloat(get(row,'retrospective rating'))||parseFloat(get(row,'rating'))||0,pages:parseInt(get(row,'pages'))||0,year:parseInt(get(row,'year published'))||0,format:get(row,'format')||'Print',genre:get(row,'genre')||'',fiction:get(row,'fiction / nonfiction')||'Fiction',series:get(row,'stand-alone or series')||'Stand-alone',notes:get(row,'notes')||'',start:get(row,'start date')||'',end:get(row,'end date')||'',days:parseInt(get(row,'days spent reading'))||0,ppd:parseFloat(get(row,'pages per day'))||0,origin:get(row,'origin of book')||'',retroThoughts:get(row,'retrospective thoughts')||'',coverId:null,olKey:null,description:''});
     }
-    if(nb.length){books=[...books,...nb];save();renderBooks();alert(`Imported ${nb.length} book${nb.length!==1?'s':''}!`);}
-    else alert('No books found — check your column headers.');
+    if(nb.length){
+      for(const b of nb) await saveBook(b);
+      books=[...books,...nb]; renderBooks();
+      alert(`Imported ${nb.length} book${nb.length!==1?'s':''}!`);
+      enrichMissingCovers();
+    } else alert('No books found — check your column headers.');
   };
   reader.readAsText(file);
 }
 
 // ── STATS ─────────────────────────────────────────────────────────────────
 function drawStats(){
-  if(chartsDrawn)return;chartsDrawn=true;
+  if(chartsDrawn)return; chartsDrawn=true;
+  if(!books.length){document.getElementById('stats-cards').innerHTML='<div class="stat"><div class="stat-l">No data yet</div></div>';return;}
   const avg=(books.reduce((s,b)=>s+b.rating,0)/books.length).toFixed(1);
   const top=books.reduce((a,b)=>b.retro>a.retro?b:a);
   const fast=books.reduce((a,b)=>b.ppd>a.ppd?b:a);
@@ -871,19 +1015,19 @@ function go(name){
   document.getElementById('p-'+name).classList.add('on');
   const names=['library','stats','add','chat'];
   document.querySelectorAll('.tab')[names.indexOf(name)]?.classList.add('on');
-  if(name==='stats')drawStats();
+  if(name==='stats'){chartsDrawn=false;drawStats();}
   if(name==='library')renderBooks();
 }
 
 // ── CHAT ──────────────────────────────────────────────────────────────────
 function saveKey(){apiKey=document.getElementById('ak').value.trim();localStorage.setItem('pt_ak',apiKey);document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';if(apiKey)alert('Key saved.');}
-function booksCtx(){return books.map(b=>`"${b.title}" by ${b.author}: ${b.rating}/10 (retro:${b.retro}/10), Genre:${b.genre}, Notes:"${b.notes||'none'}", Thoughts:"${b.retroThoughts||'none'}"`).join('\n');}
+function booksCtx(){return books.map(b=>`"${b.title}" by ${b.author}: ${b.rating}/10 (retro:${b.retro}/10), Genre:${b.genre}. Notes:"${b.notes||'none'}". Thoughts:"${b.retroThoughts||'none'}"`).join('\n');}
 async function sendMsg(){
   const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
   if(!apiKey){alert('Add your Anthropic API key above first.');return;}
   addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
   const typing=addTyping();chatHistory.push({role:'user',content:msg});
-  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtx()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler, forced pop culture. Enjoys: sci-fi, fantasy, horror, queer fiction, literary. Reads ~100 pages/day. Be direct, specific, and conversational. When recommending, explain WHY based on their actual reads and estimate a likely rating (1–10).`;
+  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtx()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler, forced pop culture. Enjoys: sci-fi, fantasy, horror, queer fiction, literary. Be direct, specific, and conversational. When recommending, explain WHY and estimate a likely rating (1–10).`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
@@ -896,11 +1040,6 @@ function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=
 function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
-
-// ── INIT ──────────────────────────────────────────────────────────────────
-if(apiKey)document.getElementById('ak').value=apiKey;
-renderBooks();
-enrichAll();
 </script>
 </body>
 </html>
