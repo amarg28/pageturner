@@ -737,14 +737,40 @@ function handleImport(event,platform){
   event.target.value='';
 }
 
+// Parses entire CSV at once — handles quoted fields with commas, newlines, escaped quotes
+function parseFullCSV(text){
+  const rows=[];let row=[];let cur='';let inQ=false;
+  const t=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<t.length;i++){
+    const ch=t[i];
+    if(inQ){
+      if(ch==='"'&&t[i+1]==='"'){cur+='"';i++;}
+      else if(ch==='"'){inQ=false;}
+      else{cur+=ch;}
+    }else{
+      if(ch==='"'){inQ=true;}
+      else if(ch===','){row.push(cur);cur='';}
+      else if(ch==='\n'){
+        row.push(cur);cur='';
+        if(row.some(c=>c.trim()))rows.push(row);
+        row=[];
+      }else{cur+=ch;}
+    }
+  }
+  row.push(cur);
+  if(row.some(c=>c.trim()))rows.push(row);
+  return rows;
+}
+
 function parseCSV(text,platform){
-  const lines=text.split('\n').filter(l=>l.trim());
-  const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+  const allRows=parseFullCSV(text);
+  if(!allRows.length)return[];
+  const headers=allRows[0].map(h=>h.trim().toLowerCase());
   const cm={};headers.forEach((h,i)=>cm[h]=i);
-  const get=(row,name)=>{const i=cm[name];return i!==undefined?(row[i]||'').replace(/^"|"$/g,'').trim():''};
+  const get=(row,name)=>{const i=cm[name];return i!==undefined?(row[i]||'').trim():''};
   const results=[];
-  for(let i=1;i<lines.length;i++){
-    const row=splitCSV(lines[i]);if(!row.length)continue;
+  for(let i=1;i<allRows.length;i++){
+    const row=allRows[i];
     let b=null;
     if(platform==='goodreads'){
       const title=get(row,'title');if(!title)continue;
@@ -753,10 +779,11 @@ function parseCSV(text,platform){
       const shelf=(get(row,'exclusive shelf')||get(row,'bookshelves')||'').toLowerCase();
       const status=shelf.includes('currently')||shelf.includes('reading')?'reading':shelf.includes('to-read')||shelf.includes('to read')?'tbr':'finished';
       b={title,author:get(row,'author')||get(row,'author l-f'),rating,retro:rating,
-        pages:parseInt(get(row,'number of pages'))||0,year:parseInt(get(row,'year published'))||parseInt(get(row,'original publication year'))||0,
+        pages:parseInt(get(row,'number of pages'))||0,
+        year:parseInt(get(row,'year published'))||parseInt(get(row,'original publication year'))||0,
         format:'Print',genre:'',mood:'',themes:'',fiction:'Fiction',series:'Stand-alone',
-        notes:get(row,'my review')||'',start:'',end:fmtDate(get(row,'date read')||''),days:0,ppd:0,
-        origin:'Goodreads',retroThoughts:'',coverId:null,olKey:null,
+        notes:get(row,'my review')||'',start:'',end:fmtDate(get(row,'date read')||''),
+        days:0,ppd:0,origin:'Goodreads',retroThoughts:'',coverId:null,olKey:null,
         isbn:get(row,'isbn13')||get(row,'isbn')||'',description:'',
         status,importSource:'goodreads',_ratingConverted:grR>0};
     }else if(platform==='storygraph'){
@@ -803,18 +830,6 @@ function parseCSV(text,platform){
   }
   return results;
 }
-
-function splitCSV(line){
-  const result=[];let cur='';let inQ=false;
-  for(let i=0;i<line.length;i++){
-    if(line[i]==='"'){inQ=!inQ;}
-    else if(line[i]===','&&!inQ){result.push(cur.replace(/^"|"$/g,'').trim());cur='';}
-    else cur+=line[i];
-  }
-  result.push(cur.replace(/^"|"$/g,'').trim());
-  return result;
-}
-
 function fmtDate(s){
   if(!s||s==='None')return'';
   const d=new Date(s);if(isNaN(d))return'';
