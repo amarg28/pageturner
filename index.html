@@ -24,12 +24,10 @@
   --bd:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.15);
 }}
 body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color:var(--tx0);min-height:100vh}
-a{color:inherit;text-decoration:none}
 
-/* ── LAYOUT ── */
 .shell{max-width:1040px;margin:0 auto;padding:0 20px 60px}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 0 14px;border-bottom:0.5px solid var(--bd);margin-bottom:24px}
-.logo{font-family:'Lora',serif;font-size:20px;font-weight:400;letter-spacing:-.02em}
+.logo{font-family:'Lora',serif;font-size:20px;font-weight:400;letter-spacing:-.02em;cursor:pointer}
 .logo em{font-style:italic;color:var(--amber)}
 .tabs{display:flex;gap:2px}
 .tab{background:none;border:none;padding:7px 16px;border-radius:var(--r);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;color:var(--tx1);transition:all .15s}
@@ -37,14 +35,14 @@ a{color:inherit;text-decoration:none}
 .tab:hover:not(.on){background:var(--bg2)}
 .panel{display:none}.panel.on{display:block}
 
-/* ── STAT STRIP ── */
+/* STAT STRIP */
 .stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px}
 .stat{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--r);padding:12px 14px}
 .stat-l{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:3px}
 .stat-v{font-size:21px;font-family:'Lora',serif;font-weight:500}
 .stat-s{font-size:11px;color:var(--tx1);margin-top:1px}
 
-/* ── CONTROLS ── */
+/* CONTROLS */
 .controls{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
 .search-box{flex:1;min-width:160px;padding:8px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg0);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx0);outline:none}
 .search-box:focus{border-color:var(--amber)}
@@ -52,7 +50,7 @@ a{color:inherit;text-decoration:none}
 .sort-btn{padding:7px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:none;font-size:12px;color:var(--tx1);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s}
 .sort-btn.on{background:var(--bg2);color:var(--tx0);border-color:var(--bd2)}
 
-/* ── BOOKSHELF ── */
+/* BOOKSHELF */
 .shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:18px}
 .book-card{cursor:pointer;display:flex;flex-direction:column;transition:transform .18s}
 .book-card:hover{transform:translateY(-3px)}
@@ -60,20 +58,20 @@ a{color:inherit;text-decoration:none}
 .cover-img{width:100%;height:100%;object-fit:cover;display:block}
 .cover-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center}
 .cover-placeholder-text{font-family:'Lora',serif;font-size:12px;font-style:italic;color:var(--tx1);line-height:1.4}
-.rating-pip{position:absolute;top:7px;right:7px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;backdrop-filter:blur(4px)}
-.pip-hi{background:rgba(29,158,117,.85);color:#fff}
-.pip-mid{background:rgba(186,117,23,.85);color:#fff}
-.pip-lo{background:rgba(216,90,48,.85);color:#fff}
+.rating-pip{position:absolute;top:7px;right:7px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500}
+.pip-hi{background:rgba(29,158,117,.9);color:#fff}
+.pip-mid{background:rgba(186,117,23,.9);color:#fff}
+.pip-lo{background:rgba(216,90,48,.9);color:#fff}
 .card-title{font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3;margin-bottom:2px}
 .card-author{font-size:11px;color:var(--tx1)}
 .card-meta{font-size:10px;color:var(--tx2);margin-top:3px}
 
-/* ── ENRICHING BANNER ── */
+/* ENRICH BANNER */
 .enrich-bar{background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:var(--r);padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px}
 .spinner{width:14px;height:14px;border:2px solid var(--amber-m);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── ADD BOOK PANEL ── */
+/* ADD BOOK */
 .add-wrap{max-width:640px}
 .book-search-box{display:flex;gap:8px;margin-bottom:20px}
 .book-search-input{flex:1;padding:10px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg0);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx0);outline:none}
@@ -81,7 +79,6 @@ a{color:inherit;text-decoration:none}
 .btn-search{padding:10px 18px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:opacity .15s}
 .btn-search:hover{opacity:.85}
 .btn-search:disabled{opacity:.45;cursor:not-allowed}
-
 .results-list{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
 .result-item{display:flex;gap:12px;padding:12px 14px;border-bottom:0.5px solid var(--bd);cursor:pointer;transition:background .12s;align-items:flex-start}
 .result-item:last-child{border-bottom:none}
@@ -93,9 +90,6 @@ a{color:inherit;text-decoration:none}
 .result-title{font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:2px}
 .result-author{font-size:12px;color:var(--tx1);margin-bottom:4px}
 .result-meta{font-size:11px;color:var(--tx2)}
-.result-check{width:20px;height:20px;border-radius:50%;background:var(--amber);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0;margin-top:4px}
-
-/* Edition picker */
 .edition-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:20px}
 .edition-title{font-size:12px;font-weight:500;color:var(--tx1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
 .edition-filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
@@ -111,8 +105,6 @@ a{color:inherit;text-decoration:none}
 .edition-label{font-size:13px;font-weight:500;margin-bottom:2px}
 .edition-sub{font-size:11px;color:var(--tx1)}
 .edition-isbn{font-size:10px;color:var(--tx2);font-family:monospace;margin-top:2px}
-
-/* Book form */
 .form-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px}
 .selected-book-header{display:flex;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:0.5px solid var(--bd);align-items:flex-start}
 .selected-cover{width:56px;height:84px;object-fit:cover;border-radius:6px;border:0.5px solid var(--bd);background:var(--bg2);flex-shrink:0}
@@ -133,22 +125,20 @@ a{color:inherit;text-decoration:none}
 .btn-ghost{background:none;border:0.5px solid var(--bd2);padding:9px 18px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;color:var(--tx1)}
 .btn-primary{background:var(--amber);color:#fff;border:none;padding:9px 20px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.85}
-
-/* CSV upload */
 .upload-zone{border:1.5px dashed var(--bd2);border-radius:var(--rl);padding:36px 20px;text-align:center;background:var(--bg0);cursor:pointer;transition:all .15s;margin-top:28px}
 .upload-zone:hover{border-color:var(--amber)}
 .upload-icon{font-size:26px;margin-bottom:8px}
 .upload-title{font-size:14px;font-weight:500;margin-bottom:4px}
 .upload-sub{font-size:12px;color:var(--tx1)}
 
-/* ── STATS TAB ── */
+/* STATS */
 .chart-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px}
 .chart-head{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1);margin-bottom:14px}
 .chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;font-size:11px;color:var(--tx1)}
 .ldot{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-/* ── CHAT ── */
+/* CHAT */
 .chat-wrap{display:flex;flex-direction:column;height:600px;background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden}
 .chat-head{padding:14px 18px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
 .chat-avatar{width:32px;height:32px;border-radius:50%;background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:14px;color:var(--amber);font-weight:500;flex-shrink:0}
@@ -182,36 +172,95 @@ a{color:inherit;text-decoration:none}
 .api-save{padding:6px 12px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
 .api-note{font-size:11px;color:var(--amber);width:100%}
 
-/* ── MODAL ── */
-.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:20px}
-.modal-ov.on{display:flex}
-.modal{background:var(--bg0);border-radius:var(--rxl);padding:0;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;border:0.5px solid var(--bd2)}
-.modal-cover-band{width:100%;height:180px;background:var(--bg2);position:relative;overflow:hidden;border-radius:var(--rxl) var(--rxl) 0 0}
-.modal-cover-bg{position:absolute;inset:0;filter:blur(20px) saturate(1.4);transform:scale(1.1);background-size:cover;background-position:center;opacity:.5}
-.modal-cover-img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:150px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.modal-body{padding:20px 24px 24px}
-.modal-close{position:absolute;top:14px;right:14px;background:rgba(0,0,0,.3);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:10}
-.modal-title{font-family:'Lora',serif;font-size:18px;font-weight:500;margin-bottom:3px}
-.modal-author{font-size:13px;color:var(--tx1);margin-bottom:14px}
-.mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
-.mi{background:var(--bg1);border-radius:var(--r);padding:8px 10px}
-.mil{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:3px}
-.miv{font-size:16px;font-family:'Lora',serif;font-weight:500}
-.msec{margin-bottom:12px}
-.msl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:4px}
-.msv{font-size:13px;line-height:1.55}
-.retro-pill{display:inline-flex;align-items:center;font-size:10px;background:var(--amber-l);color:var(--amber);padding:3px 10px;border-radius:100px;margin-bottom:6px;font-weight:500}
-.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.otag{font-size:11px;padding:3px 9px;border-radius:100px;background:var(--bg2);color:var(--tx1)}
+/* ── BOOK PAGE ── */
+.book-page{animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.bp-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx1);cursor:pointer;margin-bottom:20px;padding:6px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg0);transition:all .12s}
+.bp-back:hover{border-color:var(--bd2);color:var(--tx0)}
+.bp-hero{display:grid;grid-template-columns:200px 1fr;gap:32px;margin-bottom:32px;align-items:start}
+.bp-cover{width:200px;aspect-ratio:2/3;border-radius:var(--rl);overflow:hidden;background:var(--bg2);border:0.5px solid var(--bd);box-shadow:0 4px 24px rgba(0,0,0,0.12)}
+.bp-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.bp-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+.bp-cover-ph-text{font-family:'Lora',serif;font-size:14px;font-style:italic;color:var(--tx1);line-height:1.5}
+.bp-meta{}
+.bp-title{font-family:'Lora',serif;font-size:28px;font-weight:500;line-height:1.2;margin-bottom:6px;letter-spacing:-.02em}
+.bp-author{font-size:15px;color:var(--tx1);margin-bottom:16px}
+.bp-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.bp-tag{font-size:11px;padding:4px 10px;border-radius:100px;background:var(--bg2);color:var(--tx1)}
+.bp-tag-genre{background:var(--purple-l);color:var(--purple)}
+.bp-scores{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.bp-score{background:var(--bg1);border:0.5px solid var(--bd);border-radius:var(--r);padding:10px 12px;text-align:center}
+.bp-score-l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);margin-bottom:4px}
+.bp-score-v{font-size:20px;font-family:'Lora',serif;font-weight:500}
+.bp-score-v.hi{color:var(--teal)}
+.bp-score-v.mid{color:var(--amber)}
+.bp-score-v.lo{color:var(--coral)}
+.bp-read-info{display:flex;gap:16px;font-size:12px;color:var(--tx1);flex-wrap:wrap}
+.bp-read-item{display:flex;flex-direction:column;gap:2px}
+.bp-read-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2)}
+
+.bp-body{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+.bp-main{}
+.bp-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
+.bp-section-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:12px}
+.bp-description{font-size:14px;line-height:1.7;color:var(--tx0)}
+.bp-notes{font-size:14px;line-height:1.7;color:var(--tx0)}
+.bp-retro-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bp-retro-pill{font-size:10px;background:var(--amber-l);color:var(--amber);padding:3px 10px;border-radius:100px;font-weight:500}
+
+/* AI ANALYSIS SECTION */
+.ai-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
+.ai-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ai-section-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)}
+.ai-generate-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.ai-generate-btn:hover{opacity:.85}
+.ai-generate-btn:disabled{opacity:.45;cursor:not-allowed}
+.ai-result{font-size:14px;line-height:1.7;color:var(--tx0)}
+.ai-result-empty{font-size:13px;color:var(--tx1);font-style:italic}
+.ai-predicted-rating{display:inline-flex;align-items:center;gap:8px;background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:var(--r);padding:8px 14px;margin-bottom:14px;font-size:13px;font-weight:500;color:var(--amber)}
+.ai-predicted-num{font-size:22px;font-family:'Lora',serif}
+
+/* SIMILAR BOOKS */
+.similar-section{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:16px}
+.similar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.similar-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)}
+.similar-list{display:flex;flex-direction:column;gap:10px}
+.similar-book{display:flex;gap:12px;align-items:flex-start;padding:10px;border:0.5px solid var(--bd);border-radius:var(--r);cursor:pointer;transition:all .12s}
+.similar-book:hover{border-color:var(--amber);background:var(--amber-l)}
+.similar-cover{width:36px;height:54px;object-fit:cover;border-radius:4px;background:var(--bg2);flex-shrink:0;border:0.5px solid var(--bd)}
+.similar-cover-ph{width:36px;height:54px;border-radius:4px;background:var(--bg2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px}
+.similar-info{flex:1;min-width:0}
+.similar-book-title{font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3;margin-bottom:2px}
+.similar-book-author{font-size:11px;color:var(--tx1);margin-bottom:4px}
+.similar-reason{font-size:11px;color:var(--tx2);line-height:1.4}
+.similar-in-library{font-size:10px;background:var(--teal-l);color:var(--teal);padding:2px 7px;border-radius:100px;display:inline-block;margin-top:3px}
+
+/* SIDEBAR */
+.bp-sidebar{}
+.sidebar-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:14px}
+.sidebar-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:12px}
+.ol-rating-big{font-size:36px;font-family:'Lora',serif;font-weight:500;color:var(--amber);line-height:1}
+.ol-rating-sub{font-size:12px;color:var(--tx1);margin-top:4px}
+.ol-meta-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:0.5px solid var(--bd)}
+.ol-meta-row:last-child{border-bottom:none}
+.ol-meta-label{color:var(--tx2)}
+.ol-meta-value{color:var(--tx0);font-weight:500;text-align:right;max-width:60%}
 
 .empty{text-align:center;padding:60px 20px;color:var(--tx1);font-size:13px;grid-column:1/-1}
 .empty-icon{font-size:36px;margin-bottom:12px}
+
+@media(max-width:700px){
+  .bp-hero{grid-template-columns:1fr}
+  .bp-cover{width:140px}
+  .bp-body{grid-template-columns:1fr}
+  .bp-scores{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
 <div class="shell">
   <div class="topbar">
-    <div class="logo">page<em>turner</em></div>
+    <div class="logo" onclick="go('library')">page<em>turner</em></div>
     <nav class="tabs">
       <button class="tab on" onclick="go('library')">Library</button>
       <button class="tab" onclick="go('stats')">Stats</button>
@@ -241,6 +290,9 @@ a{color:inherit;text-decoration:none}
     <div class="shelf" id="shelf"></div>
   </div>
 
+  <!-- BOOK PAGE -->
+  <div id="p-book" class="panel"></div>
+
   <!-- STATS -->
   <div id="p-stats" class="panel">
     <div class="stat-strip" id="stats-cards"></div>
@@ -251,12 +303,12 @@ a{color:inherit;text-decoration:none}
         <span><span class="ldot" style="background:#BA7517"></span>Mid (6–7)</span>
         <span><span class="ldot" style="background:#D85A30"></span>Low (1–5)</span>
       </div>
-      <div style="position:relative;width:100%;height:210px"><canvas id="cRating" role="img" aria-label="Ratings distribution">Ratings.</canvas></div>
+      <div style="position:relative;width:100%;height:210px"><canvas id="cRating" role="img" aria-label="Ratings">Ratings.</canvas></div>
     </div>
     <div class="two-col">
       <div class="chart-card">
         <div class="chart-head">Reading pace</div>
-        <div style="position:relative;width:100%;height:190px"><canvas id="cPace" role="img" aria-label="Pages per day">Pace.</canvas></div>
+        <div style="position:relative;width:100%;height:190px"><canvas id="cPace" role="img" aria-label="Pace">Pace.</canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-head">Format breakdown</div>
@@ -265,7 +317,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="chart-card">
       <div class="chart-head">Initial vs retrospective rating</div>
-      <div style="position:relative;width:100%;height:210px"><canvas id="cRetro" role="img" aria-label="Retro ratings">Retro.</canvas></div>
+      <div style="position:relative;width:100%;height:210px"><canvas id="cRetro" role="img" aria-label="Retro">Retro.</canvas></div>
     </div>
   </div>
 
@@ -277,11 +329,9 @@ a{color:inherit;text-decoration:none}
         <input class="book-search-input" id="ol-q" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')olSearch()">
         <button class="btn-search" id="ol-btn" onclick="olSearch()">Search</button>
       </div>
-
       <div id="ol-results" style="display:none"></div>
       <div id="edition-section" style="display:none"></div>
       <div id="book-form" style="display:none"></div>
-
       <div class="upload-zone" onclick="document.getElementById('csv-file').click()">
         <div class="upload-icon">⬆</div>
         <div class="upload-title">Or upload a CSV from Google Sheets</div>
@@ -325,13 +375,7 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
-<!-- MODAL -->
-<div class="modal-ov" id="modal-ov" onclick="maybeClose(event)">
-  <div class="modal" id="modal-box"></div>
-</div>
-
 <script>
-// ─── SEED DATA (dev only — will be removed in Phase 4) ─────────────────────
 const SEED=[
   {num:1,title:"Children of Time",author:"Adrian Tchaikovsky",rating:8,retro:9,pages:599,year:2015,format:"Print",genre:"Science Fiction",fiction:"Fiction",series:"Series",notes:"Really fun read. Great world building. And it made me really love spiders",start:"2025-01-01",end:"2025-01-22",days:21,ppd:28.52,origin:"Bookstore",retroThoughts:"Really stuck with me. I still remember all of the different Portias. Fantastic!",coverId:null,olKey:null,description:""},
   {num:2,title:"Lapvona",author:"Ottessa Moshfegh",rating:6,retro:7,pages:304,year:2022,format:"Print",genre:"Magical Realism, Historical, Literary",fiction:"Fiction",series:"Stand-alone",notes:"Weird, easy read.",start:"2025-01-22",end:"2025-01-25",days:3,ppd:101.33,origin:"Bookstore",retroThoughts:"Weird, kind of grotesque, but memorable.",coverId:null,olKey:null,description:""},
@@ -353,20 +397,16 @@ const SEED=[
   {num:18,title:"Misery",author:"Stephen King",rating:8,retro:9,pages:369,year:1987,format:"Print",genre:"Horror, Thriller",fiction:"Fiction",series:"Stand-alone",notes:"",start:"2025-03-21",end:"2025-03-24",days:3,ppd:123.00,origin:"Bookstore",retroThoughts:"A masterpiece. One of the highlights of my year.",coverId:null,olKey:null,description:""}
 ];
 
-// ─── STATE ────────────────────────────────────────────────────────────────
 let books=JSON.parse(localStorage.getItem('pt_books')||'null')||SEED.map(b=>({...b}));
-let sort='date', chartsDrawn=false, chatHistory=[];
+let sort='date',chartsDrawn=false,chatHistory=[];
 let apiKey=localStorage.getItem('pt_ak')||'';
-// Add search state
-let olResults=[], selResult=null, editions=[], selEdition=null, editionFilter='all';
+let olResults=[],selResult=null,editions=[],selEdition=null,editionFilter='all';
+let currentBookNum=null;
 
 function save(){localStorage.setItem('pt_books',JSON.stringify(books));}
-
-// ─── OPEN LIBRARY HELPERS ─────────────────────────────────────────────────
 function coverUrl(id,size='M'){return id?`https://covers.openlibrary.org/b/id/${id}-${size}.jpg`:null;}
-function olWorkUrl(key){return key?`https://openlibrary.org${key}.json`:null;}
 
-// Auto-enrich seed books with OL data
+// ── ENRICH ────────────────────────────────────────────────────────────────
 async function enrichAll(){
   const needs=books.filter(b=>!b.coverId&&!b._enriched);
   if(!needs.length)return;
@@ -378,46 +418,30 @@ async function enrichAll(){
       const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
       const d=await r.json();
       const doc=d.docs?.[0];
-      if(doc){
-        b.coverId=doc.cover_i||null;
-        b.olKey=doc.key||null;
-        b.description=doc.first_sentence?.value||b.description||'';
-      }
+      if(doc){b.coverId=doc.cover_i||null;b.olKey=doc.key||null;b.description=doc.first_sentence?.value||b.description||'';}
     }catch(e){}
-    b._enriched=true;
-    save();
-    // re-render incrementally
-    renderBooks();
+    b._enriched=true;save();renderBooks();
     await new Promise(res=>setTimeout(res,120));
   }
   document.getElementById('enrich-bar').style.display='none';
 }
 
-// ─── LIBRARY RENDER ────────────────────────────────────────────────────────
+// ── LIBRARY ───────────────────────────────────────────────────────────────
 function pipClass(r){return r>=8?'pip-hi':r>=6?'pip-mid':'pip-lo';}
 
 function renderBooks(){
   const q=(document.getElementById('q')?.value||'').toLowerCase();
   const gf=document.getElementById('gf')?.value||'';
   const ff=document.getElementById('ff')?.value||'';
-  // rebuild genre filter
   const genres=new Set();
   books.forEach(b=>b.genre.split(',').forEach(g=>genres.add(g.trim())));
-  const gsel=document.getElementById('gf');
-  const gcur=gsel.value;
+  const gsel=document.getElementById('gf');const gcur=gsel.value;
   gsel.innerHTML='<option value="">All genres</option>';
   [...genres].sort().forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;if(g===gcur)o.selected=true;gsel.appendChild(o);});
-
-  let list=books.filter(b=>
-    (!q||b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q))&&
-    (!gf||b.genre.toLowerCase().includes(gf.toLowerCase()))&&
-    (!ff||b.format===ff)
-  );
+  let list=books.filter(b=>(!q||b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q))&&(!gf||b.genre.toLowerCase().includes(gf.toLowerCase()))&&(!ff||b.format===ff));
   if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);
   else if(sort==='speed')list.sort((a,b)=>b.ppd-a.ppd);
   else list.sort((a,b)=>new Date(b.end)-new Date(a.end));
-
-  // quick stats
   const avg=(books.reduce((s,b)=>s+b.rating,0)/books.length).toFixed(1);
   const pages=books.reduce((s,b)=>s+b.pages,0);
   const ppd=Math.round(books.reduce((s,b)=>s+b.ppd,0)/books.length);
@@ -427,13 +451,11 @@ function renderBooks(){
     <div class="stat"><div class="stat-l">Pages</div><div class="stat-v">${pages.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Avg pace</div><div class="stat-v">${ppd}</div><div class="stat-s">pages/day</div></div>
     <div class="stat"><div class="stat-l">Days read</div><div class="stat-v">${books.reduce((s,b)=>s+b.days,0)}</div></div>`;
-
   if(!list.length){document.getElementById('shelf').innerHTML='<div class="empty"><div class="empty-icon">📚</div>No books match.</div>';return;}
-
   document.getElementById('shelf').innerHTML=list.map(b=>{
     const cover=b.coverId?`<img class="cover-img" src="${coverUrl(b.coverId)}" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-placeholder" style="display:none"><span class="cover-placeholder-text">${b.title}</span></div>`:`<div class="cover-placeholder"><span class="cover-placeholder-text">${b.title}</span></div>`;
     const date=b.end?new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'In progress';
-    return`<div class="book-card" onclick="openModal(${b.num})">
+    return`<div class="book-card" onclick="openBookPage(${b.num})">
       <div class="cover-wrap">${cover}<div class="rating-pip ${pipClass(b.rating)}">${b.rating}</div></div>
       <div class="card-title">${b.title}</div>
       <div class="card-author">${b.author}</div>
@@ -442,66 +464,257 @@ function renderBooks(){
   }).join('');
 }
 
-function setSort(s){
-  sort=s;
-  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
-  document.getElementById('sb-'+s).classList.add('on');
-  renderBooks();
-}
+function setSort(s){sort=s;document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));document.getElementById('sb-'+s).classList.add('on');renderBooks();}
 
-// ─── MODAL ────────────────────────────────────────────────────────────────
-function openModal(num){
+// ── BOOK PAGE ─────────────────────────────────────────────────────────────
+async function openBookPage(num){
+  currentBookNum=num;
   const b=books.find(x=>x.num===num);if(!b)return;
-  const coverSrc=b.coverId?coverUrl(b.coverId,'L'):null;
-  const bandStyle=coverSrc?`style="background-image:url(${coverSrc});background-size:cover;background-position:center"`:'';
-  document.getElementById('modal-box').innerHTML=`
-    <div class="modal-cover-band">
-      ${coverSrc?`<div class="modal-cover-bg" ${bandStyle}></div><img class="modal-cover-img" src="${coverSrc}" alt="${b.title}">`:
-        `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:15px;font-style:italic;color:var(--tx1)">${b.title}</div>`}
-      <button class="modal-close" onclick="document.getElementById('modal-ov').classList.remove('on')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-title">${b.title}</div>
-      <div class="modal-author">${b.author} · ${b.year}</div>
-      <div class="mgrid">
-        <div class="mi"><div class="mil">Rating</div><div class="miv">${b.rating}/10</div></div>
-        <div class="mi"><div class="mil">Retro</div><div class="miv">${b.retro}/10</div></div>
-        <div class="mi"><div class="mil">Pages</div><div class="miv">${b.pages}</div></div>
-      </div>
-      <div class="mgrid">
-        <div class="mi"><div class="mil">Start</div><div class="miv" style="font-size:13px">${b.start?new Date(b.start).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'}</div></div>
-        <div class="mi"><div class="mil">End</div><div class="miv" style="font-size:13px">${b.end?new Date(b.end).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'}</div></div>
-        <div class="mi"><div class="mil">Pace</div><div class="miv" style="font-size:13px">${Math.round(b.ppd)} p/d</div></div>
-      </div>
-      ${b.description?`<div class="msec"><div class="msl">Description</div><div class="msv">${b.description}</div></div>`:''}
-      ${b.notes?`<div class="msec"><div class="msl">Notes while reading</div><div class="msv">${b.notes}</div></div>`:''}
-      ${b.retroThoughts?`<div class="msec"><div class="retro-pill">Retrospective</div><div class="msv">${b.retroThoughts}</div></div>`:''}
-      <div class="tag-row">
-        <span class="otag">${b.format}</span><span class="otag">${b.fiction}</span><span class="otag">${b.series}</span><span class="otag">${b.genre.split(',')[0].trim()}</span>${b.origin?`<span class="otag">${b.origin}</span>`:''}
-      </div>
-    </div>`;
-  document.getElementById('modal-ov').classList.add('on');
-}
-function maybeClose(e){if(e.target.id==='modal-ov')document.getElementById('modal-ov').classList.remove('on');}
 
-// ─── OPEN LIBRARY SEARCH ─────────────────────────────────────────────────
+  // Switch to book panel
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('p-book').classList.add('on');
+
+  const coverSrc=b.coverId?coverUrl(b.coverId,'L'):null;
+  const scoreClass=v=>v>=8?'hi':v>=6?'mid':'lo';
+  const genreTags=b.genre.split(',').map(g=>`<span class="bp-tag bp-tag-genre">${g.trim()}</span>`).join('');
+
+  document.getElementById('p-book').innerHTML=`<div class="book-page">
+    <div class="bp-back" onclick="go('library')">← Back to library</div>
+    <div class="bp-hero">
+      <div class="bp-cover">
+        ${coverSrc?`<img src="${coverSrc}" alt="${b.title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=bp-cover-ph><span class=bp-cover-ph-text>${b.title}</span></div>'">`:`<div class="bp-cover-ph"><span class="bp-cover-ph-text">${b.title}</span></div>`}
+      </div>
+      <div class="bp-meta">
+        <div class="bp-title">${b.title}</div>
+        <div class="bp-author">${b.author} · ${b.year}</div>
+        <div class="bp-tags">${genreTags}<span class="bp-tag">${b.format}</span><span class="bp-tag">${b.series}</span><span class="bp-tag">${b.fiction}</span></div>
+        <div class="bp-scores">
+          <div class="bp-score"><div class="bp-score-l">Your rating</div><div class="bp-score-v ${scoreClass(b.rating)}">${b.rating}<span style="font-size:13px;opacity:.6">/10</span></div></div>
+          <div class="bp-score"><div class="bp-score-l">Retrospective</div><div class="bp-score-v ${scoreClass(b.retro)}">${b.retro}<span style="font-size:13px;opacity:.6">/10</span></div></div>
+          <div class="bp-score"><div class="bp-score-l">Pages</div><div class="bp-score-v">${b.pages}</div></div>
+          <div class="bp-score"><div class="bp-score-l">Pace</div><div class="bp-score-v">${Math.round(b.ppd)}<span style="font-size:11px;opacity:.6"> p/d</span></div></div>
+        </div>
+        <div class="bp-read-info">
+          ${b.start?`<div class="bp-read-item"><div class="bp-read-label">Started</div><div>${new Date(b.start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
+          ${b.end?`<div class="bp-read-item"><div class="bp-read-label">Finished</div><div>${new Date(b.end).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
+          ${b.days?`<div class="bp-read-item"><div class="bp-read-label">Duration</div><div>${b.days} day${b.days!==1?'s':''}</div></div>`:''}
+          ${b.origin?`<div class="bp-read-item"><div class="bp-read-label">Source</div><div>${b.origin}</div></div>`:''}
+        </div>
+      </div>
+    </div>
+
+    <div class="bp-body">
+      <div class="bp-main">
+        ${b.description?`<div class="bp-section"><div class="bp-section-title">About this book</div><div class="bp-description">${b.description}</div></div>`:''}
+        ${b.notes?`<div class="bp-section"><div class="bp-section-title">Notes while reading</div><div class="bp-notes">${b.notes}</div></div>`:''}
+        ${b.retroThoughts?`<div class="bp-section"><div class="bp-retro-header"><span class="bp-retro-pill">Retrospective</span></div><div class="bp-notes">${b.retroThoughts}</div></div>`:''}
+
+        <div class="ai-section" id="ai-section">
+          <div class="ai-section-head">
+            <div class="ai-section-title">AI analysis for you</div>
+            <button class="ai-generate-btn" id="ai-gen-btn" onclick="generateAnalysis(${num})">
+              ✦ Generate analysis
+            </button>
+          </div>
+          <div id="ai-result-area"><div class="ai-result-empty">Click "Generate analysis" to get a personalised take on whether you'd enjoy this book, based on your reading history.</div></div>
+        </div>
+
+        <div class="similar-section" id="similar-section">
+          <div class="similar-head">
+            <div class="similar-title">Similar books you might enjoy</div>
+            <button class="ai-generate-btn" id="similar-gen-btn" onclick="generateSimilar(${num})" style="background:var(--purple)">
+              ✦ Find similar
+            </button>
+          </div>
+          <div id="similar-result-area"><div class="ai-result-empty">Click "Find similar" to get AI-curated recommendations based on this book and your taste.</div></div>
+        </div>
+      </div>
+
+      <div class="bp-sidebar">
+        <div class="sidebar-card" id="ol-data-card">
+          <div class="sidebar-title">Open Library data</div>
+          <div id="ol-data-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div>
+        </div>
+        <div class="sidebar-card">
+          <div class="sidebar-title">Also by ${b.author.split(' ').slice(-1)[0]}</div>
+          <div id="also-by-inner"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Load OL data and also-by in parallel
+  loadOLData(b);
+  loadAlsoBy(b);
+}
+
+async function loadOLData(b){
+  try{
+    if(!b.olKey){
+      const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
+      const d=await r.json();
+      const doc=d.docs?.[0];
+      if(doc){b.olKey=doc.key||null;b.coverId=b.coverId||doc.cover_i||null;save();}
+    }
+    if(!b.olKey){document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>';return;}
+    const r2=await fetch(`https://openlibrary.org${b.olKey}.json`);
+    const work=await r2.json();
+    const desc=typeof work.description==='string'?work.description:(work.description?.value||'');
+    if(desc&&!b.description){b.description=desc.slice(0,400)+(desc.length>400?'…':'');save();}
+    const ratings_avg=work.ratings_average?parseFloat(work.ratings_average).toFixed(1):null;
+    const ratings_count=work.ratings_count?work.ratings_count.toLocaleString():null;
+    const want_to_read=work.want_to_read_count?work.want_to_read_count.toLocaleString():null;
+    const rows=[
+      ratings_avg?['OL avg rating',`${ratings_avg} / 5`]:null,
+      ratings_count?['Ratings count',ratings_count]:null,
+      want_to_read?['Want to read',want_to_read]:null,
+      work.first_publish_date?['First published',work.first_publish_date]:null,
+      b.isbn?['ISBN',b.isbn]:null,
+    ].filter(Boolean);
+    document.getElementById('ol-data-inner').innerHTML=rows.length?
+      `${ratings_avg?`<div style="margin-bottom:12px"><div class="ol-rating-big">${ratings_avg}<span style="font-size:16px;opacity:.5">/5</span></div><div class="ol-rating-sub">Average on Open Library${ratings_count?' · '+ratings_count+' ratings':''}</div></div>`:''}`+
+      rows.filter(r=>r[0]!=='OL avg rating'&&r[0]!=='Ratings count').map(([l,v])=>`<div class="ol-meta-row"><span class="ol-meta-label">${l}</span><span class="ol-meta-value">${v}</span></div>`).join('')
+      :'<div style="font-size:12px;color:var(--tx1)">No additional data found.</div>';
+  }catch(e){document.getElementById('ol-data-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load data.</div>';}
+}
+
+async function loadAlsoBy(b){
+  try{
+    const authorQ=b.author.split(' ').slice(-1)[0];
+    const r=await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(b.author)}&limit=6&fields=key,title,cover_i,first_publish_year`);
+    const d=await r.json();
+    const others=(d.docs||[]).filter(x=>x.title.toLowerCase()!==b.title.toLowerCase()).slice(0,4);
+    if(!others.length){document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">No other works found.</div>';return;}
+    document.getElementById('also-by-inner').innerHTML=others.map(w=>{
+      const inLib=books.find(x=>x.title.toLowerCase()===w.title.toLowerCase());
+      const cid=w.cover_i;
+      return`<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--bd)">
+        ${cid?`<img src="${coverUrl(cid,'S')}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+        <div>
+          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
+          ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:2px">${w.first_publish_year}</div>`:''}
+          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 6px;border-radius:100px;display:inline-block;margin-top:3px">In your library · ${inLib.rating}/10</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){document.getElementById('also-by-inner').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>';}
+}
+
+// ── AI ANALYSIS ────────────────────────────────────────────────────────────
+async function generateAnalysis(num){
+  if(!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
+  const b=books.find(x=>x.num===num);if(!b)return;
+  const btn=document.getElementById('ai-gen-btn');
+  btn.disabled=true;btn.textContent='Generating…';
+  document.getElementById('ai-result-area').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your reading history…</div>`;
+
+  const history=books.map(bk=>`"${bk.title}" by ${bk.author}: rated ${bk.rating}/10 (retro: ${bk.retro}/10). Genre: ${bk.genre}. Notes: "${bk.notes||'none'}". Thoughts: "${bk.retroThoughts||'none'}"`).join('\n');
+  const prompt=`You are analysing whether a specific reader will enjoy a book, based on their detailed reading history.
+
+READER'S HISTORY:
+${history}
+
+BOOK TO ANALYSE: "${b.title}" by ${b.author} (${b.year})
+Genre: ${b.genre}
+Description: ${b.description||'Not available'}
+The reader has ${books.find(x=>x.num===num)?'already read this book':'not read this book yet'}.
+Their rating: ${b.rating}/10. Retrospective: ${b.retro}/10.
+
+Provide:
+1. A PREDICTED RATING (just a number 1-10 on its own line starting with "PREDICTED:")
+2. A PERSONALISED ANALYSIS (3-4 sentences) explaining specifically why they would/did like or dislike this book, referencing actual books from their history as comparisons. Be direct and specific — mention actual titles they've read.
+
+Format your response as:
+PREDICTED: [number]
+ANALYSIS: [your analysis]`;
+
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    if(data.error)throw new Error(data.error.message);
+    const text=data.content?.map(c=>c.text||'').join('')||'';
+    const predMatch=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);
+    const analysisMatch=text.match(/ANALYSIS:\s*([\s\S]+)/i);
+    const predicted=predMatch?parseFloat(predMatch[1]):null;
+    const analysis=analysisMatch?analysisMatch[1].trim():text;
+    document.getElementById('ai-result-area').innerHTML=`
+      ${predicted?`<div class="ai-predicted-rating"><span>Predicted rating</span><span class="ai-predicted-num">${predicted}</span><span style="opacity:.6">/10</span></div>`:''}
+      <div class="ai-result">${analysis.replace(/\n/g,'<br>')}</div>`;
+  }catch(e){
+    document.getElementById('ai-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
+  }
+  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+}
+
+// ── SIMILAR BOOKS ─────────────────────────────────────────────────────────
+async function generateSimilar(num){
+  if(!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
+  const b=books.find(x=>x.num===num);if(!b)return;
+  const btn=document.getElementById('similar-gen-btn');
+  btn.disabled=true;btn.textContent='Finding…';
+  document.getElementById('similar-result-area').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Finding books you'd enjoy…</div>`;
+
+  const history=books.map(bk=>`"${bk.title}" by ${bk.author}: ${bk.rating}/10`).join(', ');
+  const prompt=`Based on a reader's history and a specific book they've read, suggest 4 similar books they would enjoy.
+
+THEIR LIBRARY (title: rating): ${history}
+
+REFERENCE BOOK: "${b.title}" by ${b.author} — Genre: ${b.genre}
+
+Rules:
+- Do NOT suggest books already in their library
+- Pick books that match what they LIKED (high ratings) not what they disliked
+- Be specific about WHY each book matches
+
+Respond with ONLY a JSON array, no other text:
+[{"title":"...", "author":"...", "reason":"one sentence why they'd like it based on their specific history"}]`;
+
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    if(data.error)throw new Error(data.error.message);
+    const text=data.content?.map(c=>c.text||'').join('')||'[]';
+    let recs=[];
+    try{recs=JSON.parse(text.replace(/```json|```/g,'').trim());}catch(e){recs=[];}
+    if(!recs.length){document.getElementById('similar-result-area').innerHTML='<div style="font-size:13px;color:var(--tx1)">Could not generate recommendations.</div>';return;}
+    // Fetch OL covers for each rec
+    document.getElementById('similar-result-area').innerHTML='<div class="similar-list" id="similar-list"></div>';
+    for(const rec of recs){
+      const inLib=books.find(x=>x.title.toLowerCase()===rec.title.toLowerCase());
+      let coverId=inLib?.coverId||null;
+      if(!coverId){
+        try{
+          const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i,key`);
+          const sd=await sr.json();
+          coverId=sd.docs?.[0]?.cover_i||null;
+        }catch(e){}
+      }
+      const coverHtml=coverId?`<img class="similar-cover" src="${coverUrl(coverId,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="similar-cover-ph">📖</div>`;
+      const card=document.createElement('div');
+      card.className='similar-book';
+      if(inLib)card.onclick=()=>openBookPage(inLib.num);
+      card.innerHTML=`${coverHtml}<div class="similar-info"><div class="similar-book-title">${rec.title}</div><div class="similar-book-author">${rec.author}</div><div class="similar-reason">${rec.reason}</div>${inLib?`<span class="similar-in-library">In your library · ${inLib.rating}/10</span>`:''}</div>`;
+      document.getElementById('similar-list')?.appendChild(card);
+    }
+  }catch(e){
+    document.getElementById('similar-result-area').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
+  }
+  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+}
+
+// ── ADD BOOK ──────────────────────────────────────────────────────────────
 async function olSearch(){
-  const q=document.getElementById('ol-q').value.trim();
-  if(!q)return;
-  const btn=document.getElementById('ol-btn');
-  btn.disabled=true;btn.textContent='Searching…';
+  const q=document.getElementById('ol-q').value.trim();if(!q)return;
+  const btn=document.getElementById('ol-btn');btn.disabled=true;btn.textContent='Searching…';
   selResult=null;selEdition=null;
   document.getElementById('edition-section').style.display='none';
   document.getElementById('book-form').style.display='none';
   try{
     const r=await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median,edition_count,isbn`);
-    const d=await r.json();
-    olResults=d.docs||[];
-    renderOLResults();
-  }catch(e){
-    document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed. Check your connection.</div>';
-    document.getElementById('ol-results').style.display='block';
-  }
+    const d=await r.json();olResults=d.docs||[];renderOLResults();
+  }catch(e){document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>';document.getElementById('ol-results').style.display='block';}
   btn.disabled=false;btn.textContent='Search';
 }
 
@@ -510,20 +723,9 @@ function renderOLResults(){
   if(!olResults.length){el.innerHTML='<div class="results-list" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>';el.style.display='block';return;}
   el.innerHTML=`<div class="results-list">${olResults.map((r,i)=>{
     const cid=r.cover_i;
-    const cover=cid?`<img class="result-cover" src="${coverUrl(cid,'S')}" alt="" loading="lazy">`:
-      `<div class="result-cover-ph">📖</div>`;
-    const author=(r.author_name||[]).slice(0,2).join(', ')||'Unknown author';
-    const year=r.first_publish_year||'';
-    const editions=r.edition_count?`${r.edition_count} editions`:'';
-    const pages=r.number_of_pages_median?`~${r.number_of_pages_median} pages`:'';
-    return`<div class="result-item" id="ri-${i}" onclick="selectResult(${i})">
-      ${cover}
-      <div class="result-info">
-        <div class="result-title">${r.title}</div>
-        <div class="result-author">${author}</div>
-        <div class="result-meta">${[year,editions,pages].filter(Boolean).join(' · ')}</div>
-      </div>
-    </div>`;
+    const cover=cid?`<img class="result-cover" src="${coverUrl(cid,'S')}" alt="" loading="lazy">`:`<div class="result-cover-ph">📖</div>`;
+    const author=(r.author_name||[]).slice(0,2).join(', ')||'Unknown';
+    return`<div class="result-item" id="ri-${i}" onclick="selectResult(${i})">${cover}<div class="result-info"><div class="result-title">${r.title}</div><div class="result-author">${author}</div><div class="result-meta">${[r.first_publish_year,r.edition_count?r.edition_count+' editions':'',r.number_of_pages_median?'~'+r.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div></div></div>`;
   }).join('')}</div>`;
   el.style.display='block';
 }
@@ -531,85 +733,43 @@ function renderOLResults(){
 async function selectResult(i){
   document.querySelectorAll('.result-item').forEach(el=>el.classList.remove('selected'));
   document.getElementById(`ri-${i}`)?.classList.add('selected');
-  selResult=olResults[i];
-  selEdition=null;
+  selResult=olResults[i];selEdition=null;
   await loadEditions(selResult.key);
 }
 
 async function loadEditions(workKey){
   const sec=document.getElementById('edition-section');
-  sec.innerHTML=`<div class="edition-section"><div class="edition-title">Loading editions…</div></div>`;
-  sec.style.display='block';
+  sec.innerHTML=`<div class="edition-section"><div class="edition-title">Loading editions…</div></div>`;sec.style.display='block';
   try{
     const r=await fetch(`https://openlibrary.org${workKey}/editions.json?limit=40`);
     const d=await r.json();
-    editions=(d.entries||[]).map(e=>({
-      key:e.key,
-      title:e.title||selResult.title,
-      publishers:(e.publishers||[]).join(', '),
-      year:e.publish_date||'',
-      isbn13:(e.isbn_13||[])[0]||(e.isbn_10||[])[0]||'',
-      format:guessFormat(e),
-      pages:e.number_of_pages||null,
-      coverId:e.covers?.[0]||null,
-      languages:(e.languages||[]).map(l=>l.key?.replace('/languages/',''))
-    }));
+    editions=(d.entries||[]).map(e=>({key:e.key,title:e.title||selResult.title,publishers:(e.publishers||[]).join(', '),year:e.publish_date||'',isbn13:(e.isbn_13||[])[0]||(e.isbn_10||[])[0]||'',format:guessFormat(e),pages:e.number_of_pages||null,coverId:e.covers?.[0]||null}));
     renderEditions();
-  }catch(e){
-    sec.innerHTML='<div class="edition-section"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>';
-  }
+  }catch(e){sec.innerHTML='<div class="edition-section"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>';}
 }
 
-function guessFormat(e){
-  const fmt=(e.physical_format||'').toLowerCase();
-  if(fmt.includes('ebook')||fmt.includes('digital'))return'EBook';
-  if(fmt.includes('audio'))return'Audiobook';
-  if(fmt.includes('hard'))return'Hardcover';
-  if(fmt.includes('paper')||fmt.includes('mass'))return'Paperback';
-  return'Print';
-}
+function guessFormat(e){const fmt=(e.physical_format||'').toLowerCase();if(fmt.includes('ebook')||fmt.includes('digital'))return'EBook';if(fmt.includes('audio'))return'Audiobook';if(fmt.includes('hard'))return'Hardcover';if(fmt.includes('paper')||fmt.includes('mass'))return'Paperback';return'Print';}
 
 function renderEditions(){
   const sec=document.getElementById('edition-section');
   const filtered=editionFilter==='all'?editions:editions.filter(e=>e.format.toLowerCase().includes(editionFilter));
-  const fmtCounts={};
-  editions.forEach(e=>{const f=e.format;fmtCounts[f]=(fmtCounts[f]||0)+1;});
-  const fbtns=['all',...Object.keys(fmtCounts)].map(f=>
-    `<button class="efilter ${editionFilter===f?'on':''}" onclick="setEdFilt('${f}')">${f==='all'?'All':f} ${f!=='all'?`(${fmtCounts[f]})`:''}</button>`
-  ).join('');
-  const rows=filtered.slice(0,20).map((e,i)=>{
-    const cover=e.coverId?`<img class="edition-cover" src="${coverUrl(e.coverId,'S')}" alt="" loading="lazy">`:
-      `<div class="edition-cover-ph"></div>`;
+  const fmtCounts={};editions.forEach(e=>{const f=e.format;fmtCounts[f]=(fmtCounts[f]||0)+1;});
+  const fbtns=['all',...Object.keys(fmtCounts)].map(f=>`<button class="efilter ${editionFilter===f?'on':''}" onclick="setEdFilt('${f}')">${f==='all'?'All':f}${f!=='all'?' ('+fmtCounts[f]+')':''}</button>`).join('');
+  const rows=filtered.slice(0,20).map(e=>{
+    const cover=e.coverId?`<img class="edition-cover" src="${coverUrl(e.coverId,'S')}" alt="" loading="lazy">`:`<div class="edition-cover-ph"></div>`;
     const picked=selEdition&&selEdition.key===e.key;
-    return`<div class="edition-row ${picked?'picked':''}" onclick="pickEdition(${editions.indexOf(e)})">
-      ${cover}
-      <div class="edition-info">
-        <div class="edition-label">${e.format}${e.year?' · '+e.year:''}</div>
-        <div class="edition-sub">${e.publishers||'Publisher unknown'}${e.pages?' · '+e.pages+' pages':''}</div>
-        ${e.isbn13?`<div class="edition-isbn">ISBN: ${e.isbn13}</div>`:''}
-      </div>
-    </div>`;
+    return`<div class="edition-row ${picked?'picked':''}" onclick="pickEdition(${editions.indexOf(e)})">${cover}<div class="edition-info"><div class="edition-label">${e.format}${e.year?' · '+e.year:''}</div><div class="edition-sub">${e.publishers||'Publisher unknown'}${e.pages?' · '+e.pages+' pages':''}</div>${e.isbn13?`<div class="edition-isbn">ISBN: ${e.isbn13}</div>`:''}</div></div>`;
   }).join('');
-  sec.innerHTML=`<div class="edition-section">
-    <div class="edition-title">Select an edition</div>
-    <div class="edition-filters">${fbtns}</div>
-    <div class="edition-list">${rows||'<div style="font-size:13px;color:var(--tx1);padding:8px">No editions match this filter.</div>'}</div>
-  </div>`;
+  sec.innerHTML=`<div class="edition-section"><div class="edition-title">Select an edition</div><div class="edition-filters">${fbtns}</div><div class="edition-list">${rows||'<div style="font-size:13px;color:var(--tx1);padding:8px">No editions match.</div>'}</div></div>`;
 }
 
 function setEdFilt(f){editionFilter=f;renderEditions();}
 
-function pickEdition(i){
-  selEdition=editions[i];
-  editionFilter='all';
-  renderEditions();
-  buildForm();
-}
+function pickEdition(i){selEdition=editions[i];editionFilter='all';renderEditions();buildForm();}
 
 function buildForm(){
   if(!selResult)return;
-  const b=selEdition||{};
-  const r=selResult;
+  const b=selEdition||{};const r=selResult;
   const author=(r.author_name||[]).slice(0,2).join(', ')||'';
   const year=b.year?.match(/\d{4}/)?.[0]||r.first_publish_year||'';
   const pages=b.pages||r.number_of_pages_median||'';
@@ -617,49 +777,28 @@ function buildForm(){
   const coverId=b.coverId||r.cover_i||null;
   const isbn=b.isbn13||'';
   const coverSrc=coverId?coverUrl(coverId,'M'):null;
-  const coverHtml=coverSrc?`<img class="selected-cover" src="${coverSrc}" alt="">`:
-    `<div class="selected-cover-ph">📖</div>`;
-  document.getElementById('book-form').innerHTML=`
-    <div class="form-card">
-      <div class="selected-book-header">
-        ${coverHtml}
-        <div class="selected-info">
-          <div class="selected-title">${r.title}</div>
-          <div class="selected-author">${author}</div>
-          <div class="selected-tags">
-            ${fmt?`<span class="stag">${fmt}</span>`:''}
-            ${year?`<span class="stag">${year}</span>`:''}
-            ${isbn?`<span class="stag">ISBN ${isbn}</span>`:''}
-          </div>
-        </div>
+  document.getElementById('book-form').innerHTML=`<div class="form-card">
+    <div class="selected-book-header">
+      ${coverSrc?`<img class="selected-cover" src="${coverSrc}" alt="">`:`<div class="selected-cover-ph">📖</div>`}
+      <div class="selected-info"><div class="selected-title">${r.title}</div><div class="selected-author">${author}</div>
+        <div class="selected-tags">${fmt?`<span class="stag">${fmt}</span>`:''} ${year?`<span class="stag">${year}</span>`:''} ${isbn?`<span class="stag">ISBN ${isbn}</span>`:''}</div>
       </div>
-      <div class="form-grid">
-        <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="f-rating" min="1" max="10" placeholder="e.g. 8"></div>
-        <div class="fg"><label class="fl">Format</label>
-          <select class="fi" id="f-format">
-            ${['Print','Paperback','Hardcover','EBook','Audiobook'].map(f=>`<option ${f===fmt?'selected':''}>${f}</option>`).join('')}
-          </select>
-        </div>
-        <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
-        <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
-        <div class="fg"><label class="fl">Fiction / Nonfiction</label>
-          <select class="fi" id="f-fiction"><option>Fiction</option><option>Nonfiction</option></select>
-        </div>
-        <div class="fg"><label class="fl">Standalone or Series</label>
-          <select class="fi" id="f-series"><option>Stand-alone</option><option>Series</option></select>
-        </div>
-        <div class="fg"><label class="fl">Origin</label><input class="fi" id="f-origin" placeholder="Bookstore, Library, Gift…"></div>
-        <div class="fg"><label class="fl">Pages</label><input class="fi" type="number" id="f-pages" value="${pages}" placeholder="e.g. 320"></div>
-        <div class="fg full"><label class="fl">Notes (while reading)</label><textarea class="fi fta" id="f-notes" placeholder="Thoughts while reading…"></textarea></div>
-        <div class="fg full"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="f-retro" placeholder="How do you feel about it now?"></textarea></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn-ghost" onclick="resetAdd()">Clear</button>
-        <button class="btn-primary" onclick="submitBook()">Add to library</button>
-      </div>
-    </div>`;
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="f-rating" min="1" max="10" placeholder="e.g. 8"></div>
+      <div class="fg"><label class="fl">Format</label><select class="fi" id="f-format">${['Print','Paperback','Hardcover','EBook','Audiobook'].map(f=>`<option ${f===fmt?'selected':''}>${f}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
+      <div class="fg"><label class="fl">Fiction / Nonfiction</label><select class="fi" id="f-fiction"><option>Fiction</option><option>Nonfiction</option></select></div>
+      <div class="fg"><label class="fl">Standalone or Series</label><select class="fi" id="f-series"><option>Stand-alone</option><option>Series</option></select></div>
+      <div class="fg"><label class="fl">Origin</label><input class="fi" id="f-origin" placeholder="Bookstore, Library…"></div>
+      <div class="fg"><label class="fl">Pages</label><input class="fi" type="number" id="f-pages" value="${pages}"></div>
+      <div class="fg full"><label class="fl">Notes while reading</label><textarea class="fi fta" id="f-notes" placeholder="Thoughts while reading…"></textarea></div>
+      <div class="fg full"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="f-retro" placeholder="How do you feel about it now?"></textarea></div>
+    </div>
+    <div class="form-actions"><button class="btn-ghost" onclick="resetAdd()">Clear</button><button class="btn-primary" onclick="submitBook()">Add to library</button></div>
+  </div>`;
   document.getElementById('book-form').style.display='block';
-  // store temp data
   document.getElementById('book-form').dataset.title=r.title;
   document.getElementById('book-form').dataset.author=author;
   document.getElementById('book-form').dataset.year=year;
@@ -671,37 +810,15 @@ function buildForm(){
 
 function submitBook(){
   const fd=document.getElementById('book-form').dataset;
-  const title=fd.title;
-  if(!title){alert('No book selected.');return;}
+  const title=fd.title;if(!title){alert('No book selected.');return;}
   const start=document.getElementById('f-start').value;
   const end=document.getElementById('f-end').value;
   const pages=parseInt(document.getElementById('f-pages').value)||0;
   const days=(start&&end)?Math.max(1,Math.round((new Date(end)-new Date(start))/86400000)):0;
   const ppd=days>0?pages/days:0;
   const rating=parseFloat(document.getElementById('f-rating').value)||0;
-  books.push({
-    num:books.length+1,title,
-    author:fd.author,
-    rating,retro:rating,
-    pages,year:parseInt(fd.year)||new Date().getFullYear(),
-    format:document.getElementById('f-format').value,
-    genre:fd.genre,
-    fiction:document.getElementById('f-fiction').value,
-    series:document.getElementById('f-series').value,
-    notes:document.getElementById('f-notes').value.trim(),
-    start,end,days,ppd,
-    origin:document.getElementById('f-origin').value.trim(),
-    retroThoughts:document.getElementById('f-retro').value.trim(),
-    coverId:fd.coverId?parseInt(fd.coverId):null,
-    olKey:fd.olKey||null,
-    isbn:fd.isbn||'',
-    description:'',
-    _enriched:true
-  });
-  save();
-  resetAdd();
-  renderBooks();
-  go('library');
+  books.push({num:books.length+1,title,author:fd.author,rating,retro:rating,pages,year:parseInt(fd.year)||new Date().getFullYear(),format:document.getElementById('f-format').value,genre:fd.genre,fiction:document.getElementById('f-fiction').value,series:document.getElementById('f-series').value,notes:document.getElementById('f-notes').value.trim(),start,end,days,ppd,origin:document.getElementById('f-origin').value.trim(),retroThoughts:document.getElementById('f-retro').value.trim(),coverId:fd.coverId?parseInt(fd.coverId):null,olKey:fd.olKey||null,isbn:fd.isbn||'',description:'',_enriched:true});
+  save();resetAdd();renderBooks();go('library');
 }
 
 function resetAdd(){
@@ -712,7 +829,6 @@ function resetAdd(){
   document.getElementById('book-form').style.display='none';
 }
 
-// ─── CSV IMPORT ────────────────────────────────────────────────────────────
 function importCSV(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -723,19 +839,8 @@ function importCSV(event){
     const get=(row,name)=>{const i=cm[name];return i!==undefined?(row[i]||'').replace(/^"|"$/g,'').trim():''};
     const nb=[];
     for(let i=1;i<lines.length;i++){
-      const row=lines[i].split(',');
-      const title=get(row,'title');if(!title)continue;
-      nb.push({
-        num:books.length+nb.length+1,title,author:get(row,'author'),
-        rating:parseFloat(get(row,'rating'))||0,retro:parseFloat(get(row,'retrospective rating'))||parseFloat(get(row,'rating'))||0,
-        pages:parseInt(get(row,'pages'))||0,year:parseInt(get(row,'year published'))||0,
-        format:get(row,'format')||'Print',genre:get(row,'genre')||'',
-        fiction:get(row,'fiction / nonfiction')||'Fiction',series:get(row,'stand-alone or series')||'Stand-alone',
-        notes:get(row,'notes')||'',start:get(row,'start date')||'',end:get(row,'end date')||'',
-        days:parseInt(get(row,'days spent reading'))||0,ppd:parseFloat(get(row,'pages per day'))||0,
-        origin:get(row,'origin of book')||'',retroThoughts:get(row,'retrospective thoughts')||'',
-        coverId:null,olKey:null,description:''
-      });
+      const row=lines[i].split(',');const title=get(row,'title');if(!title)continue;
+      nb.push({num:books.length+nb.length+1,title,author:get(row,'author'),rating:parseFloat(get(row,'rating'))||0,retro:parseFloat(get(row,'retrospective rating'))||parseFloat(get(row,'rating'))||0,pages:parseInt(get(row,'pages'))||0,year:parseInt(get(row,'year published'))||0,format:get(row,'format')||'Print',genre:get(row,'genre')||'',fiction:get(row,'fiction / nonfiction')||'Fiction',series:get(row,'stand-alone or series')||'Stand-alone',notes:get(row,'notes')||'',start:get(row,'start date')||'',end:get(row,'end date')||'',days:parseInt(get(row,'days spent reading'))||0,ppd:parseFloat(get(row,'pages per day'))||0,origin:get(row,'origin of book')||'',retroThoughts:get(row,'retrospective thoughts')||'',coverId:null,olKey:null,description:''});
     }
     if(nb.length){books=[...books,...nb];save();renderBooks();alert(`Imported ${nb.length} book${nb.length!==1?'s':''}!`);}
     else alert('No books found — check your column headers.');
@@ -743,17 +848,13 @@ function importCSV(event){
   reader.readAsText(file);
 }
 
-// ─── STATS ─────────────────────────────────────────────────────────────────
+// ── STATS ─────────────────────────────────────────────────────────────────
 function drawStats(){
   if(chartsDrawn)return;chartsDrawn=true;
   const avg=(books.reduce((s,b)=>s+b.rating,0)/books.length).toFixed(1);
   const top=books.reduce((a,b)=>b.retro>a.retro?b:a);
   const fast=books.reduce((a,b)=>b.ppd>a.ppd?b:a);
-  document.getElementById('stats-cards').innerHTML=`
-    <div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div>
-    <div class="stat"><div class="stat-l">Top retro</div><div class="stat-v" style="font-size:13px">${top.title}</div><div class="stat-s">${top.retro}/10</div></div>
-    <div class="stat"><div class="stat-l">Fastest read</div><div class="stat-v" style="font-size:13px">${fast.title}</div><div class="stat-s">${Math.round(fast.ppd)} p/day</div></div>
-    <div class="stat"><div class="stat-l">Authors</div><div class="stat-v">${new Set(books.map(b=>b.author)).size}</div></div>`;
+  document.getElementById('stats-cards').innerHTML=`<div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div><div class="stat"><div class="stat-l">Top retro</div><div class="stat-v" style="font-size:13px">${top.title}</div><div class="stat-s">${top.retro}/10</div></div><div class="stat"><div class="stat-l">Fastest read</div><div class="stat-v" style="font-size:13px">${fast.title}</div><div class="stat-s">${Math.round(fast.ppd)} p/day</div></div><div class="stat"><div class="stat-l">Authors</div><div class="stat-v">${new Set(books.map(b=>b.author)).size}</div></div>`;
   const bkt=Array(10).fill(0);books.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[b.rating-1]++;});
   new Chart(document.getElementById('cRating'),{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],datasets:[{data:bkt,backgroundColor:bkt.map((_,i)=>i>=7?'#1D9E75':i>=5?'#BA7517':'#D85A30'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'}}}}});
   const s=[...books].sort((a,b)=>new Date(a.end)-new Date(b.end));
@@ -763,7 +864,7 @@ function drawStats(){
   new Chart(document.getElementById('cRetro'),{type:'scatter',data:{datasets:[{label:'Books',data:books.map(b=>({x:b.rating,y:b.retro,t:b.title})),backgroundColor:'#BA7517',pointRadius:6,pointHoverRadius:8},{label:'No change',data:[{x:1,y:1},{x:10,y:10}],type:'line',borderColor:'rgba(128,128,128,0.3)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.t?`${c.raw.t} (${c.raw.x}→${c.raw.y})`:''}}},scales:{x:{title:{display:true,text:'Initial rating',font:{size:11}},min:0,max:11},y:{title:{display:true,text:'Retrospective',font:{size:11}},min:0,max:11}}}});
 }
 
-// ─── TABS ──────────────────────────────────────────────────────────────────
+// ── TABS ──────────────────────────────────────────────────────────────────
 function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -771,57 +872,32 @@ function go(name){
   const names=['library','stats','add','chat'];
   document.querySelectorAll('.tab')[names.indexOf(name)]?.classList.add('on');
   if(name==='stats')drawStats();
+  if(name==='library')renderBooks();
 }
 
-// ─── AI CHAT ──────────────────────────────────────────────────────────────
-function saveKey(){
-  apiKey=document.getElementById('ak').value.trim();
-  localStorage.setItem('pt_ak',apiKey);
-  document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';
-  if(apiKey)alert('Key saved — stored only in this browser.');
-}
-
-function ctx(){
-  return books.map(b=>`"${b.title}" by ${b.author} — Rating:${b.rating}/10 Retro:${b.retro}/10 Genre:${b.genre} ${b.series}. Notes:${b.notes||'none'}. Thoughts:${b.retroThoughts||'none'}`).join('\n');
-}
-
+// ── CHAT ──────────────────────────────────────────────────────────────────
+function saveKey(){apiKey=document.getElementById('ak').value.trim();localStorage.setItem('pt_ak',apiKey);document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';if(apiKey)alert('Key saved.');}
+function booksCtx(){return books.map(b=>`"${b.title}" by ${b.author}: ${b.rating}/10 (retro:${b.retro}/10), Genre:${b.genre}, Notes:"${b.notes||'none'}", Thoughts:"${b.retroThoughts||'none'}"`).join('\n');}
 async function sendMsg(){
-  const inp=document.getElementById('chat-in');
-  const msg=inp.value.trim();if(!msg)return;
+  const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
   if(!apiKey){alert('Add your Anthropic API key above first.');return;}
-  addMsg(msg,'u');inp.value='';
-  document.getElementById('send-btn').disabled=true;
-  const typing=addTyping();
-  chatHistory.push({role:'user',content:msg});
-  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${ctx()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler, forced pop culture. Enjoys: sci-fi, fantasy, horror, queer fiction, literary. Reads ~100 pages/day. Be direct, specific, and conversational. When recommending, explain WHY based on their actual reads and estimate a likely rating (1–10).`;
+  addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
+  const typing=addTyping();chatHistory.push({role:'user',content:msg});
+  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtx()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler, forced pop culture. Enjoys: sci-fi, fantasy, horror, queer fiction, literary. Reads ~100 pages/day. Be direct, specific, and conversational. When recommending, explain WHY based on their actual reads and estimate a likely rating (1–10).`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
-    const d=await r.json();
-    if(d.error)throw new Error(d.error.message);
+    const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
-    chatHistory.push({role:'assistant',content:reply});
-    typing.remove();addMsg(reply,'a');
+    chatHistory.push({role:'assistant',content:reply});typing.remove();addMsg(reply,'a');
   }catch(e){typing.remove();addMsg(`Error: ${e.message}`,'a');}
   document.getElementById('send-btn').disabled=false;
 }
-
-function addMsg(text,role){
-  const c=document.getElementById('chat-msgs');
-  const d=document.createElement('div');
-  d.className=`msg msg-${role}`;
-  d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Advisor'}</div>`;
-  c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
-}
-function addTyping(){
-  const c=document.getElementById('chat-msgs');
-  const d=document.createElement('div');d.className='msg msg-a';
-  d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-  c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
-}
+function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Advisor'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
 
-// ─── INIT ─────────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────
 if(apiKey)document.getElementById('ak').value=apiKey;
 renderBooks();
 enrichAll();
