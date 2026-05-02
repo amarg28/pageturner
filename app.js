@@ -1,5 +1,5 @@
 const SUPABASE_URL='https://ifpljbwwperpjzlmoust.supabase.co';
-const SUPABASE_KEY='sb_publishable_pXCqvV-FD4kS9simoOWJwQ_QukAxvgu';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 // ── TAG DEFINITIONS ────────────────────────────────────────────────────────
