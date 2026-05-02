@@ -112,16 +112,36 @@ function dbToBook(r){
 }
 
 function bookToDb(b){
+  const nn=v=>v||null; // empty string/0/null -> null
+  const ns=v=>v||'';  // null -> empty string for text fields
   return{
-    user_id:currentUser.id,num:b.num,title:b.title,author:b.author,
-    rating:b.rating,retro:b.retro,pages:b.pages,year:b.year,
-    format:b.format,genre:b.genre,mood:b.mood||'',themes:b.themes||'',
-    fiction:b.fiction,series:b.series,notes:b.notes,
-    start_date:b.start,end_date:b.end,days:b.days,ppd:b.ppd,
-    origin:b.origin,retro_thoughts:b.retroThoughts,
-    cover_id:b.coverId,ol_key:b.olKey,isbn:b.isbn,
-    description:b.description,status:b.status||'finished',
-    import_source:b.importSource||''
+    user_id:currentUser.id,
+    num:b.num||null,
+    title:b.title,
+    author:ns(b.author),
+    rating:b.rating||null,
+    retro:b.retro||null,
+    pages:b.pages||null,
+    year:b.year||null,
+    format:ns(b.format),
+    genre:ns(b.genre),
+    mood:ns(b.mood),
+    themes:ns(b.themes),
+    fiction:ns(b.fiction),
+    series:ns(b.series),
+    notes:ns(b.notes),
+    start_date:nn(b.start),
+    end_date:nn(b.end),
+    days:b.days||null,
+    ppd:b.ppd||null,
+    origin:ns(b.origin),
+    retro_thoughts:ns(b.retroThoughts),
+    cover_id:b.coverId||null,
+    ol_key:b.olKey||null,
+    isbn:ns(b.isbn),
+    description:ns(b.description),
+    status:b.status||'finished',
+    import_source:ns(b.importSource)
   };
 }
 
