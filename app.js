@@ -1,3 +1,15 @@
+/* ── CLEAN UP OLD AUTH KEYS ────────────────────────────────────────────── */
+// Remove any old Supabase auth keys that don't belong to our named storage key
+// This prevents the GoTrueClient conflict that causes silent request hangs
+(function cleanOldAuthKeys() {
+  const keep = ['pt_ak', 'pageturner-auth'];
+  Object.keys(localStorage).forEach(key => {
+    if ((key.startsWith('sb-') || key.includes('supabase')) && !keep.some(k => key.startsWith(k))) {
+      localStorage.removeItem(key);
+    }
+  });
+})();
+
 /* ── CONFIG ────────────────────────────────────────────────────────────── */
 const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
@@ -8,7 +20,7 @@ const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettlin
 const THEMES = ['Found family','Identity','Grief','Power','Survival','Colonialism','Queerness','Religion','Class','Nature','Memory','Trauma','Redemption','Coming of age','Love','War','Technology','Death','Friendship'];
 
 /* ── STATE ─────────────────────────────────────────────────────────────── */
-let books = [], currentUser = null, sort = 'date', chartsDrawn = false, chatHistory = [];
+let books = [], currentUser = null, sort = 'recent', chartsDrawn = false, chatHistory = [];
 let apiKey = localStorage.getItem('pt_ak') || '';
 let olResults = [], selResult = null, editions = [], selEdition = null, edFilt = 'all';
 let authMode = 'signin', pendingImport = null;
@@ -19,6 +31,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { storageKey: 'pageturner-auth' }
 });
 const cUrl = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
+const bCover = (b, s='M') => b.coverId ? cUrl(b.coverId, s) : (b.googleCover || null);
 const pipC = r => r >= 8 ? 'pip-hi' : r >= 6 ? 'pip-mid' : r > 0 ? 'pip-lo' : 'pip-none';
 const scC  = v => v >= 8 ? 'hi' : v >= 6 ? 'mid' : 'lo';
 const toStars = r => {
@@ -164,6 +177,18 @@ async function deleteBook(id) {
 }
 
 /* ── ENRICHMENT ────────────────────────────────────────────────────────── */
+async function fetchGoogleBooksCover(title, author) {
+  try {
+    const q = encodeURIComponent(`${title} ${author}`);
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=1&fields=items(volumeInfo/imageLinks,volumeInfo/description)`);
+    const d = await r.json();
+    const item = d.items?.[0];
+    const cover = item?.volumeInfo?.imageLinks?.thumbnail?.replace('http://','https://') || null;
+    const desc  = item?.volumeInfo?.description || null;
+    return { cover, desc };
+  } catch(e) { return { cover: null, desc: null }; }
+}
+
 async function enrichMissing() {
   const needs = books.filter(b => !b.coverId && !b._enriching);
   if (!needs.length) return;
@@ -172,13 +197,20 @@ async function enrichMissing() {
     const b = needs[i]; b._enriching = true;
     document.getElementById('enrich-msg').textContent = `Fetching covers… ${i+1}/${needs.length}`;
     try {
+      // Try Open Library first
       const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
       const d = await r.json(); const doc = d.docs?.[0];
       if (doc) {
         b.coverId = doc.cover_i || null; b.olKey = doc.key || null;
         b.description = doc.first_sentence?.value || b.description || '';
-        b._enriched = true; await saveBook(b); renderBooks();
       }
+      // Fall back to Google Books if no cover found
+      if (!b.coverId) {
+        const gb = await fetchGoogleBooksCover(b.title, b.author);
+        if (gb.cover) { b.googleCover = gb.cover; }
+        if (gb.desc && !b.description) { b.description = gb.desc.slice(0,400); }
+      }
+      b._enriched = true; await saveBook(b); renderBooks();
     } catch(e) {}
     await new Promise(res => setTimeout(res, 80));
   }
@@ -304,8 +336,9 @@ function renderBooks() {
     (!mf || b.mood.toLowerCase().includes(mf.toLowerCase())) &&
     (!ff || b.format === ff)
   );
-  if (sort === 'rating') list.sort((a,b) => b.rating - a.rating);
-  else if (sort === 'speed') list.sort((a,b) => b.ppd - a.ppd);
+  if (sort === 'rating-hi') list.sort((a,b) => b.rating - a.rating);
+  else if (sort === 'rating-lo') list.sort((a,b) => a.rating - b.rating);
+  else if (sort === 'first') list.sort((a,b) => new Date(a.end) - new Date(b.end));
   else list.sort((a,b) => new Date(b.end) - new Date(a.end));
 
   if (!list.length) {
@@ -317,41 +350,72 @@ function renderBooks() {
     return;
   }
 
-  document.getElementById('shelf').innerHTML = list.map(b => {
-    const cid  = b.coverId;
-    const due  = isRetroDue(b);
-    const cover = cid
-      ? `<img src="${cUrl(cid)}" style="width:100%;height:100%;object-fit:cover;display:block" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-      : '';
-    const ph = `<div class="cover-ph"${cid?' style="display:none"':''}><span>${b.title}</span></div>`;
-    const iflag = b.importSource === 'goodreads'
-      ? `<span class="import-flag" style="background:var(--amber-l);color:var(--amber)">GR</span>`
-      : b.importSource === 'storygraph'
-      ? `<span class="import-flag" style="background:var(--purple-l);color:var(--purple)">SG</span>` : '';
-    const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
-    return `<div class="book-card">
-      ${due ? '<div class="retro-due-dot" title="Due for reflection"></div>' : ''}
-      <div class="card-acts">
-        <button class="cact cact-edit" onclick="event.stopPropagation();openEdit('${b.id}')" title="Edit">✎</button>
-        <button class="cact cact-del" onclick="event.stopPropagation();openDel('${b.id}')" title="Delete">✕</button>
-      </div>
-      <div class="cover-wrap" onclick="openBookPage('${b.id}')">${cover}${ph}
-        <div class="rpip ${pipC(b.rating)}">${b.rating||'—'}</div>
-      </div>
-      <div onclick="openBookPage('${b.id}')">
-        <div class="card-title">${b.title}${iflag}</div>
-        <div class="card-author">${b.author}</div>
-        ${b.rating ? `<div class="card-stars">${toStars(b.rating)}</div>` : ''}
-        ${date ? `<div class="card-date">${date}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  const viewMode = window.libraryView || 'shelf';
+  const shelf = document.getElementById('shelf');
+
+  if (viewMode === 'list') {
+    shelf.innerHTML = `<table class="list-table">
+      <thead><tr>
+        <th>Title</th><th>Author</th><th>Rating</th><th>Retro</th>
+        <th>Pages</th><th>Finished</th><th>Days</th><th>P/day</th><th>Genre</th>
+      </tr></thead>
+      <tbody>${list.map(b => {
+        const due = isRetroDue(b);
+        const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        return `<tr onclick="openBookPage('${b.id}')" class="list-row">
+          <td><span class="list-title">${b.title}${due?'<span class="retro-due-dot" style="position:relative;display:inline-block;margin-left:6px;top:-2px"></span>':''}</span></td>
+          <td>${b.author}</td>
+          <td>${b.rating ? `<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'}">${b.rating}/10</span>` : '—'}</td>
+          <td>${b.retro ? b.retro+'/10' : '—'}</td>
+          <td>${b.pages || '—'}</td>
+          <td style="white-space:nowrap">${date}</td>
+          <td>${b.days || '—'}</td>
+          <td>${b.ppd ? Math.round(b.ppd) : '—'}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.genre || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } else {
+    shelf.innerHTML = list.map(b => {
+      const cover = bCover(b);
+      const due  = isRetroDue(b);
+      const coverHtml = cover
+        ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;display:block" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : '';
+      const ph = `<div class="cover-ph"${cover?' style="display:none"':''}><span>${b.title}</span></div>`;
+      const iflag = b.importSource === 'goodreads'
+        ? `<span class="import-flag" style="background:var(--amber-l);color:var(--amber)">GR</span>`
+        : b.importSource === 'storygraph'
+        ? `<span class="import-flag" style="background:var(--purple-l);color:var(--purple)">SG</span>` : '';
+      const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
+      return `<div class="book-card">
+        ${due ? '<div class="retro-due-dot" title="Due for reflection"></div>' : ''}
+        <div class="card-acts">
+          <button class="cact cact-edit" onclick="event.stopPropagation();openEdit('${b.id}')" title="Edit">✎</button>
+          <button class="cact cact-del" onclick="event.stopPropagation();openDel('${b.id}')" title="Delete">✕</button>
+        </div>
+        <div class="cover-wrap" onclick="openBookPage('${b.id}')">${coverHtml}${ph}
+          <div class="rpip ${pipC(b.rating)}">${b.rating||'—'}</div>
+        </div>
+        <div onclick="openBookPage('${b.id}')">
+          <div class="card-title">${b.title}${iflag}</div>
+          <div class="card-author">${b.author}</div>
+          ${b.rating ? `<div class="card-stars">${toStars(b.rating)}</div>` : ''}
+          ${date ? `<div class="card-date">${date}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 function setSort(s) {
   sort = s;
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('on'));
-  document.getElementById('sb-'+s).classList.add('on');
+  renderBooks();
+}
+
+function setView(v) {
+  window.libraryView = v;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   renderBooks();
 }
 
@@ -734,12 +798,18 @@ async function loadAlsoBy(b) {
     if (!others.length) { document.getElementById('also-by').innerHTML = '<div style="font-size:12px;color:var(--tx1)">No other works found.</div>'; return; }
     document.getElementById('also-by').innerHTML = others.map(w => {
       const inLib = books.find(x => x.title.toLowerCase() === w.title.toLowerCase());
-      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd)">
+      const olData = {key:w.key, title:w.title, author_name:[b.author], cover_i:w.cover_i, first_publish_year:w.first_publish_year};
+      const clickFn = inLib
+        ? `openBookPage('${inLib.id}')`
+        : `openUnreadBookPage(${JSON.stringify(olData).replace(/'/g,"\'")})`;
+      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;transition:background .12s;border-radius:var(--r);padding:7px 6px;margin:0 -6px" onclick="${clickFn}" onmouseenter="this.style.background='var(--amber-l)'" onmouseleave="this.style.background=''">
         ${w.cover_i?`<img src="${cUrl(w.cover_i,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
-        <div>
+        <div style="flex:1;min-width:0">
           <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
           ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:1px">${w.first_publish_year}</div>`:''}
-          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">In library · ${inLib.rating}/10</div>`:''}
+          ${inLib
+            ?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">In library · ${inLib.rating}/10</div>`
+            :`<div style="font-size:10px;color:var(--amber);margin-top:2px">Tap to view →</div>`}
         </div>
       </div>`;
     }).join('');
