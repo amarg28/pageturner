@@ -2,6 +2,21 @@
 const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 
+/* ── ChatGPT Test ───────────────────────────────────────────────────── */
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+async function testSupabaseConnection() {
+  const { data, error } = await supabase
+    .from('books') 
+
+  console.log('DATA:', data)
+  console.log('ERROR:', error)
+}
+/* ── ChatGPT Test ───────────────────────────────────────────────────── */
+
+
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
 const GENRES = ['Science Fiction','Fantasy','Horror','Literary Fiction','Mystery','Thriller','Romance','Historical Fiction','Nonfiction','Memoir','Young Adult','Graphic Novel','Magical Realism','Dystopian','Short Stories','Biography','Queer Fiction'];
 const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettling','Dreamy','Gritty','Propulsive','Atmospheric','Whimsical','Intense','Slow-burn','Heartwarming'];
@@ -1333,3 +1348,7 @@ function addTyping() {
 
 function chip(t) { document.getElementById('chat-in').value=t; sendMsg(); }
 function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+
+
+testSupabaseConnection()
