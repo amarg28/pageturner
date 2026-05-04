@@ -79,13 +79,16 @@
         <input type="text" class="search-box" placeholder="Filter your library…" oninput="renderBooks()" id="q">
         <select class="fsel" onchange="renderBooks()" id="gf"><option value="">All genres</option></select>
         <select class="fsel" onchange="renderBooks()" id="mf"><option value="">All moods</option></select>
-        <select class="fsel" onchange="renderBooks()" id="ff">
-          <option value="">All formats</option>
-          <option>Print</option><option>EBook</option><option>Audiobook</option>
+        <select class="fsel" onchange="setSort(this.value)" id="sort-sel">
+          <option value="recent">Recently read</option>
+          <option value="first">First read</option>
+          <option value="rating-hi">Rating: high → low</option>
+          <option value="rating-lo">Rating: low → high</option>
         </select>
-        <button class="sort-btn on" id="sb-date" onclick="setSort('date')">Recent</button>
-        <button class="sort-btn" id="sb-rating" onclick="setSort('rating')">Rating</button>
-        <button class="sort-btn" id="sb-speed" onclick="setSort('speed')">Speed</button>
+        <div class="view-toggle">
+          <button class="view-btn on" data-view="shelf" onclick="setView('shelf')" title="Bookshelf view">⊞</button>
+          <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">☰</button>
+        </div>
       </div>
       <div class="sec-label">Finished books</div>
       <div class="shelf" id="shelf"></div>
