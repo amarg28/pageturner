@@ -27,9 +27,10 @@ let authMode = 'signin', pendingImport = null;
 let gsearchTimer = null, gsearchResults = [], gsearchIdx = -1;
 
 /* ── UTILS ─────────────────────────────────────────────────────────────── */
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { storageKey: 'pageturner-auth' }
-});
+// sb is declared as a global var so it's accessible everywhere
+// It's initialised in the DOMContentLoaded handler below to guarantee
+// the Supabase library has fully loaded before we create the client
+var sb;
 const cUrl = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
 const bCover = (b, s='M') => b.coverId ? cUrl(b.coverId, s) : (b.googleCover || null);
 const pipC = r => r >= 8 ? 'pip-hi' : r >= 6 ? 'pip-mid' : r > 0 ? 'pip-lo' : 'pip-none';
@@ -104,7 +105,14 @@ async function signOut() {
   document.getElementById('auth-password').value = '';
 }
 
-sb.auth.onAuthStateChange(async (ev, session) => {
+window.addEventListener('DOMContentLoaded', function() {
+  // Initialise Supabase client after DOM + scripts are fully loaded
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { storageKey: 'pageturner-auth' }
+  });
+
+  // Set up auth listener once client is ready
+  sb.auth.onAuthStateChange(async (ev, session) => {
   if (session?.user) {
     currentUser = session.user;
     document.getElementById('auth-screen').style.display = 'none';
@@ -115,7 +123,8 @@ sb.auth.onAuthStateChange(async (ev, session) => {
   } else {
     currentUser = null;
   }
-});
+  }); // end onAuthStateChange
+}); // end DOMContentLoaded
 
 /* ── DATABASE ──────────────────────────────────────────────────────────── */
 async function loadBooks() {
