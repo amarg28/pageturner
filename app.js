@@ -180,7 +180,7 @@ async function enrichMissing() {
         b._enriched = true; await saveBook(b); renderBooks();
       }
     } catch(e) {}
-    await new Promise(res => setTimeout(res, 150));
+    await new Promise(res => setTimeout(res, 80));
   }
   document.getElementById('enrich-bar').style.display = 'none';
 }
@@ -1183,8 +1183,25 @@ function parseCSV(text, platform) {
 }
 
 function fmtDate(s) {
-  if (!s||s==='None') return null;
-  const d=new Date(s); if(isNaN(d)) return null;
+  if (!s || s === 'None') return null;
+  s = s.trim();
+  // Handle DD/MM/YYYY format (European)
+  const dmySlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlash) {
+    const [_, d, m, y] = dmySlash;
+    return y + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0');
+  }
+  // Handle DD/MM/YY format
+  const dmyShort = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (dmyShort) {
+    const [_, d, m, y] = dmyShort;
+    const full = parseInt(y) > 50 ? '19'+y : '20'+y;
+    return full + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0');
+  }
+  // Handle YYYY-MM-DD (already correct)
+  if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return s;
+  // Fall back to JS date parsing for other formats
+  const d = new Date(s); if (isNaN(d)) return null;
   return d.toISOString().split('T')[0];
 }
 
