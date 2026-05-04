@@ -320,7 +320,8 @@ async function deleteBookById(id) {
 
 /* ── METADATA FETCHING ─────────────────────────────────────────────────── */
 async function fetchMissingMeta(bookList) {
-  const needs = bookList.filter(b => b.isbn && !getMeta(b.isbn));
+  const cacheKey = b => b.isbn || b.ol_key || b.manual_title;
+  const needs = bookList.filter(b => cacheKey(b) && !getMeta(cacheKey(b)));
   if (!needs.length) return;
   document.getElementById('enrich-bar').style.display = 'flex';
   for (let i = 0; i < needs.length; i++) {
@@ -335,66 +336,69 @@ async function fetchMissingMeta(bookList) {
 
 async function fetchMetaForBook(b) {
   if (!b.isbn && !b.ol_key && !b.manual_title) return;
-  const cacheKey = b.isbn || b.ol_key || b.manual_title;
-  if (getMeta(cacheKey)) return;
+  const ck = b.isbn || b.ol_key || b.manual_title;
+  if (getMeta(ck)?.title) return; // already have data
 
   let meta = {};
 
-  // Try Open Library by ISBN first
-  if (b.isbn) {
+  // 1. Open Library search — most reliable for cover + pages + author
+  const searchQ = b.isbn
+    ? `isbn=${encodeURIComponent(b.isbn)}`
+    : `title=${encodeURIComponent(b.manual_title||'')}&author=${encodeURIComponent(b.manual_author||'')}`;
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?${searchQ}&limit=1&fields=key,title,author_name,cover_i,first_publish_year,number_of_pages_median,subject,isbn`);
+    const d = await r.json();
+    const doc = d.docs?.[0];
+    if (doc) {
+      meta.title       = doc.title;
+      meta.author      = (doc.author_name||[])[0] || '';
+      meta.coverId     = doc.cover_i || null;
+      meta.year        = doc.first_publish_year || null;
+      meta.pages       = doc.number_of_pages_median || null;
+      meta.genre       = (doc.subject||[]).slice(0,5).join(', ');
+      meta.olKey       = doc.key || null;
+      if (!b.ol_key && doc.key) b.ol_key = doc.key;
+      if (!b.isbn && doc.isbn?.[0]) b.isbn = doc.isbn[0];
+    }
+  } catch(e) {}
+
+  // 2. OL ISBN API for description + richer data if we have an ISBN
+  if (b.isbn && !meta.description) {
     try {
       const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${b.isbn}&format=json&jscmd=data`);
       const d = await r.json();
       const book = d[`ISBN:${b.isbn}`];
       if (book) {
-        meta.title = book.title;
-        meta.author = book.authors?.[0]?.name || '';
-        meta.year = book.publish_date ? parseInt(book.publish_date.match(/\d{4}/)?.[0]) : null;
-        meta.pages = book.number_of_pages || null;
-        meta.coverId = book.cover?.large ? null : null; // OL cover via ISBN
-        meta.cover = book.cover?.large || book.cover?.medium || null;
+        if (!meta.title)  meta.title  = book.title;
+        if (!meta.author) meta.author = book.authors?.[0]?.name || '';
+        if (!meta.pages)  meta.pages  = book.number_of_pages || null;
+        if (!meta.year)   meta.year   = book.publish_date ? parseInt(book.publish_date.match(/\d{4}/)?.[0]) : null;
         meta.description = book.excerpts?.[0]?.text || '';
-        meta.genre = book.subjects?.slice(0,5).map(s => s.name || s).join(', ') || '';
-        // Get OL cover ID from cover URL
-        const coverMatch = (meta.cover || '').match(/covers\.openlibrary\.org\/b\/id\/(\d+)/);
-        if (coverMatch) meta.coverId = parseInt(coverMatch[1]);
-        b.ol_key = book.key || b.ol_key;
+        if (!meta.coverId) {
+          const coverUrl = book.cover?.large || book.cover?.medium || '';
+          const m = coverUrl.match(/covers\.openlibrary\.org\/b\/id\/(\d+)/);
+          if (m) meta.coverId = parseInt(m[1]);
+        }
       }
     } catch(e) {}
   }
 
-  // Try Open Library search if ISBN lookup failed
-  if (!meta.title && (b.manual_title || b.ol_key)) {
-    try {
-      const q = b.ol_key
-        ? `https://openlibrary.org${b.ol_key}.json`
-        : `https://openlibrary.org/search.json?title=${encodeURIComponent(b.manual_title)}&author=${encodeURIComponent(b.manual_author||'')}&limit=1`;
-      const r = await fetch(q); const d = await r.json();
-      if (b.ol_key) {
-        meta.title = d.title; meta.description = typeof d.description === 'string' ? d.description : d.description?.value || '';
-      } else {
-        const doc = d.docs?.[0];
-        if (doc) { meta.title=doc.title; meta.author=(doc.author_name||[])[0]||''; meta.coverId=doc.cover_i||null; meta.year=doc.first_publish_year||null; meta.pages=doc.number_of_pages_median||null; b.ol_key=doc.key||null; }
-      }
-    } catch(e) {}
-  }
-
-  // Fall back to Google Books if still missing cover or description
-  if (!meta.cover && !meta.coverId || !meta.description) {
+  // 3. Google Books fallback for anything still missing
+  if (!meta.coverId || !meta.pages || !meta.description) {
     try {
       const q = b.isbn ? `isbn:${b.isbn}` : `${meta.title||b.manual_title} ${meta.author||b.manual_author||''}`;
       const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=1`);
       const d = await r.json();
       const item = d.items?.[0]?.volumeInfo;
       if (item) {
-        if (!meta.title) meta.title = item.title;
-        if (!meta.author) meta.author = item.authors?.[0] || '';
-        if (!meta.year) meta.year = parseInt(item.publishedDate?.slice(0,4)) || null;
-        if (!meta.pages) meta.pages = item.pageCount || null;
+        if (!meta.title)       meta.title       = item.title;
+        if (!meta.author)      meta.author      = item.authors?.[0] || '';
+        if (!meta.year)        meta.year        = parseInt(item.publishedDate?.slice(0,4)) || null;
+        if (!meta.pages)       meta.pages       = item.pageCount || null;
         if (!meta.description) meta.description = item.description?.slice(0,500) || '';
-        if (!meta.cover && !meta.coverId) meta.googleCover = item.imageLinks?.thumbnail?.replace('http://','https://') || null;
-        if (!meta.genre) meta.genre = item.categories?.join(', ') || '';
-        if (!b.google_id) b.google_id = d.items?.[0]?.id || null;
+        if (!meta.genre)       meta.genre       = item.categories?.join(', ') || '';
+        if (!meta.coverId)     meta.googleCover = item.imageLinks?.thumbnail?.replace('http://','https://') || null;
+        if (!b.google_id)      b.google_id      = d.items?.[0]?.id || null;
       }
     } catch(e) {}
   }
@@ -524,23 +528,42 @@ function renderBooks() {
 
   const viewMode = window.libraryView || 'shelf';
   if (viewMode === 'list') {
-    shelf.innerHTML = `<table class="list-table">
-      <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Retro</th><th>Pages</th><th>Finished</th><th>Days</th><th>P/day</th></tr></thead>
+    shelf.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="list-table">
+      <thead><tr>
+        <th style="min-width:200px">Title</th>
+        <th style="min-width:140px">Author</th>
+        <th style="min-width:90px">Your Rating</th>
+        <th style="min-width:90px">Retrospective</th>
+        <th style="min-width:80px">Year Pub.</th>
+        <th style="min-width:70px">Pages</th>
+        <th style="min-width:110px">Date Started</th>
+        <th style="min-width:110px">Date Finished</th>
+        <th style="min-width:120px">Days Reading</th>
+        <th style="min-width:100px">Pages / Day</th>
+        <th style="min-width:160px">Genre</th>
+      </tr></thead>
       <tbody>${list.map(b => {
         const due = isRetroDue(b);
-        const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        const startDate = b.start_date ? new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        const endDate   = b.end_date   ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        const ratingCol = b.rating ? `<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'};font-weight:500">${b.rating}/10</span><div style="font-size:10px;color:var(--amber)">${toStars(b.rating)}</div>` : '—';
+        const retroCol  = b.retro_rating ? `<span style="font-weight:500">${b.retro_rating}/10</span><div style="font-size:10px;color:var(--amber)">${toStars(b.retro_rating)}</div>` : '—';
+        const genreList = bGenre(b).split(',').slice(0,3).map(g=>g.trim()).filter(Boolean).map(g=>`<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:1px 6px;border-radius:100px;display:inline-block;margin:1px">${g}</span>`).join('');
         return `<tr onclick="openBookPage('${b.id}')" class="list-row">
-          <td><span class="list-title">${bTitle(b)}${due?'<span class="retro-due-dot" style="position:relative;display:inline-block;margin-left:6px;top:-2px;width:8px;height:8px"></span>':''}</span></td>
-          <td>${bAuthor(b)}</td>
-          <td>${b.rating?`<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'}">${b.rating}/10</span>`:'—'}</td>
-          <td>${b.retro_rating?b.retro_rating+'/10':'—'}</td>
-          <td>${bPages(b)||'—'}</td>
-          <td style="white-space:nowrap">${date}</td>
-          <td>${bDays(b)||'—'}</td>
-          <td>${bPPD(b)||'—'}</td>
+          <td><span class="list-title">${bTitle(b)}${due?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:6px;vertical-align:middle" title="Due for reflection"></span>':''}</span></td>
+          <td style="color:var(--tx1)">${bAuthor(b)}</td>
+          <td>${ratingCol}</td>
+          <td>${retroCol}</td>
+          <td style="color:var(--tx1)">${bYear(b)||'—'}</td>
+          <td style="color:var(--tx1)">${bPages(b)||'—'}</td>
+          <td style="white-space:nowrap;color:var(--tx1)">${startDate}</td>
+          <td style="white-space:nowrap;color:var(--tx1)">${endDate}</td>
+          <td style="color:var(--tx1)">${bDays(b)||'—'}</td>
+          <td style="color:var(--tx1)">${bPPD(b)||'—'}</td>
+          <td>${genreList||'—'}</td>
         </tr>`;
       }).join('')}</tbody>
-    </table>`;
+    </table></div>`;
   } else {
     shelf.innerHTML = list.map(b => {
       const cover = bCover(b);
