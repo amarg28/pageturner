@@ -388,9 +388,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 
 /* ── LIST VIEW ─────────────────────────────────────────────────────────── */
 .list-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg0);border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--bd)}
-.list-table th{padding:10px 12px;background:var(--bg2);text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1);white-space:nowrap;border-bottom:0.5px solid var(--bd)}
-.list-table td{padding:10px 12px;border-bottom:0.5px solid var(--bd);vertical-align:middle}
+.list-table th{padding:10px 14px;background:var(--bg2);text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1);white-space:nowrap;border-bottom:0.5px solid var(--bd);border-right:0.5px solid var(--bd);position:sticky;top:0}
+.list-table th:last-child{border-right:none}
+.list-table td{padding:10px 14px;border-bottom:0.5px solid var(--bd);border-right:0.5px solid var(--bd);vertical-align:middle}
+.list-table td:last-child{border-right:none}
 .list-row{cursor:pointer;transition:background .12s}
-.list-row:hover{background:var(--amber-l)}
+.list-row:hover td{background:var(--amber-l)}
 .list-row:last-child td{border-bottom:none}
-.list-title{font-family:'Lora',serif;font-weight:500}
+.list-title{font-family:'Lora',serif;font-weight:500;line-height:1.3}
