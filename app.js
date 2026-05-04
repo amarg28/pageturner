@@ -1,6 +1,6 @@
 /* ── CONFIG ────────────────────────────────────────────────────────────── */
-const NEXT_PUBLIC_SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
-const NEXT_PUBLIC_SUPABASE_KEY = 'sb_publishable_pXCqvV-FD4kS9simoOWJwQ_QukAxvgu';
+const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
 const GENRES = ['Science Fiction','Fantasy','Horror','Literary Fiction','Mystery','Thriller','Romance','Historical Fiction','Nonfiction','Memoir','Young Adult','Graphic Novel','Magical Realism','Dystopian','Short Stories','Biography','Queer Fiction'];
