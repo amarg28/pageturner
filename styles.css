@@ -379,3 +379,18 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .gsearch-wrap{max-width:100%;order:-1;width:100%}
   .topbar{flex-wrap:wrap}
 }
+
+/* ── VIEW TOGGLE ───────────────────────────────────────────────────────── */
+.view-toggle{display:flex;border:0.5px solid var(--bd2);border-radius:var(--r);overflow:hidden;flex-shrink:0}
+.view-btn{padding:7px 10px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--tx1);transition:all .15s;font-family:'DM Sans',sans-serif}
+.view-btn.on{background:var(--bg2);color:var(--tx0)}
+.view-btn:hover:not(.on){background:var(--bg1)}
+
+/* ── LIST VIEW ─────────────────────────────────────────────────────────── */
+.list-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg0);border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--bd)}
+.list-table th{padding:10px 12px;background:var(--bg2);text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1);white-space:nowrap;border-bottom:0.5px solid var(--bd)}
+.list-table td{padding:10px 12px;border-bottom:0.5px solid var(--bd);vertical-align:middle}
+.list-row{cursor:pointer;transition:background .12s}
+.list-row:hover{background:var(--amber-l)}
+.list-row:last-child td{border-bottom:none}
+.list-title{font-family:'Lora',serif;font-weight:500}
