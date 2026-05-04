@@ -105,7 +105,7 @@ async function signOut() {
   document.getElementById('auth-password').value = '';
 }
 
-window.addEventListener('DOMContentLoaded', function() {
+window.addEventListener('load', function() {
   // Initialise Supabase client after DOM + scripts are fully loaded
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { storageKey: 'pageturner-auth' }
@@ -124,7 +124,7 @@ window.addEventListener('DOMContentLoaded', function() {
     currentUser = null;
   }
   }); // end onAuthStateChange
-}); // end DOMContentLoaded
+}); // end load
 
 /* ── DATABASE ──────────────────────────────────────────────────────────── */
 async function loadBooks() {
