@@ -15,7 +15,9 @@ let authMode = 'signin', pendingImport = null;
 let gsearchTimer = null, gsearchResults = [], gsearchIdx = -1;
 
 /* ── UTILS ─────────────────────────────────────────────────────────────── */
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { storageKey: 'pageturner-auth' }
+});
 const cUrl = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
 const pipC = r => r >= 8 ? 'pip-hi' : r >= 6 ? 'pip-mid' : r > 0 ? 'pip-lo' : 'pip-none';
 const scC  = v => v >= 8 ? 'hi' : v >= 6 ? 'mid' : 'lo';
