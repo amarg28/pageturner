@@ -1349,6 +1349,3 @@ function addTyping() {
 function chip(t) { document.getElementById('chat-in').value=t; sendMsg(); }
 function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
 
-
-
-testSupabaseConnection()
