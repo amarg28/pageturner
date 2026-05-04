@@ -1,10 +1,7 @@
-/* ── CLEAN UP OLD AUTH KEYS ────────────────────────────────────────────── */
-// Remove any old Supabase auth keys that don't belong to our named storage key
-// This prevents the GoTrueClient conflict that causes silent request hangs
-(function cleanOldAuthKeys() {
-  const keep = ['pt_ak', 'pageturner-auth'];
+/* ── CLEAN UP OLD AUTH ─────────────────────────────────────────────────── */
+(function() {
   Object.keys(localStorage).forEach(key => {
-    if ((key.startsWith('sb-') || key.includes('supabase')) && !keep.some(k => key.startsWith(k))) {
+    if ((key.startsWith('sb-') || (key.includes('supabase') && key !== 'pt_ak' && key !== 'pt_meta_cache'))) {
       localStorage.removeItem(key);
     }
   });
@@ -20,19 +17,41 @@ const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettlin
 const THEMES = ['Found family','Identity','Grief','Power','Survival','Colonialism','Queerness','Religion','Class','Nature','Memory','Trauma','Redemption','Coming of age','Love','War','Technology','Death','Friendship'];
 
 /* ── STATE ─────────────────────────────────────────────────────────────── */
-let books = [], currentUser = null, sort = 'recent', chartsDrawn = false, chatHistory = [];
+let books = [], currentUser = null, sessionToken = null;
+let sort = 'recent', chartsDrawn = false, chatHistory = [];
 let apiKey = localStorage.getItem('pt_ak') || '';
 let olResults = [], selResult = null, editions = [], selEdition = null, edFilt = 'all';
 let authMode = 'signin', pendingImport = null;
-let gsearchTimer = null, gsearchResults = [], gsearchIdx = -1;
+let gsearchResults = [], gsearchIdx = -1, gsearchDebounce = null;
+
+/* ── METADATA CACHE ────────────────────────────────────────────────────── */
+// Keyed by ISBN. Stores: title, author, cover, pages, year, genre, description
+let metaCache = {};
+try { metaCache = JSON.parse(localStorage.getItem('pt_meta_cache') || '{}'); } catch(e) {}
+function saveMeta() { try { localStorage.setItem('pt_meta_cache', JSON.stringify(metaCache)); } catch(e) {} }
+function getMeta(isbn) { return isbn ? metaCache[isbn] || null : null; }
+function setMeta(isbn, data) { if (!isbn) return; metaCache[isbn] = { ...metaCache[isbn], ...data }; saveMeta(); }
 
 /* ── UTILS ─────────────────────────────────────────────────────────────── */
-// sb is declared as a global var so it's accessible everywhere
-// It's initialised in the DOMContentLoaded handler below to guarantee
-// the Supabase library has fully loaded before we create the client
-var sb;
-const cUrl = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
-const bCover = (b, s='M') => b.coverId ? cUrl(b.coverId, s) : (b.googleCover || null);
+const cUrl  = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
+const bCover = b => {
+  const meta = getMeta(b.isbn);
+  if (meta?.coverId) return cUrl(meta.coverId);
+  if (meta?.googleCover) return meta.googleCover;
+  return null;
+};
+const bTitle  = b => getMeta(b.isbn)?.title  || b.manual_title  || '(Unknown title)';
+const bAuthor = b => getMeta(b.isbn)?.author || b.manual_author || '(Unknown author)';
+const bPages  = b => getMeta(b.isbn)?.pages  || 0;
+const bYear   = b => getMeta(b.isbn)?.year   || 0;
+const bGenre  = b => getMeta(b.isbn)?.genre  || '';
+const bDesc   = b => getMeta(b.isbn)?.description || '';
+const bDays   = b => {
+  if (!b.start_date || !b.end_date) return 0;
+  return Math.max(1, Math.round((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
+};
+const bPPD = b => { const d = bDays(b); return d > 0 ? Math.round(bPages(b) / d) : 0; };
+
 const pipC = r => r >= 8 ? 'pip-hi' : r >= 6 ? 'pip-mid' : r > 0 ? 'pip-lo' : 'pip-none';
 const scC  = v => v >= 8 ? 'hi' : v >= 6 ? 'mid' : 'lo';
 const toStars = r => {
@@ -43,18 +62,133 @@ const toStars = r => {
 };
 const parseTags = s => s ? s.split(',').map(t => t.trim()).filter(Boolean) : [];
 const joinTags  = a => a.join(', ');
-const esc  = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const escQ = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-
-// Retro due: one year after end date, no retro rating yet
+const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escQ = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const isRetroDue = b => {
-  if (b.status !== 'finished' || !b.end || b.retro) return false;
-  const due = new Date(b.end);
-  due.setFullYear(due.getFullYear() + 1);
+  if (b.status !== 'finished' || !b.end_date || b.retro_rating) return false;
+  const due = new Date(b.end_date); due.setFullYear(due.getFullYear() + 1);
   return new Date() >= due;
 };
 
-/* ── AUTH ──────────────────────────────────────────────────────────────── */
+/* ── SUPABASE REST API ─────────────────────────────────────────────────── */
+function sbHeaders(extra = {}) {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${sessionToken || SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+    ...extra
+  };
+}
+
+async function sbSelect(table, query = '') {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    headers: sbHeaders()
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
+  return r.json();
+}
+
+async function sbInsert(table, data) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify(Array.isArray(data) ? data : [data])
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
+  return r.json();
+}
+
+async function sbUpdate(table, id, data) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: sbHeaders(),
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
+  return r.json();
+}
+
+async function sbDelete(table, id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: sbHeaders()
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
+  return true;
+}
+
+/* ── SUPABASE AUTH (REST) ──────────────────────────────────────────────── */
+async function signInREST(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Sign in failed');
+  return d;
+}
+
+async function signUpREST(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Sign up failed');
+  return d;
+}
+
+async function signOutREST() {
+  if (!sessionToken) return;
+  await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${sessionToken}` }
+  });
+}
+
+function saveSession(data) {
+  sessionToken = data.access_token;
+  currentUser = data.user;
+  try {
+    localStorage.setItem('pt_session', JSON.stringify({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in * 1000),
+      user: data.user
+    }));
+  } catch(e) {}
+}
+
+function loadSavedSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem('pt_session') || 'null');
+    if (!s) return false;
+    if (Date.now() > s.expires_at - 60000) { localStorage.removeItem('pt_session'); return false; }
+    sessionToken = s.access_token;
+    currentUser = s.user;
+    return true;
+  } catch(e) { return false; }
+}
+
+async function refreshSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem('pt_session') || 'null');
+    if (!s?.refresh_token) return false;
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    saveSession(d); return true;
+  } catch(e) { return false; }
+}
+
+/* ── AUTH UI ───────────────────────────────────────────────────────────── */
 function switchAuthTab(m) {
   authMode = m;
   document.querySelectorAll('.auth-tab').forEach((t,i) =>
@@ -74,15 +208,20 @@ async function authSubmit() {
   btn.disabled = true;
   btn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
   try {
-    const res = authMode === 'signin'
-      ? await sb.auth.signInWithPassword({ email, password: pw })
-      : await sb.auth.signUp({ email, password: pw });
-    if (res.error) throw res.error;
-    if (authMode === 'signup' && !res.data?.session) {
-      const ok = document.getElementById('auth-success');
-      ok.textContent = 'Account created! Check your email to confirm, then sign in.';
-      ok.style.display = 'block';
-      btn.disabled = false; btn.textContent = 'Create account'; return;
+    if (authMode === 'signin') {
+      const d = await signInREST(email, pw);
+      saveSession(d);
+      onSignedIn();
+    } else {
+      const d = await signUpREST(email, pw);
+      if (d.access_token) {
+        saveSession(d); onSignedIn();
+      } else {
+        const ok = document.getElementById('auth-success');
+        ok.textContent = 'Account created! Check your email to confirm, then sign in.';
+        ok.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Create account';
+      }
     }
   } catch(e) {
     showAErr(e.message || 'Something went wrong.');
@@ -91,139 +230,176 @@ async function authSubmit() {
   }
 }
 
-function showAErr(m) {
-  const el = document.getElementById('auth-error');
-  el.textContent = m; el.style.display = 'block';
+function showAErr(m) { const el = document.getElementById('auth-error'); el.textContent = m; el.style.display = 'block'; }
+
+function onSignedIn() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('uavatar').textContent = currentUser.email.slice(0,1).toUpperCase();
+  if (apiKey) document.getElementById('ak').value = apiKey;
+  loadBooks();
 }
 
 async function signOut() {
-  await sb.auth.signOut();
-  books = []; chartsDrawn = false; chatHistory = [];
+  await signOutREST();
+  sessionToken = null; currentUser = null; books = [];
+  chartsDrawn = false; chatHistory = [];
+  localStorage.removeItem('pt_session');
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-email').value = '';
   document.getElementById('auth-password').value = '';
 }
 
-window.addEventListener('load', function() {
-  // Initialise Supabase client after DOM + scripts are fully loaded
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { storageKey: 'pageturner-auth' }
-  });
-
-  // Set up auth listener once client is ready
-  sb.auth.onAuthStateChange(async (ev, session) => {
-  if (session?.user) {
-    currentUser = session.user;
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('uavatar').textContent = currentUser.email.slice(0,1).toUpperCase();
-    if (apiKey) document.getElementById('ak').value = apiKey;
-    await loadBooks();
+/* ── INIT ──────────────────────────────────────────────────────────────── */
+window.addEventListener('load', async () => {
+  if (apiKey) document.getElementById('ak').value = apiKey;
+  if (loadSavedSession()) {
+    onSignedIn();
   } else {
-    currentUser = null;
+    // Try to refresh
+    const ok = await refreshSession();
+    if (ok) onSignedIn();
   }
-  }); // end onAuthStateChange
-}); // end load
+});
 
 /* ── DATABASE ──────────────────────────────────────────────────────────── */
 async function loadBooks() {
   document.getElementById('shelf').innerHTML =
     `<div class="loading-wrap"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><span>Loading your library…</span></div>`;
-  const { data, error } = await sb.from('books').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  books = (data || []).map(dbToBook);
-  renderLibrary();
-  enrichMissing();
+  try {
+    const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
+    books = data || [];
+    // Fetch missing metadata for all books
+    await fetchMissingMeta(books);
+    renderLibrary();
+  } catch(e) {
+    console.error('loadBooks error:', e);
+    document.getElementById('shelf').innerHTML =
+      `<div class="empty"><div class="empty-icon">⚠</div>Could not load library: ${e.message}</div>`;
+  }
 }
 
-function dbToBook(r) {
+function bookToRow(b) {
+  const nn = v => (v === '' || v === null || v === undefined) ? null : v;
   return {
-    id: r.id, num: r.num || 0, title: r.title, author: r.author || '',
-    rating: r.rating || 0, retro: r.retro || 0, pages: r.pages || 0, year: r.year || 0,
-    format: r.format || 'Print', genre: r.genre || '', mood: r.mood || '', themes: r.themes || '',
-    fiction: r.fiction || 'Fiction', series: r.series || 'Stand-alone',
-    notes: r.notes || '', start: r.start_date || '', end: r.end_date || '',
-    days: r.days || 0, ppd: r.ppd || 0, origin: r.origin || '',
-    retroThoughts: r.retro_thoughts || '', coverId: r.cover_id || null,
-    olKey: r.ol_key || null, isbn: r.isbn || '', description: r.description || '',
-    status: r.status || 'finished', importSource: r.import_source || '',
-    _enriched: !!r.cover_id
-  };
-}
-
-function bookToDb(b) {
-  const nn = v => (v === '' || v === 0 || v === null || v === undefined) ? null : v;
-  const ns = v => v || '';
-  return {
-    user_id: currentUser.id, num: nn(b.num), title: b.title, author: ns(b.author),
-    rating: nn(b.rating), retro: nn(b.retro), pages: nn(b.pages), year: nn(b.year),
-    format: ns(b.format), genre: ns(b.genre), mood: ns(b.mood), themes: ns(b.themes),
-    fiction: ns(b.fiction), series: ns(b.series), notes: ns(b.notes),
-    start_date: nn(b.start), end_date: nn(b.end), days: nn(b.days), ppd: nn(b.ppd),
-    origin: ns(b.origin), retro_thoughts: ns(b.retroThoughts),
-    cover_id: nn(b.coverId), ol_key: nn(b.olKey), isbn: ns(b.isbn),
-    description: ns(b.description), status: b.status || 'finished',
-    import_source: ns(b.importSource)
+    user_id: currentUser.id,
+    isbn: nn(b.isbn),
+    ol_key: nn(b.ol_key),
+    google_id: nn(b.google_id),
+    status: b.status || 'finished',
+    start_date: nn(b.start_date),
+    end_date: nn(b.end_date),
+    rating: nn(b.rating),
+    retro_rating: nn(b.retro_rating),
+    notes: b.notes || '',
+    retro_thoughts: b.retro_thoughts || '',
+    mood: b.mood || '',
+    themes: b.themes || '',
+    manual_title: b.manual_title || null,
+    manual_author: b.manual_author || null,
+    import_source: b.import_source || ''
   };
 }
 
 async function saveBook(b) {
-  if (b.id && typeof b.id === 'string' && b.id.includes('-')) {
-    const { error } = await sb.from('books').update(bookToDb(b)).eq('id', b.id);
-    if (error) console.error('Update:', error);
-  } else {
-    const { data, error } = await sb.from('books').insert(bookToDb(b)).select().single();
-    if (error) { console.error('Insert:', error); return; }
-    b.id = data.id;
-  }
-}
-
-async function deleteBook(id) {
-  const { error } = await sb.from('books').delete().eq('id', id);
-  if (error) { console.error('Delete:', error); return false; }
-  return true;
-}
-
-/* ── ENRICHMENT ────────────────────────────────────────────────────────── */
-async function fetchGoogleBooksCover(title, author) {
   try {
-    const q = encodeURIComponent(`${title} ${author}`);
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=1&fields=items(volumeInfo/imageLinks,volumeInfo/description)`);
-    const d = await r.json();
-    const item = d.items?.[0];
-    const cover = item?.volumeInfo?.imageLinks?.thumbnail?.replace('http://','https://') || null;
-    const desc  = item?.volumeInfo?.description || null;
-    return { cover, desc };
-  } catch(e) { return { cover: null, desc: null }; }
+    if (b.id) {
+      await sbUpdate('books', b.id, bookToRow(b));
+    } else {
+      const rows = await sbInsert('books', bookToRow(b));
+      b.id = rows[0]?.id;
+    }
+  } catch(e) { console.error('saveBook error:', e); throw e; }
 }
 
-async function enrichMissing() {
-  const needs = books.filter(b => !b.coverId && !b._enriching);
+async function deleteBookById(id) {
+  try { await sbDelete('books', id); return true; }
+  catch(e) { console.error('deleteBook error:', e); return false; }
+}
+
+/* ── METADATA FETCHING ─────────────────────────────────────────────────── */
+async function fetchMissingMeta(bookList) {
+  const needs = bookList.filter(b => b.isbn && !getMeta(b.isbn));
   if (!needs.length) return;
   document.getElementById('enrich-bar').style.display = 'flex';
   for (let i = 0; i < needs.length; i++) {
-    const b = needs[i]; b._enriching = true;
-    document.getElementById('enrich-msg').textContent = `Fetching covers… ${i+1}/${needs.length}`;
-    try {
-      // Try Open Library first
-      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
-      const d = await r.json(); const doc = d.docs?.[0];
-      if (doc) {
-        b.coverId = doc.cover_i || null; b.olKey = doc.key || null;
-        b.description = doc.first_sentence?.value || b.description || '';
-      }
-      // Fall back to Google Books if no cover found
-      if (!b.coverId) {
-        const gb = await fetchGoogleBooksCover(b.title, b.author);
-        if (gb.cover) { b.googleCover = gb.cover; }
-        if (gb.desc && !b.description) { b.description = gb.desc.slice(0,400); }
-      }
-      b._enriched = true; await saveBook(b); renderBooks();
-    } catch(e) {}
+    const b = needs[i];
+    document.getElementById('enrich-msg').textContent = `Fetching book data… ${i+1}/${needs.length}`;
+    await fetchMetaForBook(b);
     await new Promise(res => setTimeout(res, 80));
   }
   document.getElementById('enrich-bar').style.display = 'none';
+  renderBooks();
+}
+
+async function fetchMetaForBook(b) {
+  if (!b.isbn && !b.ol_key && !b.manual_title) return;
+  const cacheKey = b.isbn || b.ol_key || b.manual_title;
+  if (getMeta(cacheKey)) return;
+
+  let meta = {};
+
+  // Try Open Library by ISBN first
+  if (b.isbn) {
+    try {
+      const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${b.isbn}&format=json&jscmd=data`);
+      const d = await r.json();
+      const book = d[`ISBN:${b.isbn}`];
+      if (book) {
+        meta.title = book.title;
+        meta.author = book.authors?.[0]?.name || '';
+        meta.year = book.publish_date ? parseInt(book.publish_date.match(/\d{4}/)?.[0]) : null;
+        meta.pages = book.number_of_pages || null;
+        meta.coverId = book.cover?.large ? null : null; // OL cover via ISBN
+        meta.cover = book.cover?.large || book.cover?.medium || null;
+        meta.description = book.excerpts?.[0]?.text || '';
+        meta.genre = book.subjects?.slice(0,5).map(s => s.name || s).join(', ') || '';
+        // Get OL cover ID from cover URL
+        const coverMatch = (meta.cover || '').match(/covers\.openlibrary\.org\/b\/id\/(\d+)/);
+        if (coverMatch) meta.coverId = parseInt(coverMatch[1]);
+        b.ol_key = book.key || b.ol_key;
+      }
+    } catch(e) {}
+  }
+
+  // Try Open Library search if ISBN lookup failed
+  if (!meta.title && (b.manual_title || b.ol_key)) {
+    try {
+      const q = b.ol_key
+        ? `https://openlibrary.org${b.ol_key}.json`
+        : `https://openlibrary.org/search.json?title=${encodeURIComponent(b.manual_title)}&author=${encodeURIComponent(b.manual_author||'')}&limit=1`;
+      const r = await fetch(q); const d = await r.json();
+      if (b.ol_key) {
+        meta.title = d.title; meta.description = typeof d.description === 'string' ? d.description : d.description?.value || '';
+      } else {
+        const doc = d.docs?.[0];
+        if (doc) { meta.title=doc.title; meta.author=(doc.author_name||[])[0]||''; meta.coverId=doc.cover_i||null; meta.year=doc.first_publish_year||null; meta.pages=doc.number_of_pages_median||null; b.ol_key=doc.key||null; }
+      }
+    } catch(e) {}
+  }
+
+  // Fall back to Google Books if still missing cover or description
+  if (!meta.cover && !meta.coverId || !meta.description) {
+    try {
+      const q = b.isbn ? `isbn:${b.isbn}` : `${meta.title||b.manual_title} ${meta.author||b.manual_author||''}`;
+      const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=1`);
+      const d = await r.json();
+      const item = d.items?.[0]?.volumeInfo;
+      if (item) {
+        if (!meta.title) meta.title = item.title;
+        if (!meta.author) meta.author = item.authors?.[0] || '';
+        if (!meta.year) meta.year = parseInt(item.publishedDate?.slice(0,4)) || null;
+        if (!meta.pages) meta.pages = item.pageCount || null;
+        if (!meta.description) meta.description = item.description?.slice(0,500) || '';
+        if (!meta.cover && !meta.coverId) meta.googleCover = item.imageLinks?.thumbnail?.replace('http://','https://') || null;
+        if (!meta.genre) meta.genre = item.categories?.join(', ') || '';
+        if (!b.google_id) b.google_id = d.items?.[0]?.id || null;
+      }
+    } catch(e) {}
+  }
+
+  if (Object.keys(meta).length) setMeta(cacheKey, meta);
 }
 
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
@@ -238,66 +414,60 @@ function renderQuickStats() {
       `<div class="stat"><div class="stat-l">Books</div><div class="stat-v">0</div></div>`;
     return;
   }
-  const avg = (fin.reduce((s,b) => s+b.rating, 0) / fin.length).toFixed(1);
-  const pb  = fin.filter(b => b.ppd > 0);
-  const avgPace = pb.length ? Math.round(pb.reduce((s,b) => s+b.ppd, 0) / pb.length) : 0;
+  const rated = fin.filter(b => b.rating > 0);
+  const avg = rated.length ? (rated.reduce((s,b) => s+b.rating, 0) / rated.length).toFixed(1) : '—';
+  const paced = fin.filter(b => bPPD(b) > 0);
+  const avgPace = paced.length ? Math.round(paced.reduce((s,b) => s+bPPD(b), 0) / paced.length) : 0;
+  const totalPages = fin.reduce((s,b) => s+bPages(b), 0);
   document.getElementById('quick-stats').innerHTML = `
     <div class="stat"><div class="stat-l">Finished</div><div class="stat-v">${fin.length}</div></div>
     <div class="stat"><div class="stat-l">Reading</div><div class="stat-v">${books.filter(b=>b.status==='reading').length}</div></div>
     <div class="stat"><div class="stat-l">To read</div><div class="stat-v">${books.filter(b=>b.status==='tbr').length}</div></div>
     <div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div>
-    <div class="stat"><div class="stat-l">Pages read</div><div class="stat-v">${fin.reduce((s,b)=>s+b.pages,0).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">Pages read</div><div class="stat-v">${totalPages.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Avg pace</div><div class="stat-v">${avgPace}</div><div class="stat-s">p/day</div></div>`;
 }
 
-/* ── RETRO DUE SECTION ─────────────────────────────────────────────────── */
 function renderRetroDue() {
   const due = books.filter(isRetroDue);
   const sec = document.getElementById('retro-due-section');
   if (!due.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `
-    <div class="retro-due-section">
-      <div class="retro-due-header">
-        <div class="retro-due-label">Due for reflection</div>
-        <div class="retro-due-badge">${due.length}</div>
-      </div>
-      <div class="retro-due-strip">
-        ${due.map(b => {
-          const cid = b.coverId;
-          const yearAgo = new Date(b.end);
-          yearAgo.setFullYear(yearAgo.getFullYear() + 1);
-          const daysOverdue = Math.floor((new Date() - yearAgo) / 86400000);
-          const overdueTxt = daysOverdue <= 7
-            ? 'Just hit one year'
-            : `${Math.floor(daysOverdue/30) || 1} month${Math.floor(daysOverdue/30)!==1?'s':''} overdue`;
-          return `<div class="retro-due-card" onclick="openBookPage('${b.id}')">
-            <div class="retro-dot"></div>
-            ${cid
-              ? `<img class="retro-due-cover" src="${cUrl(cid)}" alt="" loading="lazy" onerror="this.style.display='none'">`
-              : `<div class="retro-due-cover-ph">📖</div>`}
-            <div>
-              <div class="retro-due-title">${b.title}</div>
-              <div class="retro-due-author">${b.author}</div>
-              <div class="retro-due-info">Rated ${b.rating}/10 · ${overdueTxt}</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
+  sec.innerHTML = `<div class="retro-due-section">
+    <div class="retro-due-header">
+      <div class="retro-due-label">Due for reflection</div>
+      <div class="retro-due-badge">${due.length}</div>
+    </div>
+    <div class="retro-due-strip">
+      ${due.map(b => {
+        const cover = bCover(b);
+        const yearAgo = new Date(b.end_date); yearAgo.setFullYear(yearAgo.getFullYear()+1);
+        const daysOver = Math.floor((new Date()-yearAgo)/86400000);
+        const txt = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
+        return `<div class="retro-due-card" onclick="openBookPage('${b.id}')">
+          <div class="retro-dot"></div>
+          ${cover?`<img class="retro-due-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="retro-due-cover-ph">📖</div>`}
+          <div>
+            <div class="retro-due-title">${bTitle(b)}</div>
+            <div class="retro-due-author">${bAuthor(b)}</div>
+            <div class="retro-due-info">Rated ${b.rating}/10 · ${txt}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 function renderCR() {
   const reading = books.filter(b => b.status === 'reading');
   const sec = document.getElementById('cr-section');
   if (!reading.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `
-    <div class="sec-label" style="margin-bottom:8px">Currently reading</div>
+  sec.innerHTML = `<div class="sec-label" style="margin-bottom:8px">Currently reading</div>
     <div class="cr-strip">
       ${reading.map(b => {
-        const cid = b.coverId;
+        const cover = bCover(b);
         return `<div class="cr-card" onclick="openBookPage('${b.id}')">
-          ${cid ? `<img class="cr-cover" src="${cUrl(cid)}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<div class="cr-cover-ph">📖</div>`}
-          <div><div class="cr-title">${b.title}</div><div class="cr-author">${b.author}</div><div class="cr-pill">Reading</div></div>
+          ${cover?`<img class="cr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cr-cover-ph">📖</div>`}
+          <div><div class="cr-title">${bTitle(b)}</div><div class="cr-author">${bAuthor(b)}</div><div class="cr-pill">Reading</div></div>
         </div>`;
       }).join('')}
     </div>`;
@@ -307,15 +477,12 @@ function renderTBR() {
   const tbr = books.filter(b => b.status === 'tbr');
   const sec = document.getElementById('tbr-section');
   if (!tbr.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `
-    <div class="sec-label" style="margin-bottom:8px">To be read <span style="font-weight:400;color:var(--tx2)">(${tbr.length})</span></div>
+  sec.innerHTML = `<div class="sec-label" style="margin-bottom:8px">To be read <span style="font-weight:400;color:var(--tx2)">(${tbr.length})</span></div>
     <div class="tbr-strip">
       ${tbr.map(b => {
-        const cid = b.coverId;
+        const cover = bCover(b);
         return `<div class="tbr-item" onclick="openBookPage('${b.id}')">
-          <div class="tbr-cover">
-            ${cid ? `<img src="${cUrl(cid)}" alt="" loading="lazy">` : `<div class="tbr-cover-ph"><span>${b.title}</span></div>`}
-          </div>
+          <div class="tbr-cover">${cover?`<img src="${cover}" alt="" loading="lazy">`:`<div class="tbr-cover-ph"><span>${bTitle(b)}</span></div>`}</div>
           <div class="tbr-badge">TBR</div>
         </div>`;
       }).join('')}
@@ -323,118 +490,95 @@ function renderTBR() {
 }
 
 function renderBooks() {
-  const q   = (document.getElementById('q')?.value || '').toLowerCase();
-  const gf  = document.getElementById('gf')?.value || '';
-  const mf  = document.getElementById('mf')?.value || '';
-  const ff  = document.getElementById('ff')?.value || '';
-  const fin = books.filter(b => b.status === 'finished');
+  const q  = (document.getElementById('q')?.value||'').toLowerCase();
+  const gf = document.getElementById('gf')?.value||'';
+  const mf = document.getElementById('mf')?.value||'';
+  const fin = books.filter(b => b.status==='finished');
 
-  // Rebuild filter dropdowns
-  const genres = new Set(); fin.forEach(b => parseTags(b.genre).forEach(g => genres.add(g)));
-  const moods  = new Set(); fin.forEach(b => parseTags(b.mood).forEach(m => moods.add(m)));
-  const gsel = document.getElementById('gf'); const gcur = gsel.value;
-  gsel.innerHTML = '<option value="">All genres</option>';
-  [...genres].sort().forEach(g => { const o = document.createElement('option'); o.value=g; o.textContent=g; if(g===gcur)o.selected=true; gsel.appendChild(o); });
-  const msel = document.getElementById('mf'); const mcur = msel.value;
-  msel.innerHTML = '<option value="">All moods</option>';
-  [...moods].sort().forEach(m => { const o = document.createElement('option'); o.value=m; o.textContent=m; if(m===mcur)o.selected=true; msel.appendChild(o); });
+  // Rebuild dropdowns from cached metadata
+  const genres = new Set(); fin.forEach(b => parseTags(bGenre(b)).forEach(g=>genres.add(g)));
+  const moods  = new Set(); fin.forEach(b => parseTags(b.mood||'').forEach(m=>moods.add(m)));
+  const gsel = document.getElementById('gf'); const gcur=gsel.value;
+  gsel.innerHTML='<option value="">All genres</option>';
+  [...genres].sort().forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;if(g===gcur)o.selected=true;gsel.appendChild(o);});
+  const msel = document.getElementById('mf'); const mcur=msel.value;
+  msel.innerHTML='<option value="">All moods</option>';
+  [...moods].sort().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;if(m===mcur)o.selected=true;msel.appendChild(o);});
 
   let list = fin.filter(b =>
-    (!q  || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)) &&
-    (!gf || b.genre.toLowerCase().includes(gf.toLowerCase())) &&
-    (!mf || b.mood.toLowerCase().includes(mf.toLowerCase())) &&
-    (!ff || b.format === ff)
+    (!q || bTitle(b).toLowerCase().includes(q) || bAuthor(b).toLowerCase().includes(q)) &&
+    (!gf || bGenre(b).toLowerCase().includes(gf.toLowerCase())) &&
+    (!mf || (b.mood||'').toLowerCase().includes(mf.toLowerCase()))
   );
-  if (sort === 'rating-hi') list.sort((a,b) => b.rating - a.rating);
-  else if (sort === 'rating-lo') list.sort((a,b) => a.rating - b.rating);
-  else if (sort === 'first') list.sort((a,b) => new Date(a.end) - new Date(b.end));
-  else list.sort((a,b) => new Date(b.end) - new Date(a.end));
 
+  if (sort==='rating-hi') list.sort((a,b)=>b.rating-a.rating);
+  else if (sort==='rating-lo') list.sort((a,b)=>a.rating-b.rating);
+  else if (sort==='first') list.sort((a,b)=>new Date(a.end_date)-new Date(b.end_date));
+  else list.sort((a,b)=>new Date(b.end_date)-new Date(a.end_date));
+
+  const shelf = document.getElementById('shelf');
   if (!list.length) {
-    document.getElementById('shelf').innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${
-      !q&&!gf&&!mf&&!ff
-        ? 'Your finished library is empty.<br><br><span style="font-size:12px">Go to <strong>Add Book</strong> to get started.</span>'
-        : 'No books match your filters.'
-    }</div>`;
+    shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!q&&!gf&&!mf?'Your finished library is empty.<br><br><span style="font-size:12px">Go to <strong>Add Book</strong> to get started.</span>':'No books match your filters.'}</div>`;
     return;
   }
 
   const viewMode = window.libraryView || 'shelf';
-  const shelf = document.getElementById('shelf');
-
   if (viewMode === 'list') {
     shelf.innerHTML = `<table class="list-table">
-      <thead><tr>
-        <th>Title</th><th>Author</th><th>Rating</th><th>Retro</th>
-        <th>Pages</th><th>Finished</th><th>Days</th><th>P/day</th><th>Genre</th>
-      </tr></thead>
+      <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Retro</th><th>Pages</th><th>Finished</th><th>Days</th><th>P/day</th></tr></thead>
       <tbody>${list.map(b => {
         const due = isRetroDue(b);
-        const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
         return `<tr onclick="openBookPage('${b.id}')" class="list-row">
-          <td><span class="list-title">${b.title}${due?'<span class="retro-due-dot" style="position:relative;display:inline-block;margin-left:6px;top:-2px"></span>':''}</span></td>
-          <td>${b.author}</td>
-          <td>${b.rating ? `<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'}">${b.rating}/10</span>` : '—'}</td>
-          <td>${b.retro ? b.retro+'/10' : '—'}</td>
-          <td>${b.pages || '—'}</td>
+          <td><span class="list-title">${bTitle(b)}${due?'<span class="retro-due-dot" style="position:relative;display:inline-block;margin-left:6px;top:-2px;width:8px;height:8px"></span>':''}</span></td>
+          <td>${bAuthor(b)}</td>
+          <td>${b.rating?`<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'}">${b.rating}/10</span>`:'—'}</td>
+          <td>${b.retro_rating?b.retro_rating+'/10':'—'}</td>
+          <td>${bPages(b)||'—'}</td>
           <td style="white-space:nowrap">${date}</td>
-          <td>${b.days || '—'}</td>
-          <td>${b.ppd ? Math.round(b.ppd) : '—'}</td>
-          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.genre || '—'}</td>
+          <td>${bDays(b)||'—'}</td>
+          <td>${bPPD(b)||'—'}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
   } else {
     shelf.innerHTML = list.map(b => {
       const cover = bCover(b);
-      const due  = isRetroDue(b);
-      const coverHtml = cover
-        ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;display:block" alt="${b.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : '';
-      const ph = `<div class="cover-ph"${cover?' style="display:none"':''}><span>${b.title}</span></div>`;
-      const iflag = b.importSource === 'goodreads'
-        ? `<span class="import-flag" style="background:var(--amber-l);color:var(--amber)">GR</span>`
-        : b.importSource === 'storygraph'
-        ? `<span class="import-flag" style="background:var(--purple-l);color:var(--purple)">SG</span>` : '';
-      const date = b.end ? new Date(b.end).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
+      const due = isRetroDue(b);
+      const iflag = b.import_source==='goodreads'?`<span class="import-flag" style="background:var(--amber-l);color:var(--amber)">GR</span>`:b.import_source==='storygraph'?`<span class="import-flag" style="background:var(--purple-l);color:var(--purple)">SG</span>`:'';
+      const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
       return `<div class="book-card">
-        ${due ? '<div class="retro-due-dot" title="Due for reflection"></div>' : ''}
+        ${due?'<div class="retro-due-dot" title="Due for reflection"></div>':''}
         <div class="card-acts">
           <button class="cact cact-edit" onclick="event.stopPropagation();openEdit('${b.id}')" title="Edit">✎</button>
           <button class="cact cact-del" onclick="event.stopPropagation();openDel('${b.id}')" title="Delete">✕</button>
         </div>
-        <div class="cover-wrap" onclick="openBookPage('${b.id}')">${coverHtml}${ph}
+        <div class="cover-wrap" onclick="openBookPage('${b.id}')">
+          ${cover?`<img src="${cover}" style="width:100%;height:100%;object-fit:cover;display:block" alt="${bTitle(b)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}<div class="cover-ph"${cover?' style="display:none"':''}><span>${bTitle(b)}</span></div>
           <div class="rpip ${pipC(b.rating)}">${b.rating||'—'}</div>
         </div>
         <div onclick="openBookPage('${b.id}')">
-          <div class="card-title">${b.title}${iflag}</div>
-          <div class="card-author">${b.author}</div>
-          ${b.rating ? `<div class="card-stars">${toStars(b.rating)}</div>` : ''}
-          ${date ? `<div class="card-date">${date}</div>` : ''}
+          <div class="card-title">${bTitle(b)}${iflag}</div>
+          <div class="card-author">${bAuthor(b)}</div>
+          ${b.rating?`<div class="card-stars">${toStars(b.rating)}</div>`:''}
+          ${date?`<div class="card-date">${date}</div>`:''}
         </div>
       </div>`;
     }).join('');
   }
 }
 
-function setSort(s) {
-  sort = s;
-  renderBooks();
-}
-
+function setSort(s) { sort=s; renderBooks(); }
 function setView(v) {
-  window.libraryView = v;
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  window.libraryView=v;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   renderBooks();
 }
 
 /* ── GLOBAL SEARCH ─────────────────────────────────────────────────────── */
-let gsearchDebounce = null;
-
 function gsearchInput() {
   const q = document.getElementById('gsearch-input').value.trim();
-  const clearBtn = document.getElementById('gsearch-clear');
-  clearBtn.classList.toggle('visible', q.length > 0);
+  document.getElementById('gsearch-clear').classList.toggle('visible', q.length>0);
   clearTimeout(gsearchDebounce);
   if (!q) { closeGsearch(); return; }
   if (q.length < 2) return;
@@ -447,138 +591,111 @@ function gsearchFocus() {
 }
 
 function gsearchClear() {
-  document.getElementById('gsearch-input').value = '';
+  document.getElementById('gsearch-input').value='';
   document.getElementById('gsearch-clear').classList.remove('visible');
   closeGsearch();
 }
 
 function closeGsearch() {
   document.getElementById('gsearch-results').classList.remove('open');
-  gsearchResults = []; gsearchIdx = -1;
+  gsearchResults=[]; gsearchIdx=-1;
 }
 
 async function doGsearch(q) {
   const box = document.getElementById('gsearch-results');
-  box.innerHTML = `<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
+  box.innerHTML=`<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
   box.classList.add('open');
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,number_of_pages_median`);
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
     const d = await r.json();
-    gsearchResults = d.docs || [];
-    if (!gsearchResults.length) {
-      box.innerHTML = `<div class="gsearch-empty">No results found.</div>`;
-      return;
-    }
-    box.innerHTML = gsearchResults.map((res, i) => {
-      const inLib = books.find(b => b.olKey === res.key || b.title.toLowerCase() === res.title.toLowerCase());
-      const cid = res.cover_i;
-      const author = (res.author_name || []).slice(0,2).join(', ') || 'Unknown author';
+    gsearchResults = d.docs||[];
+    if (!gsearchResults.length) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
+    box.innerHTML = gsearchResults.map((res,i) => {
+      const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
+      const author = (res.author_name||[]).slice(0,2).join(', ')||'Unknown author';
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
-        ${cid
-          ? `<img class="gsearch-result-cover" src="${cUrl(cid,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`
-          : `<div class="gsearch-result-cover-ph">📖</div>`}
+        ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="gsearch-result-cover-ph">📖</div>`}
         <div style="flex:1;min-width:0">
           <div class="gsearch-result-title">${res.title}</div>
           <div class="gsearch-result-author">${author}</div>
-          <div class="gsearch-result-meta">${[res.first_publish_year, res.number_of_pages_median ? '~'+res.number_of_pages_median+' pages' : ''].filter(Boolean).join(' · ')}</div>
-          ${inLib ? `<div class="gsearch-in-lib">In your library${inLib.rating?' · '+inLib.rating+'/10':''}</div>` : ''}
+          <div class="gsearch-result-meta">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
+          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+inLib.rating+'/10':''}</div>`:''}
         </div>
       </div>`;
     }).join('');
-  } catch(e) {
-    box.innerHTML = `<div class="gsearch-empty">Search failed. Check your connection.</div>`;
-  }
+  } catch(e) { box.innerHTML=`<div class="gsearch-empty">Search failed.</div>`; }
 }
 
 function gsearchKey(e) {
-  const results = document.getElementById('gsearch-results');
-  if (!results.classList.contains('open')) return;
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    gsearchIdx = Math.min(gsearchIdx + 1, gsearchResults.length - 1);
-    highlightGsearch();
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    gsearchIdx = Math.max(gsearchIdx - 1, 0);
-    highlightGsearch();
-  } else if (e.key === 'Enter' && gsearchIdx >= 0) {
-    e.preventDefault();
-    gsearchSelect(gsearchIdx);
-  } else if (e.key === 'Escape') {
-    closeGsearch();
-  }
+  const box = document.getElementById('gsearch-results');
+  if (!box.classList.contains('open')) return;
+  if (e.key==='ArrowDown'){e.preventDefault();gsearchIdx=Math.min(gsearchIdx+1,gsearchResults.length-1);highlightGsearch();}
+  else if (e.key==='ArrowUp'){e.preventDefault();gsearchIdx=Math.max(gsearchIdx-1,0);highlightGsearch();}
+  else if (e.key==='Enter'&&gsearchIdx>=0){e.preventDefault();gsearchSelect(gsearchIdx);}
+  else if (e.key==='Escape') closeGsearch();
 }
 
 function highlightGsearch() {
-  document.querySelectorAll('.gsearch-result').forEach((el, i) => {
-    el.style.background = i === gsearchIdx ? 'var(--amber-l)' : '';
-  });
+  document.querySelectorAll('.gsearch-result').forEach((el,i) => { el.style.background=i===gsearchIdx?'var(--amber-l)':''; });
 }
 
 function gsearchSelect(i) {
   const res = gsearchResults[i]; if (!res) return;
   closeGsearch();
-  document.getElementById('gsearch-input').value = '';
+  document.getElementById('gsearch-input').value='';
   document.getElementById('gsearch-clear').classList.remove('visible');
-  // Check if already in library
-  const inLib = books.find(b => b.olKey === res.key || b.title.toLowerCase() === res.title.toLowerCase());
-  if (inLib) {
-    openBookPage(inLib.id);
-  } else {
-    openUnreadBookPage(res);
-  }
+  const isbn = res.isbn?.[0] || null;
+  const inLib = books.find(b => (isbn && b.isbn===isbn) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
+  if (inLib) openBookPage(inLib.id);
+  else openUnreadBookPage(res);
 }
 
-// Close search when clicking outside
 document.addEventListener('click', e => {
   if (!document.getElementById('gsearch-wrap')?.contains(e.target)) closeGsearch();
 });
 
 /* ── UNREAD BOOK PAGE ──────────────────────────────────────────────────── */
 async function openUnreadBookPage(olBook) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('p-book').classList.add('on');
+  const author = (olBook.author_name||[]).slice(0,2).join(', ')||'Unknown author';
+  const isbn = olBook.isbn?.[0]||null;
+  const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : null;
 
-  const author = (olBook.author_name || []).slice(0,2).join(', ') || 'Unknown author';
-  const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i, 'L') : null;
+  // Pre-cache metadata for this book
+  if (isbn && !getMeta(isbn)) {
+    const fakeBook = { isbn, ol_key: olBook.key, manual_title: olBook.title, manual_author: author };
+    await fetchMetaForBook(fakeBook);
+  }
+  const meta = isbn ? getMeta(isbn) : null;
+  const desc = meta?.description || '';
 
   document.getElementById('p-book').innerHTML = `<div class="bp">
-    <div class="bp-nav">
-      <div class="bp-back" onclick="go('library')">← Back</div>
-    </div>
+    <div class="bp-nav"><div class="bp-back" onclick="go('library')">← Back</div></div>
     <div class="bp-unread-banner">
       <div class="bp-unread-text">This book isn't in your library yet.</div>
       <div class="bp-add-btns">
-        <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(olBook.key)}','${esc(olBook.title)}','${esc(author)}',${olBook.cover_i||'null'},${olBook.first_publish_year||'null'},${olBook.number_of_pages_median||'null'})">+ Add to TBR</button>
-        <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(olBook.key)}','${esc(olBook.title)}','${esc(author)}',${olBook.cover_i||'null'},${olBook.first_publish_year||'null'},${olBook.number_of_pages_median||'null'})">+ Currently reading</button>
+        <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Add to TBR</button>
+        <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Currently reading</button>
         <button class="bp-add-btn bp-add-btn-finished" onclick="go('add')">+ Add as finished</button>
       </div>
     </div>
     <div class="bp-hero">
-      <div class="bp-img">
-        ${coverSrc ? `<img src="${coverSrc}" alt="${esc(olBook.title)}" loading="lazy">` : `<div class="bp-img-ph"><span>${esc(olBook.title)}</span></div>`}
-      </div>
+      <div class="bp-img">${coverSrc?`<img src="${coverSrc}" alt="${esc(olBook.title)}" loading="lazy">`:`<div class="bp-img-ph"><span>${esc(olBook.title)}</span></div>`}</div>
       <div>
         <div class="bp-title">${esc(olBook.title)}</div>
-        <div class="bp-author">${esc(author)}${olBook.first_publish_year ? ' · ' + olBook.first_publish_year : ''}</div>
-        <div id="unread-desc" style="font-size:14px;line-height:1.7;color:var(--tx1);margin-top:10px">Loading description…</div>
+        <div class="bp-author">${esc(author)}${olBook.first_publish_year?' · '+olBook.first_publish_year:''}</div>
+        ${desc?`<div style="font-size:14px;line-height:1.7;color:var(--tx1);margin-top:10px">${desc}</div>`:'<div id="unread-desc-loading" style="font-size:13px;color:var(--tx1);margin-top:10px">Loading description…</div>'}
       </div>
     </div>
     <div class="bp-body">
       <div>
         <div class="ai-sec">
-          <div class="ai-head">
-            <div class="ai-t">Would you like this book?</div>
-            <button class="ai-btn" id="ai-gen-btn" onclick="genUnreadAnalysis('${esc(olBook.key)}','${esc(olBook.title)}','${esc(author)}')">✦ Analyse for me</button>
+          <div class="ai-head"><div class="ai-t">Would you like this book?</div>
+            <button class="ai-btn" id="ai-gen-btn" onclick="genUnreadAnalysis('${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">✦ Analyse for me</button>
           </div>
           <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click to get a personalised take based on your reading history.</div></div>
-        </div>
-        <div class="sim-sec">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div class="ai-t">Similar books in your library</div>
-          </div>
-          <div id="sim-result">${renderSimilarFromLibrary(olBook.title, author)}</div>
         </div>
       </div>
       <div>
@@ -586,116 +703,48 @@ async function openUnreadBookPage(olBook) {
       </div>
     </div>
   </div>`;
-
   loadUnreadOLData(olBook);
-}
-
-function renderSimilarFromLibrary(title, author) {
-  // Show books by same author or same genre as a starting point
-  const sameAuthor = books.filter(b =>
-    b.author.toLowerCase().includes(author.split(' ').slice(-1)[0].toLowerCase()) &&
-    b.status === 'finished'
-  ).slice(0, 3);
-  if (!sameAuthor.length) return `<div style="font-size:13px;color:var(--tx1);font-style:italic">Use "Find similar" on books in your library to discover related reads.</div>`;
-  return sameAuthor.map(b => {
-    return `<div class="sim-book" onclick="openBookPage('${b.id}')">
-      ${b.coverId ? `<img class="sim-cover" src="${cUrl(b.coverId,'S')}" alt="" loading="lazy">` : `<div class="sim-cover-ph">📖</div>`}
-      <div style="flex:1;min-width:0">
-        <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${b.title}</div>
-        <div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${b.author}</div>
-        <span class="sim-inlib">In your library · ${b.rating}/10</span>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 async function loadUnreadOLData(olBook) {
   try {
-    if (!olBook.key) return;
+    if (!olBook.key) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">No data available.</div>'; return; }
     const r = await fetch(`https://openlibrary.org${olBook.key}.json`);
     const work = await r.json();
-    const desc = typeof work.description === 'string'
-      ? work.description : (work.description?.value || '');
-    if (desc) {
-      document.getElementById('unread-desc').textContent = desc.slice(0, 500) + (desc.length > 500 ? '…' : '');
-    } else {
-      document.getElementById('unread-desc').textContent = 'No description available.';
-    }
-    const ra = work.ratings_average ? parseFloat(work.ratings_average).toFixed(1) : null;
-    const rc = work.ratings_count ? work.ratings_count.toLocaleString() : null;
+    const ra = work.ratings_average?parseFloat(work.ratings_average).toFixed(1):null;
+    const rc = work.ratings_count?work.ratings_count.toLocaleString():null;
     document.getElementById('ol-data').innerHTML =
-      `${ra ? `<div style="margin-bottom:10px"><div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div><div style="font-size:12px;color:var(--tx1)">On Open Library${rc ? ' · '+rc+' ratings' : ''}</div></div>` : ''}
-       ${work.first_publish_date ? `<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>` : ''}`;
-  } catch(e) {
-    document.getElementById('ol-data').innerHTML = '<div style="font-size:12px;color:var(--tx1)">Could not load data.</div>';
-    if (document.getElementById('unread-desc'))
-      document.getElementById('unread-desc').textContent = 'Could not load description.';
-  }
+      `${ra?`<div style="margin-bottom:10px"><div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div><div style="font-size:12px;color:var(--tx1)">On Open Library${rc?' · '+rc+' ratings':''}</div></div>`:''}
+       ${work.first_publish_date?`<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>`:''}`;
+  } catch(e) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
 }
 
-async function quickAddBook(status, olKey, title, author, coverId, year, pages) {
-  const newBook = {
-    num: books.length + 1, title, author,
-    rating: 0, retro: 0,
-    pages: pages || 0, year: year || 0,
-    format: 'Print', genre: '', mood: '', themes: '',
-    fiction: 'Fiction', series: 'Stand-alone',
-    notes: '', start: '', end: '', days: 0, ppd: 0,
-    origin: '', retroThoughts: '',
-    coverId: coverId || null, olKey: olKey || null,
-    isbn: '', description: '', status, importSource: ''
-  };
-  await saveBook(newBook);
-  books.unshift(newBook);
-  renderLibrary();
-  go('library');
-}
-
-async function genUnreadAnalysis(olKey, title, author) {
-  if (!apiKey) { alert('Add your Anthropic API key in the Ask AI tab first.'); return; }
-  const btn = document.getElementById('ai-gen-btn');
-  btn.disabled = true; btn.textContent = 'Generating…';
-  document.getElementById('ai-result').innerHTML = `<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your history…</div>`;
-  const hist = books.filter(x => x.status === 'finished').map(bk =>
-    `"${bk.title}" by ${bk.author}: ${bk.rating}/10 (retro:${bk.retro}/10). Genre:${bk.genre}. Notes:"${bk.notes||'none'}"`
-  ).join('\n');
-  let desc = document.getElementById('unread-desc')?.textContent || '';
+async function quickAddBook(status, isbn, olKey, title, author) {
+  const newBook = { isbn: isbn||null, ol_key: olKey||null, google_id: null, status, start_date: null, end_date: null, rating: null, retro_rating: null, notes: '', retro_thoughts: '', mood: '', themes: '', manual_title: title||null, manual_author: author||null, import_source: '' };
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:600, messages:[{ role:'user', content:
-        `Would this reader enjoy "${title}" by ${author}?\nDescription: ${desc}\nTheir reading history:\n${hist}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`
-      }]})
-    });
-    const data = await r.json(); if (data.error) throw new Error(data.error.message);
-    const text = data.content?.map(c => c.text||'').join('') || '';
-    const pred = text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);
-    const anal = text.match(/ANALYSIS:\s*([\s\S]+)/i);
-    document.getElementById('ai-result').innerHTML =
-      `${pred ? `<div class="ai-pred"><span>Predicted rating</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>` : ''}
-       <div style="font-size:14px;line-height:1.7">${(anal ? anal[1].trim() : text).replace(/\n/g,'<br>')}</div>`;
-  } catch(e) {
-    document.getElementById('ai-result').innerHTML = `<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
-  }
-  btn.disabled = false; btn.innerHTML = '✦ Regenerate';
+    await saveBook(newBook);
+    books.unshift(newBook);
+    renderLibrary(); go('library');
+  } catch(e) { alert('Could not add book: '+e.message); }
 }
 
-/* ── BOOK PAGE (library books) ─────────────────────────────────────────── */
+/* ── BOOK PAGE ─────────────────────────────────────────────────────────── */
 async function openBookPage(bookId) {
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  const b = books.find(x=>x.id===bookId); if (!b) return;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('p-book').classList.add('on');
-  const coverSrc = b.coverId ? cUrl(b.coverId, 'L') : null;
-  const gtags = parseTags(b.genre).map(g => `<span class="bptag bptag-g">${g}</span>`).join('');
-  const mtags = parseTags(b.mood).map(m => `<span class="bptag bptag-m">${m}</span>`).join('');
-  const ttags = parseTags(b.themes).map(t => `<span class="bptag bptag-t">${t}</span>`).join('');
-  const ibadge = b.importSource === 'goodreads'
-    ? '<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from Goodreads — rating converted from 5-star scale</span>'
-    : b.importSource === 'storygraph'
-    ? '<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from StoryGraph</span>' : '';
+
+  const cover = bCover(b);
+  const coverLg = b.isbn && getMeta(b.isbn)?.coverId ? cUrl(getMeta(b.isbn).coverId,'L') : (getMeta(b.isbn)?.googleCover || cover);
+  const title = bTitle(b), author = bAuthor(b), year = bYear(b);
+  const desc = bDesc(b), genre = bGenre(b);
+  const pages = bPages(b), days = bDays(b), ppd = bPPD(b);
   const due = isRetroDue(b);
+  const gtags = parseTags(genre).map(g=>`<span class="bptag bptag-g">${g}</span>`).join('');
+  const mtags = parseTags(b.mood||'').map(m=>`<span class="bptag bptag-m">${m}</span>`).join('');
+  const ttags = parseTags(b.themes||'').map(t=>`<span class="bptag bptag-t">${t}</span>`).join('');
+  const ibadge = b.import_source==='goodreads'?'<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from Goodreads — rating converted from 5-star scale</span>':b.import_source==='storygraph'?'<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from StoryGraph</span>':'';
 
   document.getElementById('p-book').innerHTML = `<div class="bp">
     <div class="bp-nav">
@@ -703,181 +752,184 @@ async function openBookPage(bookId) {
       <button class="bp-edit-btn" onclick="openEdit('${b.id}')">Edit</button>
     </div>
     ${ibadge}
-    ${due ? `<div class="retro-prompt" id="retro-prompt-box">
+    ${due?`<div class="retro-prompt" id="retro-prompt-box">
       <div class="retro-prompt-head"><span class="retro-prompt-icon">✦</span><div class="retro-prompt-title">Time for a retrospective</div></div>
-      <div class="retro-prompt-sub">It's been a year since you finished <em>${b.title}</em>. How do you feel about it now?</div>
+      <div class="retro-prompt-sub">It's been a year since you finished <em>${title}</em>. How do you feel about it now?</div>
       <div class="retro-form">
         <div class="retro-rating-row">
           <span class="retro-rating-label">Retrospective rating</span>
-          <input class="retro-rating-input" type="number" id="retro-rating-inp" min="1" max="10" placeholder="1–10" value="${b.rating}">
+          <input class="retro-rating-input" type="number" id="retro-rating-inp" min="1" max="10" placeholder="1–10" value="${b.rating||''}">
           <span style="font-size:12px;color:var(--tx1)">out of 10</span>
         </div>
-        <textarea class="retro-textarea" id="retro-thoughts-inp" placeholder="What do you remember? Has your opinion changed?">${b.retroThoughts || ''}</textarea>
+        <textarea class="retro-textarea" id="retro-thoughts-inp" placeholder="What do you remember? Has your opinion changed?">${b.retro_thoughts||''}</textarea>
         <button class="retro-save-btn" onclick="saveRetro('${b.id}')">Save reflection</button>
       </div>
-    </div>` : ''}
+    </div>`:''}
     <div class="bp-hero">
-      <div class="bp-img">
-        ${coverSrc ? `<img src="${coverSrc}" alt="${b.title}" loading="lazy">` : `<div class="bp-img-ph"><span>${b.title}</span></div>`}
-      </div>
+      <div class="bp-img">${coverLg?`<img src="${coverLg}" alt="${title}" loading="lazy">`:`<div class="bp-img-ph"><span>${title}</span></div>`}</div>
       <div>
-        <div class="bp-title">${b.title}</div>
-        <div class="bp-author">${b.author}${b.year ? ' · '+b.year : ''}</div>
-        <div class="bp-tags">${gtags}${mtags}${ttags}<span class="bptag">${b.format}</span><span class="bptag">${b.series}</span></div>
+        <div class="bp-title">${title}</div>
+        <div class="bp-author">${author}${year?' · '+year:''}</div>
+        <div class="bp-tags">${gtags}${mtags}${ttags}</div>
         <div class="bp-scores">
           <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating||'—'}<span style="font-size:12px;opacity:.6">${b.rating?'/10':''}</span></div>${b.rating?`<div class="bps-stars">${toStars(b.rating)}</div>`:''}</div>
-          <div class="bps"><div class="bps-l">Retrospective</div><div class="bps-v ${scC(b.retro)}">${b.retro||'—'}<span style="font-size:12px;opacity:.6">${b.retro?'/10':''}</span></div>${b.retro?`<div class="bps-stars">${toStars(b.retro)}</div>`:''}</div>
-          <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${b.pages||'—'}</div></div>
-          <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${b.ppd?Math.round(b.ppd):'—'}<span style="font-size:10px;opacity:.6">${b.ppd?' p/d':''}</span></div></div>
+          <div class="bps"><div class="bps-l">Retrospective</div><div class="bps-v ${scC(b.retro_rating)}">${b.retro_rating||'—'}<span style="font-size:12px;opacity:.6">${b.retro_rating?'/10':''}</span></div>${b.retro_rating?`<div class="bps-stars">${toStars(b.retro_rating)}</div>`:''}</div>
+          <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages||'—'}</div></div>
+          <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${ppd||'—'}<span style="font-size:10px;opacity:.6">${ppd?' p/d':''}</span></div></div>
         </div>
         <div class="bp-ri">
-          ${b.start?`<div class="bp-ri-item"><div class="bp-ri-l">Started</div><div>${new Date(b.start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
-          ${b.end?`<div class="bp-ri-item"><div class="bp-ri-l">Finished</div><div>${new Date(b.end).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
-          ${b.days?`<div class="bp-ri-item"><div class="bp-ri-l">Duration</div><div>${b.days} days</div></div>`:''}
-          ${b.origin?`<div class="bp-ri-item"><div class="bp-ri-l">Source</div><div>${b.origin}</div></div>`:''}
+          ${b.start_date?`<div class="bp-ri-item"><div class="bp-ri-l">Started</div><div>${new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
+          ${b.end_date?`<div class="bp-ri-item"><div class="bp-ri-l">Finished</div><div>${new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
+          ${days?`<div class="bp-ri-item"><div class="bp-ri-l">Duration</div><div>${days} days</div></div>`:''}
         </div>
       </div>
     </div>
     <div class="bp-body">
       <div>
-        ${b.description?`<div class="bpsec"><div class="bpsec-t">About this book</div><div style="font-size:14px;line-height:1.7">${b.description}</div></div>`:''}
+        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div><div style="font-size:14px;line-height:1.7">${desc}</div></div>`:''}
         ${b.notes?`<div class="bpsec"><div class="bpsec-t">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
-        ${b.retroThoughts?`<div class="bpsec"><div class="retro-pill">Retrospective</div><div style="font-size:14px;line-height:1.7;margin-top:6px">${b.retroThoughts}</div></div>`:''}
+        ${b.retro_thoughts?`<div class="bpsec"><div class="retro-pill">Retrospective</div><div style="font-size:14px;line-height:1.7;margin-top:6px">${b.retro_thoughts}</div></div>`:''}
         <div class="ai-sec">
           <div class="ai-head"><div class="ai-t">AI analysis for you</div><button class="ai-btn" id="ai-gen-btn" onclick="genAnalysis('${b.id}')">✦ Generate analysis</button></div>
-          <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click "Generate analysis" for a personalised take based on your reading history.</div></div>
+          <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for a personalised take based on your reading history.</div></div>
         </div>
         <div class="sim-sec">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <div class="ai-t">Similar books you might enjoy</div>
             <button class="ai-btn" id="sim-btn" onclick="genSimilar('${b.id}')" style="background:var(--purple)">✦ Find similar</button>
           </div>
-          <div id="sim-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click "Find similar" for AI-curated recommendations.</div></div>
+          <div id="sim-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for AI-curated recommendations.</div></div>
         </div>
       </div>
       <div>
         <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-        <div class="scard"><div class="scard-t">Also by ${b.author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+        <div class="scard"><div class="scard-t">Also by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
       </div>
     </div>
   </div>`;
   loadOLData(b); loadAlsoBy(b);
 }
 
-/* ── RETRO SAVE ────────────────────────────────────────────────────────── */
 async function saveRetro(bookId) {
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  const rating = parseFloat(document.getElementById('retro-rating-inp').value) || 0;
-  const thoughts = document.getElementById('retro-thoughts-inp').value.trim();
-  b.retro = rating; b.retroThoughts = thoughts;
+  const b = books.find(x=>x.id===bookId); if (!b) return;
+  b.retro_rating = parseFloat(document.getElementById('retro-rating-inp').value)||0;
+  b.retro_thoughts = document.getElementById('retro-thoughts-inp').value.trim();
   await saveBook(b);
   document.getElementById('retro-prompt-box').innerHTML =
-    `<div style="padding:14px;font-size:13px;color:var(--teal);background:var(--teal-l);border-radius:var(--rl)">✓ Reflection saved. Retrospective rating: ${rating}/10</div>`;
-  chartsDrawn = false;
-  renderRetroDue();
-  renderBooks();
+    `<div style="padding:14px;font-size:13px;color:var(--teal);background:var(--teal-l);border-radius:var(--rl)">✓ Reflection saved. Retrospective rating: ${b.retro_rating}/10</div>`;
+  chartsDrawn=false; renderRetroDue(); renderBooks();
 }
 
-/* ── OL DATA ───────────────────────────────────────────────────────────── */
 async function loadOLData(b) {
+  const olKey = b.ol_key || getMeta(b.isbn)?.olKey;
   try {
-    if (!b.olKey) {
-      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}&author=${encodeURIComponent(b.author)}&limit=1`);
-      const d = await r.json(); const doc = d.docs?.[0];
-      if (doc) { b.olKey = doc.key||null; b.coverId = b.coverId||doc.cover_i||null; await saveBook(b); }
-    }
-    if (!b.olKey) { document.getElementById('ol-data').innerHTML = '<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>'; return; }
-    const r2 = await fetch(`https://openlibrary.org${b.olKey}.json`); const work = await r2.json();
-    const desc = typeof work.description === 'string' ? work.description : (work.description?.value||'');
-    if (desc && !b.description) { b.description = desc.slice(0,400)+(desc.length>400?'…':''); await saveBook(b); }
-    const ra = work.ratings_average ? parseFloat(work.ratings_average).toFixed(1) : null;
-    const rc = work.ratings_count ? work.ratings_count.toLocaleString() : null;
+    if (!olKey) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>'; return; }
+    const r = await fetch(`https://openlibrary.org${olKey}.json`); const work = await r.json();
+    const ra = work.ratings_average?parseFloat(work.ratings_average).toFixed(1):null;
+    const rc = work.ratings_count?work.ratings_count.toLocaleString():null;
     document.getElementById('ol-data').innerHTML =
       `${ra?`<div style="margin-bottom:10px"><div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div><div style="font-size:12px;color:var(--tx1)">On Open Library${rc?' · '+rc+' ratings':''}</div></div>`:''}
        ${work.first_publish_date?`<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>`:''}
        ${b.isbn?`<div class="ol-row"><span style="color:var(--tx2)">ISBN</span><span style="font-family:monospace;font-size:11px">${b.isbn}</span></div>`:''}`;
-  } catch(e) { document.getElementById('ol-data').innerHTML = '<div style="font-size:12px;color:var(--tx1)">Could not load data.</div>'; }
+  } catch(e) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
 }
 
 async function loadAlsoBy(b) {
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(b.author)}&limit=6&fields=key,title,cover_i,first_publish_year`);
+    const author = bAuthor(b);
+    const r = await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(author)}&limit=6&fields=key,title,cover_i,first_publish_year,isbn`);
     const d = await r.json();
-    const others = (d.docs||[]).filter(x => x.title.toLowerCase() !== b.title.toLowerCase()).slice(0,4);
-    if (!others.length) { document.getElementById('also-by').innerHTML = '<div style="font-size:12px;color:var(--tx1)">No other works found.</div>'; return; }
+    const others = (d.docs||[]).filter(x=>x.title.toLowerCase()!==bTitle(b).toLowerCase()).slice(0,4);
+    if (!others.length) { document.getElementById('also-by').innerHTML='<div style="font-size:12px;color:var(--tx1)">No other works found.</div>'; return; }
     document.getElementById('also-by').innerHTML = others.map(w => {
-      const inLib = books.find(x => x.title.toLowerCase() === w.title.toLowerCase());
-      const olData = {key:w.key, title:w.title, author_name:[b.author], cover_i:w.cover_i, first_publish_year:w.first_publish_year};
-      const clickFn = inLib
-        ? `openBookPage('${inLib.id}')`
-        : `openUnreadBookPage(${JSON.stringify(olData).replace(/'/g,"\'")})`;
-      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;transition:background .12s;border-radius:var(--r);padding:7px 6px;margin:0 -6px" onclick="${clickFn}" onmouseenter="this.style.background='var(--amber-l)'" onmouseleave="this.style.background=''">
+      const inLib = books.find(x => bTitle(x).toLowerCase()===w.title.toLowerCase() || (w.isbn?.[0] && x.isbn===w.isbn?.[0]));
+      const olData = {key:w.key,title:w.title,author_name:[author],cover_i:w.cover_i,first_publish_year:w.first_publish_year,isbn:w.isbn};
+      const clickFn = inLib ? `openBookPage('${inLib.id}')` : `openUnreadBookPage(${JSON.stringify(olData).replace(/"/g,"'").replace(/'/g,'"')})`;
+      return `<div style="display:flex;gap:9px;padding:7px 6px;border-bottom:0.5px solid var(--bd);cursor:pointer;border-radius:var(--r);margin:0 -6px" onclick="${clickFn}" onmouseenter="this.style.background='var(--amber-l)'" onmouseleave="this.style.background=''">
         ${w.cover_i?`<img src="${cUrl(w.cover_i,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
         <div style="flex:1;min-width:0">
           <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
           ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:1px">${w.first_publish_year}</div>`:''}
-          ${inLib
-            ?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">In library · ${inLib.rating}/10</div>`
-            :`<div style="font-size:10px;color:var(--amber);margin-top:2px">Tap to view →</div>`}
+          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">In library · ${inLib.rating}/10</div>`:`<div style="font-size:10px;color:var(--amber);margin-top:2px">Tap to view →</div>`}
         </div>
       </div>`;
     }).join('');
-  } catch(e) { document.getElementById('also-by').innerHTML = '<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
+  } catch(e) { document.getElementById('also-by').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
 }
 
 /* ── AI ────────────────────────────────────────────────────────────────── */
-async function genAnalysis(bookId) {
-  if (!apiKey) { alert('Add your Anthropic API key in the Ask AI tab first.'); return; }
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  const btn = document.getElementById('ai-gen-btn'); btn.disabled=true; btn.textContent='Generating…';
-  document.getElementById('ai-result').innerHTML = `<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your history…</div>`;
-  const hist = books.filter(x => x.status==='finished').map(bk =>
-    `"${bk.title}" by ${bk.author}: ${bk.rating}/10 (retro:${bk.retro}/10). Genre:${bk.genre}. Mood:${bk.mood}. Notes:"${bk.notes||'none'}"`
+function booksCtxStr() {
+  return books.filter(b=>b.status==='finished').map(b=>
+    `"${bTitle(b)}" by ${bAuthor(b)}: ${b.rating||'?'}/10 (retro:${b.retro_rating||'?'}/10). Genre:${bGenre(b)}. Mood:${b.mood||''}. Notes:"${b.notes||'none'}"`
   ).join('\n');
+}
+
+async function callClaude(prompt, maxTokens=600) {
+  const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
+  const data = await r.json(); if (data.error) throw new Error(data.error.message);
+  return data.content?.map(c=>c.text||'').join('')||'';
+}
+
+async function genAnalysis(bookId) {
+  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
+  const b=books.find(x=>x.id===bookId);if(!b)return;
+  const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
+  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your history…</div>`;
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:`Analyse whether this reader will enjoy "${b.title}" by ${b.author}.\nHistory:\n${hist}\nGenre:${b.genre} Mood:${b.mood}\nDescription:${b.description||'N/A'}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`}]})});
-    const data = await r.json(); if (data.error) throw new Error(data.error.message);
-    const text = data.content?.map(c=>c.text||'').join('')||'';
-    const pred = text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);
-    const anal = text.match(/ANALYSIS:\s*([\s\S]+)/i);
-    document.getElementById('ai-result').innerHTML =
+    const text = await callClaude(`Analyse whether this reader will enjoy "${bTitle(b)}" by ${bAuthor(b)}.\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)} Mood:${b.mood||''}\nDescription:${bDesc(b)||'N/A'}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`);
+    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);const anal=text.match(/ANALYSIS:\s*([\s\S]+)/i);
+    document.getElementById('ai-result').innerHTML=
       `${pred?`<div class="ai-pred"><span>Predicted rating</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
        <div style="font-size:14px;line-height:1.7">${(anal?anal[1].trim():text).replace(/\n/g,'<br>')}</div>`;
-  } catch(e) { document.getElementById('ai-result').innerHTML = `<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`; }
-  btn.disabled=false; btn.innerHTML='✦ Regenerate';
+  }catch(e){document.getElementById('ai-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
+  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+}
+
+async function genUnreadAnalysis(olKey, title, author) {
+  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
+  const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
+  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing…</div>`;
+  try {
+    const text = await callClaude(`Would this reader enjoy "${title}" by ${author}?\nHistory:\n${booksCtxStr()}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`);
+    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);const anal=text.match(/ANALYSIS:\s*([\s\S]+)/i);
+    document.getElementById('ai-result').innerHTML=
+      `${pred?`<div class="ai-pred"><span>Predicted rating</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
+       <div style="font-size:14px;line-height:1.7">${(anal?anal[1].trim():text).replace(/\n/g,'<br>')}</div>`;
+  }catch(e){document.getElementById('ai-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
+  btn.disabled=false;btn.innerHTML='✦ Regenerate';
 }
 
 async function genSimilar(bookId) {
-  if (!apiKey) { alert('Add your Anthropic API key in the Ask AI tab first.'); return; }
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  const btn = document.getElementById('sim-btn'); btn.disabled=true; btn.textContent='Finding…';
-  document.getElementById('sim-result').innerHTML = `<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Finding recommendations…</div>`;
-  const hist = books.filter(x => x.status==='finished').map(bk => `"${bk.title}" by ${bk.author}: ${bk.rating}/10`).join(', ');
+  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
+  const b=books.find(x=>x.id===bookId);if(!b)return;
+  const btn=document.getElementById('sim-btn');btn.disabled=true;btn.textContent='Finding…';
+  document.getElementById('sim-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Finding recommendations…</div>`;
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:`Suggest 4 books similar to "${b.title}" by ${b.author} for this reader.\nLibrary:${hist}\nGenre:${b.genre} Mood:${b.mood}\nDo NOT suggest books in their library.\nRespond ONLY with JSON:\n[{"title":"...","author":"...","reason":"one sentence why"}]`}]})});
-    const data = await r.json(); if (data.error) throw new Error(data.error.message);
-    let recs = []; try { recs = JSON.parse(data.content?.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim()); } catch(e) {}
-    if (!recs.length) { document.getElementById('sim-result').innerHTML='<div style="font-size:13px;color:var(--tx1)">Could not generate recommendations.</div>'; return; }
-    document.getElementById('sim-result').innerHTML = '<div id="sim-list"></div>';
-    for (const rec of recs) {
-      const inLib = books.find(x => x.title.toLowerCase() === rec.title.toLowerCase());
-      let coverId = inLib?.coverId || null;
-      if (!coverId) { try { const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i`);const sd=await sr.json();coverId=sd.docs?.[0]?.cover_i||null; } catch(e){} }
-      const card = document.createElement('div'); card.className='sim-book';
-      if (inLib) card.onclick = () => openBookPage(inLib.id);
-      card.innerHTML = `${coverId?`<img class="sim-cover" src="${cUrl(coverId,'S')}" alt="" loading="lazy">`:`<div class="sim-cover-ph">📖</div>`}<div style="flex:1;min-width:0"><div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${rec.title}</div><div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${rec.author}</div><div style="font-size:11px;color:var(--tx2);line-height:1.4">${rec.reason}</div>${inLib?`<span class="sim-inlib">In library · ${inLib.rating}/10</span>`:''}</div>`;
+    const hist=books.filter(x=>x.status==='finished').map(bk=>`"${bTitle(bk)}" by ${bAuthor(bk)}: ${bk.rating||'?'}/10`).join(', ');
+    const text = await callClaude(`Suggest 4 books similar to "${bTitle(b)}" by ${bAuthor(b)} for this reader.\nLibrary:${hist}\nDo NOT suggest books in their library.\nRespond ONLY with JSON:\n[{"title":"...","author":"...","reason":"one sentence why"}]`);
+    let recs=[];try{recs=JSON.parse(text.replace(/```json|```/g,'').trim());}catch(e){}
+    if(!recs.length){document.getElementById('sim-result').innerHTML='<div style="font-size:13px;color:var(--tx1)">Could not generate recommendations.</div>';return;}
+    document.getElementById('sim-result').innerHTML='<div id="sim-list"></div>';
+    for(const rec of recs){
+      const inLib=books.find(x=>bTitle(x).toLowerCase()===rec.title.toLowerCase());
+      let coverUrl=inLib?bCover(inLib):null;
+      if(!coverUrl){try{const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i`);const sd=await sr.json();const cid=sd.docs?.[0]?.cover_i;if(cid)coverUrl=cUrl(cid,'S');}catch(e){}}
+      const card=document.createElement('div');card.className='sim-book';
+      if(inLib)card.onclick=()=>openBookPage(inLib.id);
+      card.innerHTML=`${coverUrl?`<img class="sim-cover" src="${coverUrl}" alt="" loading="lazy">`:`<div class="sim-cover-ph">📖</div>`}<div style="flex:1;min-width:0"><div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${rec.title}</div><div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${rec.author}</div><div style="font-size:11px;color:var(--tx2);line-height:1.4">${rec.reason}</div>${inLib?`<span class="sim-inlib">In library · ${inLib.rating}/10</span>`:''}</div>`;
       document.getElementById('sim-list')?.appendChild(card);
     }
-  } catch(e) { document.getElementById('sim-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`; }
-  btn.disabled=false; btn.innerHTML='✦ Regenerate';
+  }catch(e){document.getElementById('sim-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
+  btn.disabled=false;btn.innerHTML='✦ Regenerate';
 }
 
 /* ── EDIT / DELETE MODALS ──────────────────────────────────────────────── */
 function openEdit(bookId) {
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  document.getElementById('edit-body').innerHTML = `
+  const b=books.find(x=>x.id===bookId);if(!b)return;
+  const title=bTitle(b);
+  document.getElementById('edit-body').innerHTML=`
     <button class="modal-x" onclick="document.getElementById('edit-modal').classList.remove('on')">×</button>
-    <div class="modal-title">Edit — ${b.title}</div>
+    <div class="modal-title">Edit — ${title}</div>
     <div class="fgrid" style="margin-bottom:12px">
       <div class="fg"><label class="fl">Status</label>
         <select class="fi" id="e-status">
@@ -887,18 +939,14 @@ function openEdit(bookId) {
         </select>
       </div>
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="e-rating" min="1" max="10" value="${b.rating||''}"></div>
-      <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro||''}"></div>
-      <div class="fg"><label class="fl">Format</label>
-        <select class="fi" id="e-format">${['Print','Paperback','Hardcover','EBook','Audiobook'].map(f=>`<option${b.format===f?' selected':''}>${f}</option>`).join('')}</select>
-      </div>
-      <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start||''}"></div>
-      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end||''}"></div>
+      <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro_rating||''}"></div>
+      <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}"></div>
     </div>
-    <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildTagInput('e-genre',b.genre,'genre',GENRES)}</div>
-    <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood,'mood',MOODS)}</div>
-    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes,'theme',THEMES)}</div>
-    <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="e-notes">${b.notes}</textarea></div>
-    <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="e-retro-notes">${b.retroThoughts}</textarea></div>
+    <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
+    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
+    <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="e-notes">${b.notes||''}</textarea></div>
+    <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="e-retro-notes">${b.retro_thoughts||''}</textarea></div>
     <div class="form-acts">
       <button class="btn-ghost" onclick="document.getElementById('edit-modal').classList.remove('on')">Cancel</button>
       <button class="btn-primary" onclick="saveEdit('${b.id}')">Save changes</button>
@@ -907,30 +955,26 @@ function openEdit(bookId) {
 }
 
 async function saveEdit(bookId) {
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  const start = document.getElementById('e-start').value;
-  const end   = document.getElementById('e-end').value;
-  b.status = document.getElementById('e-status').value;
-  b.rating = parseFloat(document.getElementById('e-rating').value)||0;
-  b.retro  = parseFloat(document.getElementById('e-retro').value)||0;
-  b.format = document.getElementById('e-format').value;
-  b.start = start; b.end = end;
-  b.days = (start&&end) ? Math.max(1,Math.round((new Date(end)-new Date(start))/86400000)) : b.days;
-  b.ppd  = b.days > 0 ? b.pages/b.days : b.ppd;
-  b.genre = getTagVal('e-genre'); b.mood = getTagVal('e-mood'); b.themes = getTagVal('e-themes');
-  b.notes = document.getElementById('e-notes').value.trim();
-  b.retroThoughts = document.getElementById('e-retro-notes').value.trim();
+  const b=books.find(x=>x.id===bookId);if(!b)return;
+  b.status=document.getElementById('e-status').value;
+  b.rating=parseFloat(document.getElementById('e-rating').value)||null;
+  b.retro_rating=parseFloat(document.getElementById('e-retro').value)||null;
+  b.start_date=document.getElementById('e-start').value||null;
+  b.end_date=document.getElementById('e-end').value||null;
+  b.mood=getTagVal('e-mood');b.themes=getTagVal('e-themes');
+  b.notes=document.getElementById('e-notes').value.trim();
+  b.retro_thoughts=document.getElementById('e-retro-notes').value.trim();
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
-  chartsDrawn = false; renderLibrary();
+  chartsDrawn=false;renderLibrary();
 }
 
 function openDel(bookId) {
-  const b = books.find(x => x.id === bookId); if (!b) return;
-  document.getElementById('del-body').innerHTML = `
+  const b=books.find(x=>x.id===bookId);if(!b)return;
+  document.getElementById('del-body').innerHTML=`
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
     <div class="modal-title">Remove book</div>
-    <p style="font-size:13px;line-height:1.6;margin-bottom:18px;color:var(--tx1)">Are you sure you want to remove <strong>${b.title}</strong>? This cannot be undone.</p>
+    <p style="font-size:13px;line-height:1.6;margin-bottom:18px;color:var(--tx1)">Are you sure you want to remove <strong>${bTitle(b)}</strong>? This cannot be undone.</p>
     <div class="form-acts">
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
       <button class="btn-danger" onclick="confirmDel('${bookId}')">Remove</button>
@@ -939,153 +983,93 @@ function openDel(bookId) {
 }
 
 async function confirmDel(bookId) {
-  const ok = await deleteBook(bookId);
-  if (ok) books = books.filter(x => x.id !== bookId);
+  const ok=await deleteBookById(bookId);
+  if(ok)books=books.filter(x=>x.id!==bookId);
   document.getElementById('del-modal').classList.remove('on');
-  chartsDrawn = false; renderLibrary();
+  chartsDrawn=false;renderLibrary();
 }
 
-function maybeClose(e, id) { if (e.target.id === id) document.getElementById(id).classList.remove('on'); }
+function maybeClose(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('on');}
 
 /* ── TAG SYSTEM ────────────────────────────────────────────────────────── */
-function buildTagInput(id, value, type, suggs) {
-  const tags = parseTags(value);
-  const chips = tags.map(t =>
-    `<span class="tchip tchip-${type}" data-tag="${esc(t)}">${esc(t)}<span class="tchip-x" onclick="removeTag('${id}','${escQ(t)}')">×</span></span>`
-  ).join('');
-  const suggBtns = suggs.filter(s => !tags.includes(s)).slice(0,10).map(s =>
-    `<button class="tsugg" onclick="addTag('${id}','${escQ(s)}','${type}')">${esc(s)}</button>`
-  ).join('');
-  return `<div class="tag-wrap" id="${id}-wrap" onclick="document.getElementById('${id}-in').focus()">${chips}<input class="tag-txt" id="${id}-in" placeholder="Type and press Enter…" onkeydown="tagKey(event,'${id}','${type}')"></div><div class="tag-sugg">${suggBtns}</div>`;
+function buildTagInput(id,value,type,suggs){
+  const tags=parseTags(value);
+  const chips=tags.map(t=>`<span class="tchip tchip-${type}" data-tag="${esc(t)}">${esc(t)}<span class="tchip-x" onclick="removeTag('${id}','${escQ(t)}')">×</span></span>`).join('');
+  const suggBtns=suggs.filter(s=>!tags.includes(s)).slice(0,10).map(s=>`<button class="tsugg" onclick="addTag('${id}','${escQ(s)}','${type}')">${esc(s)}</button>`).join('');
+  return`<div class="tag-wrap" id="${id}-wrap" onclick="document.getElementById('${id}-in').focus()">${chips}<input class="tag-txt" id="${id}-in" placeholder="Type and press Enter…" onkeydown="tagKey(event,'${id}','${type}')"></div><div class="tag-sugg">${suggBtns}</div>`;
 }
-
-function addTag(id, tag, type) {
-  const wrap = document.getElementById(id+'-wrap'); if (!wrap) return;
-  const existing = [...wrap.querySelectorAll('.tchip')].map(el => el.dataset.tag);
-  if (existing.includes(tag)) return;
-  const chip = document.createElement('span'); chip.className=`tchip tchip-${type}`; chip.dataset.tag=tag;
-  chip.innerHTML = `${esc(tag)}<span class="tchip-x" onclick="removeTag('${id}','${escQ(tag)}')">×</span>`;
-  wrap.insertBefore(chip, document.getElementById(id+'-in'));
-  const sw = wrap.nextElementSibling;
-  if (sw) { const btn=[...sw.querySelectorAll('.tsugg')].find(b=>b.textContent===tag); if(btn)btn.style.display='none'; }
-}
-
-function removeTag(id, tag) {
-  const wrap = document.getElementById(id+'-wrap'); if (!wrap) return;
-  const chip = [...wrap.querySelectorAll('.tchip')].find(c => c.dataset.tag===tag); if(chip)chip.remove();
-  const sw = wrap.nextElementSibling;
-  if (sw) { const btn=[...sw.querySelectorAll('.tsugg')].find(b=>b.textContent===tag); if(btn)btn.style.display=''; }
-}
-
-function tagKey(e, id, type) {
-  const inp = e.target;
-  if ((e.key==='Enter'||e.key===',') && inp.value.trim()) { e.preventDefault(); addTag(id,inp.value.trim(),type); inp.value=''; }
-  if (e.key==='Backspace' && !inp.value) {
-    const wrap = document.getElementById(id+'-wrap');
-    const chips = [...wrap.querySelectorAll('.tchip')];
-    if (chips.length) removeTag(id, chips[chips.length-1].dataset.tag);
-  }
-}
-
-function getTagVal(id) {
-  const wrap = document.getElementById(id+'-wrap'); if (!wrap) return '';
-  return joinTags([...wrap.querySelectorAll('.tchip')].map(el => el.dataset.tag));
-}
+function addTag(id,tag,type){const wrap=document.getElementById(id+'-wrap');if(!wrap)return;const existing=[...wrap.querySelectorAll('.tchip')].map(el=>el.dataset.tag);if(existing.includes(tag))return;const chip=document.createElement('span');chip.className=`tchip tchip-${type}`;chip.dataset.tag=tag;chip.innerHTML=`${esc(tag)}<span class="tchip-x" onclick="removeTag('${id}','${escQ(tag)}')">×</span>`;wrap.insertBefore(chip,document.getElementById(id+'-in'));const sw=wrap.nextElementSibling;if(sw){const btn=[...sw.querySelectorAll('.tsugg')].find(b=>b.textContent===tag);if(btn)btn.style.display='none';}}
+function removeTag(id,tag){const wrap=document.getElementById(id+'-wrap');if(!wrap)return;const chip=[...wrap.querySelectorAll('.tchip')].find(c=>c.dataset.tag===tag);if(chip)chip.remove();const sw=wrap.nextElementSibling;if(sw){const btn=[...sw.querySelectorAll('.tsugg')].find(b=>b.textContent===tag);if(btn)btn.style.display='';}}
+function tagKey(e,id,type){const inp=e.target;if((e.key==='Enter'||e.key===',')&&inp.value.trim()){e.preventDefault();addTag(id,inp.value.trim(),type);inp.value='';}if(e.key==='Backspace'&&!inp.value){const wrap=document.getElementById(id+'-wrap');const chips=[...wrap.querySelectorAll('.tchip')];if(chips.length)removeTag(id,chips[chips.length-1].dataset.tag);}}
+function getTagVal(id){const wrap=document.getElementById(id+'-wrap');if(!wrap)return'';return joinTags([...wrap.querySelectorAll('.tchip')].map(el=>el.dataset.tag));}
 
 /* ── ADD BOOK (OL SEARCH) ──────────────────────────────────────────────── */
 async function olSearch() {
-  const q = document.getElementById('ol-q').value.trim(); if (!q) return;
-  const btn = document.getElementById('ol-btn'); btn.disabled=true; btn.textContent='Searching…';
-  selResult=null; selEdition=null;
+  const q=document.getElementById('ol-q').value.trim();if(!q)return;
+  const btn=document.getElementById('ol-btn');btn.disabled=true;btn.textContent='Searching…';
+  selResult=null;selEdition=null;
   document.getElementById('edition-section').style.display='none';
   document.getElementById('book-form').style.display='none';
-  try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median,edition_count`);
-    const d = await r.json(); olResults=d.docs||[]; renderOLR();
-  } catch(e) {
-    document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>';
-    document.getElementById('ol-results').style.display='block';
-  }
-  btn.disabled=false; btn.textContent='Search';
+  try{
+    const r=await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,edition_count`);
+    const d=await r.json();olResults=d.docs||[];renderOLR();
+  }catch(e){document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>';document.getElementById('ol-results').style.display='block';}
+  btn.disabled=false;btn.textContent='Search';
 }
 
-function renderOLR() {
-  const el = document.getElementById('ol-results');
-  if (!olResults.length) { el.innerHTML='<div class="rlist" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>'; el.style.display='block'; return; }
-  el.innerHTML = `<div class="rlist">${olResults.map((r,i) => `
+function renderOLR(){
+  const el=document.getElementById('ol-results');
+  if(!olResults.length){el.innerHTML='<div class="rlist" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>';el.style.display='block';return;}
+  el.innerHTML=`<div class="rlist">${olResults.map((r,i)=>`
     <div class="ritem" id="ri-${i}" onclick="selRes(${i})">
       ${r.cover_i?`<img class="rcover" src="${cUrl(r.cover_i,'S')}" alt="" loading="lazy">`:`<div class="rcover-ph">📖</div>`}
       <div style="flex:1;min-width:0">
         <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:2px">${r.title}</div>
         <div style="font-size:12px;color:var(--tx1);margin-bottom:2px">${(r.author_name||[]).slice(0,2).join(', ')||'Unknown'}</div>
         <div style="font-size:11px;color:var(--tx2)">${[r.first_publish_year,r.edition_count?r.edition_count+' editions':'',r.number_of_pages_median?'~'+r.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
+        ${r.isbn?.[0]?`<div style="font-size:10px;color:var(--tx2);font-family:monospace;margin-top:2px">ISBN: ${r.isbn[0]}</div>`:''}
       </div>
     </div>`).join('')}</div>`;
   el.style.display='block';
 }
 
-async function selRes(i) {
-  document.querySelectorAll('.ritem').forEach(el => el.classList.remove('sel'));
+async function selRes(i){
+  document.querySelectorAll('.ritem').forEach(el=>el.classList.remove('sel'));
   document.getElementById(`ri-${i}`)?.classList.add('sel');
-  selResult=olResults[i]; selEdition=null;
+  selResult=olResults[i];selEdition=null;
   await loadEds(selResult.key);
 }
 
-async function loadEds(key) {
-  const sec = document.getElementById('edition-section');
-  sec.innerHTML=`<div class="edsec"><div style="font-size:12px;color:var(--tx1)">Loading editions…</div></div>`; sec.style.display='block';
-  try {
-    const r = await fetch(`https://openlibrary.org${key}/editions.json?limit=40`); const d = await r.json();
-    editions = (d.entries||[]).map(e => ({
-      key:e.key, publishers:(e.publishers||[]).join(', '), year:e.publish_date||'',
-      isbn13:(e.isbn_13||[])[0]||(e.isbn_10||[])[0]||'',
-      format:gFmt(e), pages:e.number_of_pages||null, coverId:e.covers?.[0]||null
-    }));
+async function loadEds(key){
+  const sec=document.getElementById('edition-section');
+  sec.innerHTML=`<div class="edsec"><div style="font-size:12px;color:var(--tx1)">Loading editions…</div></div>`;sec.style.display='block';
+  try{
+    const r=await fetch(`https://openlibrary.org${key}/editions.json?limit=40`);const d=await r.json();
+    editions=(d.entries||[]).map(e=>({key:e.key,publishers:(e.publishers||[]).join(', '),year:e.publish_date||'',isbn:(e.isbn_13||[])[0]||(e.isbn_10||[])[0]||'',format:gFmt(e),pages:e.number_of_pages||null,coverId:e.covers?.[0]||null}));
     renderEds();
-  } catch(e) { sec.innerHTML='<div class="edsec"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>'; }
+  }catch(e){sec.innerHTML='<div class="edsec"><div style="font-size:13px;color:var(--coral)">Could not load editions.</div></div>';}
 }
 
-function gFmt(e) {
-  const f=(e.physical_format||'').toLowerCase();
-  if(f.includes('ebook')||f.includes('digital'))return'EBook';
-  if(f.includes('audio'))return'Audiobook';
-  if(f.includes('hard'))return'Hardcover';
-  if(f.includes('paper')||f.includes('mass'))return'Paperback';
-  return'Print';
-}
+function gFmt(e){const f=(e.physical_format||'').toLowerCase();if(f.includes('ebook')||f.includes('digital'))return'EBook';if(f.includes('audio'))return'Audiobook';if(f.includes('hard'))return'Hardcover';if(f.includes('paper')||f.includes('mass'))return'Paperback';return'Print';}
 
-function renderEds() {
+function renderEds(){
   const sec=document.getElementById('edition-section');
   const fil=edFilt==='all'?editions:editions.filter(e=>e.format.toLowerCase().includes(edFilt));
-  const fc={}; editions.forEach(e=>{fc[e.format]=(fc[e.format]||0)+1;});
+  const fc={};editions.forEach(e=>{fc[e.format]=(fc[e.format]||0)+1;});
   const fbtns=['all',...Object.keys(fc)].map(f=>`<button class="efilt${edFilt===f?' on':''}" onclick="setEF('${f}')">${f==='all'?'All':f}${f!=='all'?' ('+fc[f]+')':''}</button>`).join('');
-  const rows=fil.slice(0,20).map(e=>{
-    const p=selEdition&&selEdition.key===e.key;
-    return `<div class="edrow${p?' picked':''}" onclick="pickEd(${editions.indexOf(e)})">
-      ${e.coverId?`<img class="edrow-cover" src="${cUrl(e.coverId,'S')}" alt="" loading="lazy">`:`<div class="edrow-cover-ph"></div>`}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500;margin-bottom:2px">${e.format}${e.year?' · '+e.year:''}</div>
-        <div style="font-size:11px;color:var(--tx1)">${e.publishers||'Publisher unknown'}${e.pages?' · '+e.pages+' pages':''}</div>
-        ${e.isbn13?`<div class="isbn-mono">ISBN: ${e.isbn13}</div>`:''}
-      </div>
-    </div>`;
-  }).join('');
-  sec.innerHTML=`<div class="edsec">
-    <div style="font-size:12px;font-weight:500;color:var(--tx1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Select an edition</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${fbtns}</div>
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto">${rows||'<div style="font-size:13px;color:var(--tx1)">No editions match.</div>'}</div>
-  </div>`;
+  const rows=fil.slice(0,20).map(e=>{const p=selEdition&&selEdition.key===e.key;return`<div class="edrow${p?' picked':''}" onclick="pickEd(${editions.indexOf(e)})">${e.coverId?`<img class="edrow-cover" src="${cUrl(e.coverId,'S')}" alt="" loading="lazy">`:`<div class="edrow-cover-ph"></div>`}<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;margin-bottom:2px">${e.format}${e.year?' · '+e.year:''}</div><div style="font-size:11px;color:var(--tx1)">${e.publishers||'Publisher unknown'}${e.pages?' · '+e.pages+' pages':''}</div>${e.isbn?`<div class="isbn-mono">ISBN: ${e.isbn}</div>`:''}</div></div>`;}).join('');
+  sec.innerHTML=`<div class="edsec"><div style="font-size:12px;font-weight:500;color:var(--tx1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Select an edition</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${fbtns}</div><div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto">${rows||'<div style="font-size:13px;color:var(--tx1)">No editions match.</div>'}</div></div>`;
 }
 
 function setEF(f){edFilt=f;renderEds();}
 function pickEd(i){selEdition=editions[i];edFilt='all';renderEds();buildForm();}
 
-function buildForm() {
-  if (!selResult) return;
-  const ed=selEdition||{}; const r=selResult;
+function buildForm(){
+  if(!selResult)return;
+  const ed=selEdition||{};const r=selResult;
   const author=(r.author_name||[]).slice(0,2).join(', ')||'';
   const year=ed.year?.match(/\d{4}/)?.[0]||r.first_publish_year||'';
-  const fmt=ed.format||'Print'; const coverId=ed.coverId||r.cover_i||null; const isbn=ed.isbn13||'';
+  const fmt=ed.format||'Print';const coverId=ed.coverId||r.cover_i||null;const isbn=ed.isbn||r.isbn?.[0]||'';
   document.getElementById('book-form').innerHTML=`<div class="fcard">
     <div class="fcard-title">Add to your library</div>
     <div class="sel-header">
@@ -1101,16 +1085,8 @@ function buildForm() {
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="f-rating" min="1" max="10" placeholder="e.g. 8"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
-      <div class="fg"><label class="fl">Format</label>
-        <select class="fi" id="f-format">${['Print','Paperback','Hardcover','EBook','Audiobook'].map(f=>`<option${f===fmt?' selected':''}>${f}</option>`).join('')}</select>
-      </div>
-      <div class="fg"><label class="fl">Pages</label><input class="fi" type="number" id="f-pages" value="${ed.pages||r.number_of_pages_median||''}"></div>
-      <div class="fg"><label class="fl">Fiction / Nonfiction</label><select class="fi" id="f-fiction"><option>Fiction</option><option>Nonfiction</option></select></div>
-      <div class="fg"><label class="fl">Series</label><select class="fi" id="f-series"><option>Stand-alone</option><option>Series</option></select></div>
-      <div class="fg"><label class="fl">Origin</label><input class="fi" id="f-origin" placeholder="Bookstore, Library…"></div>
     </div>
-    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildTagInput('f-genre',(r.subject||[]).slice(0,3).join(', '),'genre',GENRES)}</div>
-    <div style="margin-bottom:8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('f-mood','','mood',MOODS)}</div>
+    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('f-mood','','mood',MOODS)}</div>
     <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('f-themes','','theme',THEMES)}</div>
     <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="f-notes" placeholder="Thoughts while reading…"></textarea></div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="f-retro" placeholder="How do you feel about it now?"></textarea></div>
@@ -1120,47 +1096,26 @@ function buildForm() {
     </div>
   </div>`;
   document.getElementById('book-form').style.display='block';
+  document.getElementById('book-form').dataset.isbn=isbn;
+  document.getElementById('book-form').dataset.olKey=r.key||'';
   document.getElementById('book-form').dataset.title=r.title;
   document.getElementById('book-form').dataset.author=author;
-  document.getElementById('book-form').dataset.year=year;
   document.getElementById('book-form').dataset.coverId=coverId||'';
-  document.getElementById('book-form').dataset.olKey=r.key||'';
-  document.getElementById('book-form').dataset.genre=(r.subject||[]).slice(0,3).join(', ')||'';
-  document.getElementById('book-form').dataset.isbn=isbn;
+  // Pre-cache metadata
+  if(isbn){setMeta(isbn,{title:r.title,author,year:parseInt(year)||null,coverId:coverId||null,cover:coverId?cUrl(coverId,'L'):null});}
 }
 
-async function submitBook() {
-  const fd = document.getElementById('book-form').dataset;
-  const title = fd.title; if (!title) { alert('No book selected.'); return; }
-  const start = document.getElementById('f-start').value;
-  const end   = document.getElementById('f-end').value;
-  const pages = parseInt(document.getElementById('f-pages').value)||0;
-  const days  = (start&&end) ? Math.max(1,Math.round((new Date(end)-new Date(start))/86400000)) : 0;
-  const rating = parseFloat(document.getElementById('f-rating').value)||0;
-  const btn = document.getElementById('submit-book-btn');
-  btn.disabled=true; btn.textContent='Saving…';
-  const newBook = {
-    num: books.length+1, title, author: fd.author, rating, retro: rating,
-    pages, year: parseInt(fd.year)||new Date().getFullYear(),
-    format: document.getElementById('f-format').value,
-    genre: getTagVal('f-genre'), mood: getTagVal('f-mood'), themes: getTagVal('f-themes'),
-    fiction: document.getElementById('f-fiction').value,
-    series: document.getElementById('f-series').value,
-    notes: document.getElementById('f-notes').value.trim(),
-    start, end, days, ppd: days>0?pages/days:0,
-    origin: document.getElementById('f-origin').value.trim(),
-    retroThoughts: document.getElementById('f-retro').value.trim(),
-    coverId: fd.coverId?parseInt(fd.coverId):null,
-    olKey: fd.olKey||null, isbn: fd.isbn||'', description: '',
-    status: document.getElementById('f-status').value, importSource: ''
-  };
-  await saveBook(newBook);
-  books.unshift(newBook);
-  resetAdd(); renderLibrary(); go('library');
+async function submitBook(){
+  const fd=document.getElementById('book-form').dataset;
+  if(!fd.isbn&&!fd.olKey){alert('No book selected.');return;}
+  const btn=document.getElementById('submit-book-btn');btn.disabled=true;btn.textContent='Saving…';
+  const newBook={isbn:fd.isbn||null,ol_key:fd.olKey||null,google_id:null,status:document.getElementById('f-status').value,start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,rating:parseFloat(document.getElementById('f-rating').value)||null,retro_rating:null,notes:document.getElementById('f-notes').value.trim(),retro_thoughts:document.getElementById('f-retro').value.trim(),mood:getTagVal('f-mood'),themes:getTagVal('f-themes'),manual_title:null,manual_author:null,import_source:''};
+  try{await saveBook(newBook);books.unshift(newBook);resetAdd();renderLibrary();go('library');}
+  catch(e){alert('Could not save: '+e.message);btn.disabled=false;btn.textContent='Add to library';}
 }
 
-function resetAdd() {
-  olResults=[]; selResult=null; editions=[]; selEdition=null;
+function resetAdd(){
+  olResults=[];selResult=null;editions=[];selEdition=null;
   document.getElementById('ol-q').value='';
   document.getElementById('ol-results').style.display='none';
   document.getElementById('edition-section').style.display='none';
@@ -1168,123 +1123,61 @@ function resetAdd() {
 }
 
 /* ── CSV IMPORT ────────────────────────────────────────────────────────── */
-function handleImport(event, platform) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try { const parsed=parseCSV(e.target.result,platform); pendingImport={books:parsed,platform}; showImportPreview(parsed,platform); }
-    catch(err) { alert('Could not parse this file: '+err.message); }
-  };
-  reader.readAsText(file); event.target.value='';
+function handleImport(event,platform){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{try{const parsed=parseCSV(e.target.result,platform);pendingImport={books:parsed,platform};showImportPreview(parsed,platform);}catch(err){alert('Could not parse: '+err.message);}};
+  reader.readAsText(file);event.target.value='';
 }
 
-function parseFullCSV(text) {
-  const rows=[]; let row=[]; let cur=''; let inQ=false;
+function parseFullCSV(text){
+  const rows=[];let row=[];let cur='';let inQ=false;
   const t=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  for (let i=0;i<t.length;i++) {
-    const ch=t[i];
-    if (inQ) {
-      if (ch==='"'&&t[i+1]==='"') { cur+='"'; i++; }
-      else if (ch==='"') { inQ=false; }
-      else { cur+=ch; }
-    } else {
-      if (ch==='"') { inQ=true; }
-      else if (ch===',') { row.push(cur); cur=''; }
-      else if (ch==='\n') { row.push(cur); cur=''; if(row.some(c=>c.trim()))rows.push(row); row=[]; }
-      else { cur+=ch; }
-    }
-  }
-  row.push(cur); if(row.some(c=>c.trim()))rows.push(row);
-  return rows;
+  for(let i=0;i<t.length;i++){const ch=t[i];if(inQ){if(ch==='"'&&t[i+1]==='"'){cur+='"';i++;}else if(ch==='"'){inQ=false;}else{cur+=ch;}}else{if(ch==='"'){inQ=true;}else if(ch===','){row.push(cur);cur='';}else if(ch==='\n'){row.push(cur);cur='';if(row.some(c=>c.trim()))rows.push(row);row=[];}else{cur+=ch;}}}
+  row.push(cur);if(row.some(c=>c.trim()))rows.push(row);return rows;
 }
 
-function parseCSV(text, platform) {
-  const allRows=parseFullCSV(text); if(!allRows.length) return [];
+function fmtDate(s){
+  if(!s||s==='None')return null;s=s.trim();
+  const dmy=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(dmy){const[_,d,m,y]=dmy;return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');}
+  const dmyS=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if(dmyS){const[_,d,m,y]=dmyS;const full=parseInt(y)>50?'19'+y:'20'+y;return full+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');}
+  if(s.match(/^\d{4}-\d{2}-\d{2}$/))return s;
+  const d=new Date(s);if(isNaN(d))return null;return d.toISOString().split('T')[0];
+}
+
+function parseCSV(text,platform){
+  const allRows=parseFullCSV(text);if(!allRows.length)return[];
   const headers=allRows[0].map(h=>h.trim().toLowerCase());
-  const cm={}; headers.forEach((h,i)=>cm[h]=i);
+  const cm={};headers.forEach((h,i)=>cm[h]=i);
   const get=(row,name)=>{const i=cm[name];return i!==undefined?(row[i]||'').trim():''};
   const results=[];
-  for (let i=1;i<allRows.length;i++) {
-    const row=allRows[i]; let b=null;
-    if (platform==='goodreads') {
-      const title=get(row,'title'); if(!title) continue;
-      const grR=parseFloat(get(row,'my rating'))||0; const rating=grR>0?grR*2:0;
+  for(let i=1;i<allRows.length;i++){
+    const row=allRows[i];let b=null;
+    if(platform==='goodreads'){
+      const title=get(row,'title');if(!title)continue;
+      const grR=parseFloat(get(row,'my rating'))||0;const rating=grR>0?grR*2:0;
       const shelf=(get(row,'exclusive shelf')||get(row,'bookshelves')||'').toLowerCase();
       const status=shelf.includes('currently')||shelf.includes('reading')?'reading':shelf.includes('to-read')||shelf.includes('to read')?'tbr':'finished';
-      b={title,author:get(row,'author')||get(row,'author l-f'),rating,retro:rating,
-        pages:parseInt(get(row,'number of pages'))||0,
-        year:parseInt(get(row,'year published'))||parseInt(get(row,'original publication year'))||0,
-        format:'Print',genre:'',mood:'',themes:'',fiction:'Fiction',series:'Stand-alone',
-        notes:get(row,'my review')||'',start:'',end:fmtDate(get(row,'date read')||''),
-        days:0,ppd:0,origin:'Goodreads',retroThoughts:'',coverId:null,olKey:null,
-        isbn:get(row,'isbn13')||get(row,'isbn')||'',description:'',
-        status,importSource:'goodreads',_ratingConverted:grR>0};
-    } else if (platform==='storygraph') {
-      const title=get(row,'title'); if(!title) continue;
-      const sgR=parseFloat(get(row,'star rating'))||parseFloat(get(row,'my rating'))||0; const rating=sgR>0?sgR*2:0;
+      b={isbn:get(row,'isbn13')||get(row,'isbn')||null,ol_key:null,google_id:null,status,start_date:null,end_date:fmtDate(get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'my review')||'',retro_thoughts:'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||get(row,'author l-f')||null,import_source:'goodreads',_ratingConverted:grR>0};
+    }else if(platform==='storygraph'){
+      const title=get(row,'title');if(!title)continue;
+      const sgR=parseFloat(get(row,'star rating'))||parseFloat(get(row,'my rating'))||0;const rating=sgR>0?sgR*2:0;
       const rs=(get(row,'read status')||get(row,'shelf')||'').toLowerCase();
       const status=rs.includes('currently')||rs==='reading'?'reading':rs.includes('to-read')||rs==='want to read'?'tbr':'finished';
-      b={title,author:get(row,'authors')||get(row,'author'),rating,retro:rating,
-        pages:parseInt(get(row,'pages read'))||parseInt(get(row,'pages'))||parseInt(get(row,'number of pages'))||0,
-        year:parseInt(get(row,'publication year'))||0,format:'Print',
-        genre:get(row,'genres')||get(row,'tags')||'',mood:get(row,'moods')||'',themes:'',
-        fiction:'Fiction',series:'Stand-alone',notes:get(row,'review')||'',
-        start:fmtDate(get(row,'date started')||''),
-        end:fmtDate(get(row,'date finished')||get(row,'date read')||''),
-        days:0,ppd:0,origin:'StoryGraph',retroThoughts:'',coverId:null,olKey:null,
-        isbn:'',description:'',status,importSource:'storygraph',_ratingConverted:sgR>0};
-    } else {
-      const title=get(row,'title'); if(!title) continue;
-      b={title,author:get(row,'author'),
-        rating:parseFloat(get(row,'rating'))||0,
-        retro:parseFloat(get(row,'retrospective rating'))||parseFloat(get(row,'rating'))||0,
-        pages:parseInt(get(row,'pages'))||0,year:parseInt(get(row,'year published'))||0,
-        format:get(row,'format')||'Print',genre:get(row,'genre')||'',mood:'',themes:'',
-        fiction:get(row,'fiction / nonfiction')||'Fiction',
-        series:get(row,'stand-alone or series')||'Stand-alone',
-        notes:get(row,'notes')||'',
-        start:fmtDate(get(row,'start date')||''),
-        end:fmtDate(get(row,'end date')||''),
-        days:parseInt(get(row,'days spent reading'))||0,
-        ppd:parseFloat(get(row,'pages per day'))||0,
-        origin:get(row,'origin of book')||'',
-        retroThoughts:get(row,'retrospective thoughts')||'',
-        coverId:null,olKey:null,isbn:'',description:'',
-        status:'finished',importSource:'pageturner'};
-      if (b.start&&b.end&&b.pages&&!b.days) {
-        b.days=Math.max(1,Math.round((new Date(b.end)-new Date(b.start))/86400000));
-        b.ppd=b.pages/b.days;
-      }
+      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'review')||'',retro_thoughts:'',mood:get(row,'moods')||'',themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0};
+    }else{
+      const title=get(row,'title');if(!title)continue;
+      const retro=parseFloat(get(row,'retrospective rating'))||null;
+      b={isbn:null,ol_key:null,google_id:null,status:'finished',start_date:fmtDate(get(row,'start date')||''),end_date:fmtDate(get(row,'end date')||''),rating:parseFloat(get(row,'rating'))||null,retro_rating:retro,notes:get(row,'notes')||'',retro_thoughts:get(row,'retrospective thoughts')||'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||null,import_source:'pageturner'};
     }
-    if (b && b.title) results.push(b);
+    if(b)results.push(b);
   }
   return results;
 }
 
-function fmtDate(s) {
-  if (!s || s === 'None') return null;
-  s = s.trim();
-  // Handle DD/MM/YYYY format (European)
-  const dmySlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dmySlash) {
-    const [_, d, m, y] = dmySlash;
-    return y + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0');
-  }
-  // Handle DD/MM/YY format
-  const dmyShort = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
-  if (dmyShort) {
-    const [_, d, m, y] = dmyShort;
-    const full = parseInt(y) > 50 ? '19'+y : '20'+y;
-    return full + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0');
-  }
-  // Handle YYYY-MM-DD (already correct)
-  if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return s;
-  // Fall back to JS date parsing for other formats
-  const d = new Date(s); if (isNaN(d)) return null;
-  return d.toISOString().split('T')[0];
-}
-
-function showImportPreview(parsed, platform) {
+function showImportPreview(parsed,platform){
   const fin=parsed.filter(b=>b.status==='finished');
   const reading=parsed.filter(b=>b.status==='reading');
   const tbr=parsed.filter(b=>b.status==='tbr');
@@ -1294,14 +1187,14 @@ function showImportPreview(parsed, platform) {
   preview.style.display='block';
   preview.innerHTML=`<div class="import-preview">
     <div style="font-size:14px;font-weight:500;margin-bottom:3px">Import preview — ${platformName}</div>
-    <div style="font-size:12px;color:var(--tx1);margin-bottom:14px">Review before importing.${converted.length?' '+converted.length+' ratings converted from 1–5 to 1–10 scale.':''}</div>
+    <div style="font-size:12px;color:var(--tx1);margin-bottom:14px">Review before importing.${converted.length?' '+converted.length+' ratings converted from 1–5 to 1–10.':''}</div>
     <div class="ip-stats">
       <div class="ip-stat"><strong>${parsed.length}</strong>Total</div>
       <div class="ip-stat"><strong>${fin.length}</strong>Finished</div>
       <div class="ip-stat"><strong>${reading.length}</strong>Reading</div>
       <div class="ip-stat"><strong>${tbr.length}</strong>TBR</div>
     </div>
-    ${converted.length?`<div class="ip-warn">⚠ ${converted.length} ratings multiplied by 2 (5-star → 10-point). You can edit after import.</div>`:''}
+    ${converted.length?`<div class="ip-warn">⚠ ${converted.length} ratings multiplied by 2 (5-star → 10-point). Edit after import if needed.</div>`:''}
     <div class="ip-legend">
       <span><span class="ip-swatch" style="background:var(--bg0);border:0.5px solid var(--bd)"></span>Finished</span>
       <span><span class="ip-swatch" style="background:var(--teal-l)"></span>Reading</span>
@@ -1310,11 +1203,12 @@ function showImportPreview(parsed, platform) {
     </div>
     <div class="ip-table-wrap">
       <table class="ip-table">
-        <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Status</th></tr></thead>
+        <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Status</th><th>Dates</th></tr></thead>
         <tbody>${parsed.slice(0,50).map(b=>{
           const cls=b.status==='reading'?'ip-read':b.status==='tbr'?'ip-tbr':b._ratingConverted?'ip-conv':'ip-fin';
-          return`<tr class="${cls}"><td>${b.title}</td><td>${b.author}</td><td>${b.rating?b.rating+'/10':'-'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td></tr>`;
-        }).join('')}${parsed.length>50?`<tr><td colspan="4" style="text-align:center;color:var(--tx1);padding:10px">…and ${parsed.length-50} more</td></tr>`:''}</tbody>
+          const dates=[b.start_date,b.end_date].filter(Boolean).join(' → ');
+          return`<tr class="${cls}"><td>${b.manual_title||'—'}</td><td>${b.manual_author||'—'}</td><td>${b.rating?b.rating+'/10':'—'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td><td style="font-size:11px">${dates||'—'}</td></tr>`;
+        }).join('')}${parsed.length>50?`<tr><td colspan="5" style="text-align:center;color:var(--tx1);padding:10px">…and ${parsed.length-50} more</td></tr>`:''}</tbody>
       </table>
     </div>
     <div class="form-acts">
@@ -1322,112 +1216,95 @@ function showImportPreview(parsed, platform) {
       <button class="btn-primary" id="confirm-import-btn" onclick="confirmImport()">Import ${parsed.length} book${parsed.length!==1?'s':''}</button>
     </div>
   </div>`;
-  preview.scrollIntoView({ behavior:'smooth', block:'start' });
+  preview.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function cancelImport() { pendingImport=null; document.getElementById('import-preview').style.display='none'; }
+function cancelImport(){pendingImport=null;document.getElementById('import-preview').style.display='none';}
 
-async function confirmImport() {
-  if (!pendingImport) return;
-  const btn = document.getElementById('confirm-import-btn');
-  btn.disabled=true; btn.textContent='Importing…';
-  const toInsert = pendingImport.books.map((b,i) => ({...bookToDb({...b, num:books.length+i+1})}));
-  const chunkSize = 50;
-  let inserted = 0;
-  for (let i=0;i<toInsert.length;i+=chunkSize) {
-    const chunk = toInsert.slice(i, i+chunkSize);
-    const { data, error } = await sb.from('books').insert(chunk).select();
-    if (error) {
-      console.error('Batch insert error:', error);
-      alert('Import failed: '+error.message+'\n\nCheck the browser console for details.');
-      btn.disabled=false; btn.textContent='Try again'; return;
+async function confirmImport(){
+  if(!pendingImport)return;
+  const btn=document.getElementById('confirm-import-btn');
+  btn.disabled=true;btn.textContent='Importing…';
+  const toInsert=pendingImport.books.map(b=>({...bookToRow({...b,id:null})}));
+  const chunkSize=50;let inserted=0;
+  for(let i=0;i<toInsert.length;i+=chunkSize){
+    const chunk=toInsert.slice(i,i+chunkSize);
+    try{
+      const rows=await sbInsert('books',chunk);
+      rows.forEach((row,j)=>{books.push({...pendingImport.books[i+j],id:row.id});});
+      inserted+=chunk.length;btn.textContent=`Importing… ${inserted}/${toInsert.length}`;
+    }catch(e){
+      console.error('Import error:',e);
+      alert(`Import failed at row ${inserted+1}: ${e.message}`);
+      btn.disabled=false;btn.textContent='Try again';return;
     }
-    (data||[]).forEach((row,j) => { books.push({...pendingImport.books[i+j], id:row.id, num:row.num}); });
-    inserted += chunk.length;
-    btn.textContent = `Importing… ${inserted}/${toInsert.length}`;
   }
-  pendingImport=null;
-  document.getElementById('import-preview').style.display='none';
-  renderLibrary(); go('library'); enrichMissing();
+  pendingImport=null;document.getElementById('import-preview').style.display='none';
+  // Fetch metadata for all imported books in background
+  fetchMissingMeta(books);
+  renderLibrary();go('library');
   alert(`Imported ${inserted} book${inserted!==1?'s':''} successfully!`);
 }
 
+function bookToRow(b){
+  const nn=v=>(v===''||v===null||v===undefined)?null:v;
+  return{user_id:currentUser.id,isbn:nn(b.isbn),ol_key:nn(b.ol_key),google_id:nn(b.google_id),status:b.status||'finished',start_date:nn(b.start_date),end_date:nn(b.end_date),rating:nn(b.rating),retro_rating:nn(b.retro_rating),notes:b.notes||'',retro_thoughts:b.retro_thoughts||'',mood:b.mood||'',themes:b.themes||'',manual_title:nn(b.manual_title),manual_author:nn(b.manual_author),import_source:b.import_source||''};
+}
+
 /* ── STATS ─────────────────────────────────────────────────────────────── */
-function drawStats() {
-  if (chartsDrawn) return; chartsDrawn=true;
+function drawStats(){
+  if(chartsDrawn)return;chartsDrawn=true;
   const fin=books.filter(b=>b.status==='finished');
-  if (!fin.length) { document.getElementById('stats-cards').innerHTML='<div class="stat"><div class="stat-l">No finished books yet</div></div>'; return; }
-  const avg=(fin.reduce((s,b)=>s+b.rating,0)/fin.length).toFixed(1);
-  const top=fin.reduce((a,b)=>b.retro>a.retro?b:a);
-  const fastArr=fin.filter(b=>b.ppd>0);
-  const fast=fastArr.length?fastArr.reduce((a,b)=>b.ppd>a.ppd?b:a):{ppd:0,title:'—'};
+  if(!fin.length){document.getElementById('stats-cards').innerHTML='<div class="stat"><div class="stat-l">No finished books yet</div></div>';return;}
+  const rated=fin.filter(b=>b.rating>0);
+  const avg=rated.length?(rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(1):'—';
+  const top=rated.length?rated.reduce((a,b)=>(b.retro_rating||b.rating)>(a.retro_rating||a.rating)?b:a):null;
+  const fastArr=fin.filter(b=>bPPD(b)>0);
+  const fast=fastArr.length?fastArr.reduce((a,b)=>bPPD(b)>bPPD(a)?b:a):null;
   document.getElementById('stats-cards').innerHTML=`
     <div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div>
-    <div class="stat"><div class="stat-l">Top retro</div><div class="stat-v" style="font-size:13px">${top.title}</div><div class="stat-s">${top.retro}/10</div></div>
-    <div class="stat"><div class="stat-l">Fastest read</div><div class="stat-v" style="font-size:13px">${fast.title}</div><div class="stat-s">${fast.ppd?Math.round(fast.ppd)+' p/day':''}</div></div>
-    <div class="stat"><div class="stat-l">Authors</div><div class="stat-v">${new Set(fin.map(b=>b.author)).size}</div></div>`;
-  const bkt=Array(10).fill(0); fin.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
+    <div class="stat"><div class="stat-l">Top rated</div><div class="stat-v" style="font-size:13px">${top?bTitle(top):'—'}</div><div class="stat-s">${top?(top.retro_rating||top.rating)+'/10':''}</div></div>
+    <div class="stat"><div class="stat-l">Fastest read</div><div class="stat-v" style="font-size:13px">${fast?bTitle(fast):'—'}</div><div class="stat-s">${fast?bPPD(fast)+' p/day':''}</div></div>
+    <div class="stat"><div class="stat-l">Authors</div><div class="stat-v">${new Set(fin.map(b=>bAuthor(b))).size}</div></div>`;
+  const bkt=Array(10).fill(0);rated.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
   new Chart(document.getElementById('cRating'),{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],datasets:[{data:bkt,backgroundColor:bkt.map((_,i)=>i>=7?'#1D9E75':i>=5?'#BA7517':'#D85A30'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'}}}}});
-  const s=[...fin].sort((a,b)=>new Date(a.end)-new Date(b.end)).filter(b=>b.ppd>0);
-  new Chart(document.getElementById('cPace'),{type:'bar',data:{labels:s.map(b=>b.title.length>10?b.title.slice(0,10)+'…':b.title),datasets:[{data:s.map(b=>Math.round(b.ppd)),backgroundColor:'#534AB7',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(128,128,128,0.1)'}}}}});
-  const fc={}; fin.forEach(b=>{fc[b.format]=(fc[b.format]||0)+1;});
+  const s=[...fin].sort((a,b)=>new Date(a.end_date)-new Date(b.end_date)).filter(b=>bPPD(b)>0);
+  new Chart(document.getElementById('cPace'),{type:'bar',data:{labels:s.map(b=>bTitle(b).length>10?bTitle(b).slice(0,10)+'…':bTitle(b)),datasets:[{data:s.map(b=>bPPD(b)),backgroundColor:'#534AB7',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(128,128,128,0.1)'}}}}});
+  const fc={};fin.forEach(b=>{const fmt=getMeta(b.isbn)?.format||'Unknown';fc[fmt]=(fc[fmt]||0)+1;});
   new Chart(document.getElementById('cFmt'),{type:'doughnut',data:{labels:Object.keys(fc),datasets:[{data:Object.values(fc),backgroundColor:['#1D9E75','#534AB7','#D85A30','#1A6FA8'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}});
-  new Chart(document.getElementById('cRetro'),{type:'scatter',data:{datasets:[{label:'Books',data:fin.filter(b=>b.rating&&b.retro).map(b=>({x:b.rating,y:b.retro,t:b.title})),backgroundColor:'#BA7517',pointRadius:6,pointHoverRadius:8},{label:'No change',data:[{x:1,y:1},{x:10,y:10}],type:'line',borderColor:'rgba(128,128,128,0.3)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.t?`${c.raw.t} (${c.raw.x}→${c.raw.y})`:''}}},scales:{x:{title:{display:true,text:'Initial rating',font:{size:11}},min:0,max:11},y:{title:{display:true,text:'Retrospective',font:{size:11}},min:0,max:11}}}});
+  new Chart(document.getElementById('cRetro'),{type:'scatter',data:{datasets:[{label:'Books',data:fin.filter(b=>b.rating&&b.retro_rating).map(b=>({x:b.rating,y:b.retro_rating,t:bTitle(b)})),backgroundColor:'#BA7517',pointRadius:6,pointHoverRadius:8},{label:'No change',data:[{x:1,y:1},{x:10,y:10}],type:'line',borderColor:'rgba(128,128,128,0.3)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.t?`${c.raw.t} (${c.raw.x}→${c.raw.y})`:''}}},scales:{x:{title:{display:true,text:'Initial rating',font:{size:11}},min:0,max:11},y:{title:{display:true,text:'Retrospective',font:{size:11}},min:0,max:11}}}});
 }
 
 /* ── TABS ──────────────────────────────────────────────────────────────── */
-function go(name) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+function go(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('p-'+name).classList.add('on');
   const names=['library','stats','add','chat'];
   document.querySelectorAll('.tab')[names.indexOf(name)]?.classList.add('on');
-  if (name==='stats') { chartsDrawn=false; drawStats(); }
-  if (name==='library') renderLibrary();
+  if(name==='stats'){chartsDrawn=false;drawStats();}
+  if(name==='library')renderLibrary();
 }
 
 /* ── CHAT ──────────────────────────────────────────────────────────────── */
-function saveKey() {
-  apiKey=document.getElementById('ak').value.trim();
-  localStorage.setItem('pt_ak',apiKey);
-  document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';
-  if(apiKey) alert('Key saved.');
-}
+function saveKey(){apiKey=document.getElementById('ak').value.trim();localStorage.setItem('pt_ak',apiKey);document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';if(apiKey)alert('Key saved.');}
 
-function booksCtx() {
-  return books.filter(b=>b.status==='finished').map(b=>
-    `"${b.title}" by ${b.author}: ${b.rating}/10 (retro:${b.retro}/10). Genre:${b.genre}. Mood:${b.mood}. Themes:${b.themes}. Notes:"${b.notes||'none'}". Thoughts:"${b.retroThoughts||'none'}"`
-  ).join('\n');
-}
-
-async function sendMsg() {
-  const inp=document.getElementById('chat-in'); const msg=inp.value.trim(); if(!msg) return;
+async function sendMsg(){
+  const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
   if(!apiKey){alert('Add your Anthropic API key above first.');return;}
-  addMsg(msg,'u'); inp.value=''; document.getElementById('send-btn').disabled=true;
-  const typing=addTyping(); chatHistory.push({role:'user',content:msg});
-  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtx()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler. Be direct, specific, conversational. When recommending, explain WHY and estimate a likely rating (1–10).`;
-  try {
+  addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
+  const typing=addTyping();chatHistory.push({role:'user',content:msg});
+  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtxStr()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler. Be direct, specific, conversational. When recommending, explain WHY and estimate a likely rating (1–10).`;
+  try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
-    const d=await r.json(); if(d.error)throw new Error(d.error.message);
+    const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
-    chatHistory.push({role:'assistant',content:reply}); typing.remove(); addMsg(reply,'a');
-  } catch(e) { typing.remove(); addMsg(`Error: ${e.message}`,'a'); }
+    chatHistory.push({role:'assistant',content:reply});typing.remove();addMsg(reply,'a');
+  }catch(e){typing.remove();addMsg(`Error: ${e.message}`,'a');}
   document.getElementById('send-btn').disabled=false;
 }
 
-function addMsg(text, role) {
-  const c=document.getElementById('chat-msgs');
-  const d=document.createElement('div'); d.className=`msg msg-${role}`;
-  d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Advisor'}</div>`;
-  c.appendChild(d); c.scrollTop=c.scrollHeight; return d;
-}
-
-function addTyping() {
-  const c=document.getElementById('chat-msgs');
-  const d=document.createElement('div'); d.className='msg msg-a';
-  d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-  c.appendChild(d); c.scrollTop=c.scrollHeight; return d;
-}
-
-function chip(t) { document.getElementById('chat-in').value=t; sendMsg(); }
-function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Advisor'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
+function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
