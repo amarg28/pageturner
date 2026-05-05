@@ -34,18 +34,15 @@ function setMeta(isbn, data) { if (!isbn) return; metaCache[isbn] = { ...metaCac
 
 /* ── UTILS ─────────────────────────────────────────────────────────────── */
 const cUrl  = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
-const bCover = b => {
-  const meta = getMeta(b.isbn);
-  if (meta?.coverId) return cUrl(meta.coverId);
-  if (meta?.googleCover) return meta.googleCover;
-  return null;
-};
-const bTitle  = b => getMeta(b.isbn)?.title  || b.manual_title  || '(Unknown title)';
-const bAuthor = b => getMeta(b.isbn)?.author || b.manual_author || '(Unknown author)';
-const bPages  = b => getMeta(b.isbn)?.pages  || 0;
-const bYear   = b => getMeta(b.isbn)?.year   || 0;
-const bGenre  = b => getMeta(b.isbn)?.genre  || '';
-const bDesc   = b => getMeta(b.isbn)?.description || '';
+// All helpers try isbn first, then ol_key, then manual_title as cache key
+const bMeta   = b => getMeta(b.isbn) || getMeta(b.ol_key) || getMeta(b.manual_title) || {};
+const bCover  = b => { const m=bMeta(b); if(m.coverId)return cUrl(m.coverId); if(m.googleCover)return m.googleCover; return null; };
+const bTitle  = b => bMeta(b).title  || b.manual_title  || '(Unknown title)';
+const bAuthor = b => bMeta(b).author || b.manual_author || '(Unknown author)';
+const bPages  = b => bMeta(b).pages  || 0;
+const bYear   = b => bMeta(b).year   || 0;
+const bGenre  = b => bMeta(b).genre  || '';
+const bDesc   = b => bMeta(b).description || '';
 const bDays   = b => {
   if (!b.start_date || !b.end_date) return 0;
   return Math.max(1, Math.round((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
@@ -403,7 +400,7 @@ async function fetchMetaForBook(b) {
     } catch(e) {}
   }
 
-  if (Object.keys(meta).length) setMeta(cacheKey, meta);
+  if (Object.keys(meta).length) setMeta(ck, meta);
 }
 
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
@@ -593,6 +590,7 @@ function renderBooks() {
 
 function setSort(s) { sort=s; renderBooks(); }
 function setView(v) {
+  document.getElementById('shelf').classList.toggle('list-mode', v==='list');
   window.libraryView=v;
   document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   renderBooks();
@@ -687,12 +685,13 @@ async function openUnreadBookPage(olBook) {
   const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : null;
 
   // Pre-cache metadata for this book
-  if (isbn && !getMeta(isbn)) {
+  const ck = isbn || olBook.key || olBook.title;
+  if (!bMeta({isbn, ol_key: olBook.key, manual_title: olBook.title})?.title) {
     const fakeBook = { isbn, ol_key: olBook.key, manual_title: olBook.title, manual_author: author };
     await fetchMetaForBook(fakeBook);
   }
-  const meta = isbn ? getMeta(isbn) : null;
-  const desc = meta?.description || '';
+  const fakeB = {isbn, ol_key: olBook.key, manual_title: olBook.title};
+  const desc = bDesc(fakeB) || '';
 
   document.getElementById('p-book').innerHTML = `<div class="bp">
     <div class="bp-nav"><div class="bp-back" onclick="go('library')">← Back</div></div>
@@ -826,7 +825,7 @@ async function openBookPage(bookId) {
       </div>
       <div>
         <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-        <div class="scard"><div class="scard-t">Also by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+        <div class="scard"><div class="scard-t">Books by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
       </div>
     </div>
   </div>`;
@@ -864,10 +863,12 @@ async function loadAlsoBy(b) {
     const d = await r.json();
     const others = (d.docs||[]).filter(x=>x.title.toLowerCase()!==bTitle(b).toLowerCase()).slice(0,4);
     if (!others.length) { document.getElementById('also-by').innerHTML='<div style="font-size:12px;color:var(--tx1)">No other works found.</div>'; return; }
-    document.getElementById('also-by').innerHTML = others.map(w => {
+    // Store book data in a lookup table so onclick can access it safely
+    window._alsoByBooks = {};
+    document.getElementById('also-by').innerHTML = others.map((w,i) => {
       const inLib = books.find(x => bTitle(x).toLowerCase()===w.title.toLowerCase() || (w.isbn?.[0] && x.isbn===w.isbn?.[0]));
-      const olData = {key:w.key,title:w.title,author_name:[author],cover_i:w.cover_i,first_publish_year:w.first_publish_year,isbn:w.isbn};
-      const clickFn = inLib ? `openBookPage('${inLib.id}')` : `openUnreadBookPage(${JSON.stringify(olData).replace(/"/g,"'").replace(/'/g,'"')})`;
+      window._alsoByBooks[i] = {key:w.key,title:w.title,author_name:[author],cover_i:w.cover_i,first_publish_year:w.first_publish_year,isbn:w.isbn};
+      const clickFn = inLib ? `openBookPage('${inLib.id}')` : `openUnreadBookPage(window._alsoByBooks[${i}])`;
       return `<div style="display:flex;gap:9px;padding:7px 6px;border-bottom:0.5px solid var(--bd);cursor:pointer;border-radius:var(--r);margin:0 -6px" onclick="${clickFn}" onmouseenter="this.style.background='var(--amber-l)'" onmouseleave="this.style.background=''">
         ${w.cover_i?`<img src="${cUrl(w.cover_i,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
         <div style="flex:1;min-width:0">
@@ -1299,6 +1300,65 @@ function drawStats(){
 }
 
 /* ── TABS ──────────────────────────────────────────────────────────────── */
+/* ── DUPLICATE DETECTION ───────────────────────────────────────────────── */
+function findDuplicates() {
+  const seen = {}, dupes = [];
+  books.forEach(b => {
+    const key = (bTitle(b) + '|' + bAuthor(b)).toLowerCase();
+    if (seen[key]) dupes.push(b);
+    else seen[key] = b;
+  });
+  return dupes;
+}
+
+function showDuplicatesModal() {
+  const dupes = findDuplicates();
+  if (!dupes.length) { alert('No duplicates found in your library!'); return; }
+  const modal = document.getElementById('del-body');
+  modal.innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Duplicate books found</div>
+    <p style="font-size:13px;color:var(--tx1);margin-bottom:14px">Found ${dupes.length} possible duplicate${dupes.length!==1?'s':''}. Review and remove as needed.</p>
+    <div style="max-height:340px;overflow-y:auto;border:0.5px solid var(--bd);border-radius:var(--r);margin-bottom:14px">
+      ${dupes.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid var(--bd);gap:10px">
+        <div>
+          <div style="font-family:'Lora',serif;font-size:13px;font-weight:500">${bTitle(b)}</div>
+          <div style="font-size:11px;color:var(--tx1);margin-top:2px">${bAuthor(b)} · ${b.status} · Rating: ${b.rating||'—'}</div>
+        </div>
+        <button onclick="removeDupe('${b.id}',this)" style="padding:5px 10px;background:var(--coral);color:#fff;border:none;border-radius:var(--r);font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Remove</button>
+      </div>`).join('')}
+    </div>
+    <div class="form-acts">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Done</button>
+      <button class="btn-danger" onclick="removeAllDupes()">Remove all ${dupes.length}</button>
+    </div>`;
+  document.getElementById('del-modal').classList.add('on');
+}
+
+async function removeDupe(bookId, btn) {
+  btn.disabled = true; btn.textContent = 'Removing…';
+  const ok = await deleteBookById(bookId);
+  if (ok) {
+    books = books.filter(x => x.id !== bookId);
+    btn.closest('div[style]').style.opacity = '0.4';
+    btn.textContent = 'Removed';
+    renderLibrary();
+  } else {
+    btn.disabled = false; btn.textContent = 'Remove';
+  }
+}
+
+async function removeAllDupes() {
+  const dupes = findDuplicates();
+  if (!confirm(`Remove all ${dupes.length} duplicates? This cannot be undone.`)) return;
+  for (const b of dupes) {
+    await deleteBookById(b.id);
+    books = books.filter(x => x.id !== b.id);
+  }
+  document.getElementById('del-modal').classList.remove('on');
+  chartsDrawn = false; renderLibrary();
+}
+
 function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
