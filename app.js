@@ -669,6 +669,7 @@ function gsearchSelect(i) {
   const inLib = books.find(b => (isbn && b.isbn===isbn) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
   if (inLib) openBookPage(inLib.id);
   else openUnreadBookPage(res);
+  // Keep current tab active — modal overlays everything
 }
 
 document.addEventListener('click', e => {
@@ -677,9 +678,7 @@ document.addEventListener('click', e => {
 
 /* ── UNREAD BOOK PAGE ──────────────────────────────────────────────────── */
 async function openUnreadBookPage(olBook) {
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('p-book').classList.add('on');
+  openBookModal();
   const author = (olBook.author_name||[]).slice(0,2).join(', ')||'Unknown author';
   const isbn = olBook.isbn?.[0]||null;
   const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : null;
@@ -693,8 +692,8 @@ async function openUnreadBookPage(olBook) {
   const fakeB = {isbn, ol_key: olBook.key, manual_title: olBook.title};
   const desc = bDesc(fakeB) || '';
 
-  document.getElementById('p-book').innerHTML = `<div class="bp">
-    <div class="bp-nav"><div class="bp-back" onclick="go('library')">← Back</div></div>
+  document.getElementById('book-modal-body').innerHTML = `<div class="bp">
+    <div class="bp-nav"><div class="bp-back" onclick="closeBookModal()">← Back</div></div>
     <div class="bp-unread-banner">
       <div class="bp-unread-text">This book isn't in your library yet.</div>
       <div class="bp-add-btns">
@@ -746,16 +745,14 @@ async function quickAddBook(status, isbn, olKey, title, author) {
   try {
     await saveBook(newBook);
     books.unshift(newBook);
-    renderLibrary(); go('library');
+    closeBookModal(); renderLibrary(); go('library');
   } catch(e) { alert('Could not add book: '+e.message); }
 }
 
 /* ── BOOK PAGE ─────────────────────────────────────────────────────────── */
 async function openBookPage(bookId) {
   const b = books.find(x=>x.id===bookId); if (!b) return;
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('p-book').classList.add('on');
+  openBookModal();
 
   const cover = bCover(b);
   const coverLg = b.isbn && getMeta(b.isbn)?.coverId ? cUrl(getMeta(b.isbn).coverId,'L') : (getMeta(b.isbn)?.googleCover || cover);
@@ -768,9 +765,9 @@ async function openBookPage(bookId) {
   const ttags = parseTags(b.themes||'').map(t=>`<span class="bptag bptag-t">${t}</span>`).join('');
   const ibadge = b.import_source==='goodreads'?'<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from Goodreads — rating converted from 5-star scale</span>':b.import_source==='storygraph'?'<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from StoryGraph</span>':'';
 
-  document.getElementById('p-book').innerHTML = `<div class="bp">
+  document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
-      <div class="bp-back" onclick="go('library')">← Back</div>
+      <div class="bp-back" onclick="closeBookModal()">← Back</div>
       <button class="bp-edit-btn" onclick="openEdit('${b.id}')">Edit</button>
     </div>
     ${ibadge}
@@ -795,7 +792,6 @@ async function openBookPage(bookId) {
         <div class="bp-tags">${gtags}${mtags}${ttags}</div>
         <div class="bp-scores">
           <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating||'—'}<span style="font-size:12px;opacity:.6">${b.rating?'/10':''}</span></div>${b.rating?`<div class="bps-stars">${toStars(b.rating)}</div>`:''}</div>
-          <div class="bps"><div class="bps-l">Retrospective</div><div class="bps-v ${scC(b.retro_rating)}">${b.retro_rating||'—'}<span style="font-size:12px;opacity:.6">${b.retro_rating?'/10':''}</span></div>${b.retro_rating?`<div class="bps-stars">${toStars(b.retro_rating)}</div>`:''}</div>
           <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages||'—'}</div></div>
           <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${ppd||'—'}<span style="font-size:10px;opacity:.6">${ppd?' p/d':''}</span></div></div>
         </div>
@@ -831,6 +827,27 @@ async function openBookPage(bookId) {
   </div>`;
   loadOLData(b); loadAlsoBy(b);
 }
+
+function openBookModal() {
+  document.getElementById('book-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBookModal() {
+  document.getElementById('book-modal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function bookModalClick(e) {
+  // Close if clicking the overlay backdrop (not the inner content)
+  if (e.target.id === 'book-modal') closeBookModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('book-modal')?.classList.contains('on')) {
+    closeBookModal();
+  }
+});
 
 async function saveRetro(bookId) {
   const b = books.find(x=>x.id===bookId); if (!b) return;
