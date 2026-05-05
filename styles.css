@@ -405,3 +405,37 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .stats-table td,.stats-table th{padding:8px 12px;vertical-align:middle}
 .stats-table thead tr{background:var(--bg2)}
 .stats-table tbody tr:hover{background:var(--bg1)}
+
+/* ── BOOK MODAL ────────────────────────────────────────────────────────── */
+.book-modal-ov{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.55);
+  z-index:150;
+  align-items:flex-start;
+  justify-content:center;
+  padding:24px 20px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.book-modal-ov.on{display:flex;animation:fadeIn .2s ease}
+.book-modal-inner{
+  background:var(--bg1);
+  border-radius:var(--rxl);
+  width:100%;
+  max-width:1000px;
+  position:relative;
+  margin:auto;
+  box-shadow:0 8px 40px rgba(0,0,0,.25);
+  animation:slideUp .22s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.book-modal-close{
+  position:absolute;top:14px;right:16px;
+  width:32px;height:32px;border-radius:50%;
+  background:var(--bg2);border:none;
+  font-size:20px;line-height:1;cursor:pointer;
+  color:var(--tx1);display:flex;align-items:center;justify-content:center;
+  z-index:2;transition:background .12s;
+}
+.book-modal-close:hover{background:var(--bd2);color:var(--tx0)}
+.book-modal-body{padding:28px 28px 32px}
