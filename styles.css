@@ -143,6 +143,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .sort-btn{padding:7px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:none;font-size:12px;color:var(--tx1);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s}
 .sort-btn.on{background:var(--bg2);color:var(--tx0);border-color:var(--bd2)}
 .shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px}
+.shelf.list-mode{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .book-card{cursor:pointer;display:flex;flex-direction:column;position:relative;transition:transform .18s}
 .book-card:hover{transform:translateY(-3px)}
 .book-card:hover .card-acts{opacity:1}
@@ -387,7 +388,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .view-btn:hover:not(.on){background:var(--bg1)}
 
 /* ── LIST VIEW ─────────────────────────────────────────────────────────── */
-.list-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg0);border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--bd)}
+.list-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13px;background:var(--bg0);border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--bd)}
 .list-table th{padding:10px 14px;background:var(--bg2);text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1);white-space:nowrap;border-bottom:0.5px solid var(--bd);border-right:0.5px solid var(--bd);position:sticky;top:0}
 .list-table th:last-child{border-right:none}
 .list-table td{padding:10px 14px;border-bottom:0.5px solid var(--bd);border-right:0.5px solid var(--bd);vertical-align:middle}
