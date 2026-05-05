@@ -500,11 +500,34 @@ function cleanGenreCache() {
 
 let sidebarCharsDrawn = false;
 function toggleSidebar() {
-  const content = document.getElementById('sidebar-content');
+  const sidebar = document.getElementById('library-sidebar');
+  const sidebarContent = document.getElementById('sidebar-content');
   const icon = document.getElementById('sidebar-toggle-icon');
-  const collapsed = content.classList.toggle('collapsed');
+  const collapsed = sidebarContent.classList.toggle('collapsed');
   icon.textContent = collapsed ? '▶' : '◀';
+  // Expand main area when sidebar collapses
+  const layout = document.querySelector('.library-layout');
+  if (layout) layout.style.gridTemplateColumns = collapsed ? '1fr 24px' : '1fr 320px';
 }
+
+function openStatsOverlay() {
+  document.getElementById('stats-overlay').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  chartsDrawn = false;
+  drawStats();
+}
+
+function closeStatsOverlay() {
+  document.getElementById('stats-overlay').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('book-modal')?.classList.contains('on')) closeBookModal();
+    if (document.getElementById('stats-overlay')?.classList.contains('on')) closeStatsOverlay();
+  }
+});
 
 function renderSidebar() {
   const fin = books.filter(b => b.status === 'finished');
@@ -526,12 +549,12 @@ function renderSidebar() {
     .filter(([,v]) => v.rated >= 3)
     .sort((a,b) => (b[1].total/b[1].rated) - (a[1].total/a[1].rated))[0]?.[0] || '—';
 
-  // Most productive month
+  // Most productive month (with year)
   const monthCount = {};
   fin.forEach(b => {
     if (!b.end_date) return;
     const d = new Date(b.end_date);
-    const k = d.toLocaleDateString('en-GB',{month:'long'});
+    const k = d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
     monthCount[k] = (monthCount[k]||0)+1;
   });
   const topMonth = Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
@@ -671,20 +694,55 @@ function renderTBR() {
   const tbr = books.filter(b => b.status === 'tbr');
   const sec = document.getElementById('tbr-section');
   if (!tbr.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `<div class="sec-label" style="margin-bottom:8px">To be read <span style="font-weight:400;color:var(--tx2)">(${tbr.length})</span></div>
-    <div class="tbr-strip">
+  sec.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div class="sec-label" style="margin-bottom:0">To be read</div>
+      <span style="font-size:11px;color:var(--tx2);font-weight:400">(${tbr.length})</span>
+      <button onclick="openTBRModal()" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif">View all →</button>
+    </div>
+    <div class="cr-strip">
       ${tbr.map(b => {
         const cover = bCover(b);
-        return `<div class="tbr-item" onclick="openBookPage('${b.id}')">
-          <div class="tbr-cover">${cover?`<img src="${cover}" alt="" loading="lazy">`:`<div class="tbr-cover-ph"><span>${bTitle(b)}</span></div>`}</div>
-          <div class="tbr-badge">TBR</div>
+        return `<div class="cr-card" onclick="openBookPage('${b.id}')">
+          ${cover?`<img class="cr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cr-cover-ph">📚</div>`}
+          <div style="flex:1;min-width:0">
+            <div class="cr-title">${bTitle(b)}</div>
+            <div class="cr-author">${bAuthor(b)}</div>
+            <div class="cr-pill" style="background:var(--purple-l);color:var(--purple);margin-top:5px">TBR</div>
+          </div>
         </div>`;
       }).join('')}
     </div>`;
 }
 
+function openTBRModal() {
+  const tbr = books.filter(b => b.status === 'tbr');
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">To be read (${tbr.length})</div>
+    <div style="max-height:60vh;overflow-y:auto">
+      ${tbr.map(b => {
+        const cover = bCover(b);
+        return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="document.getElementById('del-modal').classList.remove('on');openBookPage('${b.id}')">
+          ${cover?`<img src="${cover}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0" loading="lazy">`:`<div style="width:36px;height:54px;background:var(--bg2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px">📚</div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Lora',serif;font-size:14px;font-weight:500">${bTitle(b)}</div>
+            <div style="font-size:12px;color:var(--tx1);margin-top:2px">${bAuthor(b)}</div>
+            ${bYear(b)?`<div style="font-size:11px;color:var(--tx2);margin-top:1px">${bYear(b)}</div>`:''}
+          </div>
+          <div style="font-size:11px;color:var(--amber)">View →</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="form-acts" style="margin-top:14px">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Close</button>
+      <button class="btn-primary" onclick="document.getElementById('del-modal').classList.remove('on');chip('Help me pick from my TBR list');go('discover')">Ask AI to help me pick</button>
+    </div>`;
+  document.getElementById('del-modal').classList.add('on');
+}
+
 function renderBooks() {
-  const q  = (document.getElementById('q')?.value||'').toLowerCase();
+  const q  = ''; // search removed - use global topbar search
   const gf = document.getElementById('gf')?.value||'';
   const mf = document.getElementById('mf')?.value||'';
   const fin = books.filter(b => b.status==='finished');
@@ -1036,11 +1094,7 @@ function bookModalClick(e) {
   if (e.target.id === 'book-modal') closeBookModal();
 }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('book-modal')?.classList.contains('on')) {
-    closeBookModal();
-  }
-});
+
 
 async function saveRetro(bookId) {
   const b = books.find(x=>x.id===bookId); if (!b) return;
