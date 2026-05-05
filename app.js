@@ -12,9 +12,80 @@ const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
-const GENRES = ['Science Fiction','Fantasy','Horror','Literary Fiction','Mystery','Thriller','Romance','Historical Fiction','Nonfiction','Memoir','Young Adult','Graphic Novel','Magical Realism','Dystopian','Short Stories','Biography','Queer Fiction'];
+// Fiction genres
+const FICTION_GENRES = ['Adventure','Children's','Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical Fiction','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
+// Nonfiction genres
+const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','History','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
+// Combined for backwards compat
+const GENRES = [...FICTION_GENRES, ...NONFICTION_GENRES];
 const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettling','Dreamy','Gritty','Propulsive','Atmospheric','Whimsical','Intense','Slow-burn','Heartwarming'];
 const THEMES = ['Found family','Identity','Grief','Power','Survival','Colonialism','Queerness','Religion','Class','Nature','Memory','Trauma','Redemption','Coming of age','Love','War','Technology','Death','Friendship'];
+
+// Genre canonicalisation — maps messy OL/Google tags to our clean list
+const GENRE_MAP = {
+  'science fiction':'Science Fiction','sci-fi':'Science Fiction','sf':'Science Fiction',
+  'fantasy':'Fantasy','epic fantasy':'Fantasy','urban fantasy':'Fantasy','dark fantasy':'Fantasy',
+  'horror':'Horror','ghost stories':'Horror','supernatural fiction':'Horror',
+  'mystery':'Mystery','detective':'Mystery','whodunit':'Mystery',
+  'thriller':'Thriller','suspense':'Thriller','espionage':'Thriller',
+  'romance':'Romance','love stories':'Romance','romantic fiction':'Romance',
+  'historical fiction':'Historical Fiction','historical novel':'Historical Fiction',
+  'literary fiction':'Literary Fiction','literary':'Literary Fiction','contemporary fiction':'Literary Fiction',
+  'magical realism':'Magical Realism','magic realism':'Magical Realism',
+  'dystopian':'Dystopian','dystopia':'Dystopian','post-apocalyptic':'Dystopian',
+  'young adult':'Young Adult','ya':'Young Adult','teen fiction':'Young Adult',
+  'graphic novel':'Graphic Novel','comics':'Graphic Novel','manga':'Graphic Novel',
+  'short stories':'Short Stories','short story collection':'Short Stories',
+  'memoir':'Memoir','autobiography':'Memoir','personal narrative':'Memoir',
+  'biography':'Biography','biographies':'Biography',
+  'true crime':'True Crime','crime nonfiction':'True Crime',
+  'history':'History','historical':'History',
+  'philosophy':'Philosophy','philosophical':'Philosophy',
+  'science':'Science','popular science':'Science','natural history':'Science',
+  'self-help':'Self-Help','self help':'Self-Help','personal development':'Self-Help',
+  'politics':'Politics','political science':'Politics',
+  'travel':'Travel','travel writing':'Travel',
+  'nature':'Nature','environment':'Nature','ecology':'Nature',
+  'food':'Food & Cooking','cooking':'Food & Cooking','cookbook':'Food & Cooking',
+  'art':'Art & Design','design':'Art & Design',
+  'essay':'Essay Collection','essays':'Essay Collection',
+  'speculative fiction':'Speculative Fiction','speculative':'Speculative Fiction',
+  'psychological fiction':'Psychological Fiction','psychological thriller':'Psychological Fiction',
+  'crime':'Crime','noir':'Crime',
+  'gothic':'Gothic','gothic fiction':'Gothic',
+  'satire':'Satire','satirical':'Satire',
+  'classics':'Classics','classic literature':'Classics',
+  'adventure':'Adventure','action and adventure':'Adventure',
+  'queer':'Queer Fiction','lgbtq':'Queer Fiction','lgbt':'Queer Fiction','queer literature':'Queer Fiction',
+  'children':'Children's','childrens':'Children's','juvenile fiction':'Children's',
+};
+
+function canonicaliseGenre(raw) {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().trim();
+  // Direct match
+  if (GENRE_MAP[lower]) return GENRE_MAP[lower];
+  // Partial match
+  for (const [key, val] of Object.entries(GENRE_MAP)) {
+    if (lower.includes(key)) return val;
+  }
+  // Check if it's already a canonical genre
+  if (GENRES.includes(raw)) return raw;
+  return null;
+}
+
+function canonicaliseGenres(rawTags) {
+  const seen = new Set();
+  const result = [];
+  parseTags(rawTags).forEach(tag => {
+    const canonical = canonicaliseGenre(tag);
+    if (canonical && !seen.has(canonical)) {
+      seen.add(canonical);
+      result.push(canonical);
+    }
+  });
+  return result.join(', ');
+}
 
 /* ── STATE ─────────────────────────────────────────────────────────────── */
 let books = [], currentUser = null, sessionToken = null;
@@ -234,6 +305,7 @@ function onSignedIn() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('uavatar').textContent = currentUser.email.slice(0,1).toUpperCase();
   if (apiKey) document.getElementById('ak').value = apiKey;
+  go('library');
   loadBooks();
 }
 
@@ -295,7 +367,8 @@ function bookToRow(b) {
     themes: b.themes || '',
     manual_title: b.manual_title || null,
     manual_author: b.manual_author || null,
-    import_source: b.import_source || ''
+    import_source: b.import_source || '',
+    pages_read: nn(b.pages_read)
   };
 }
 
@@ -400,6 +473,8 @@ async function fetchMetaForBook(b) {
     } catch(e) {}
   }
 
+  // Canonicalise genres before caching
+  if (meta.genre) meta.genre = canonicaliseGenres(meta.genre);
   if (Object.keys(meta).length) setMeta(ck, meta);
 }
 
@@ -466,9 +541,15 @@ function renderCR() {
     <div class="cr-strip">
       ${reading.map(b => {
         const cover = bCover(b);
+        const pages = bPages(b);
+        const pct = (b.pages_read && pages) ? Math.min(100, Math.round(b.pages_read/pages*100)) : null;
         return `<div class="cr-card" onclick="openBookPage('${b.id}')">
           ${cover?`<img class="cr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cr-cover-ph">📖</div>`}
-          <div><div class="cr-title">${bTitle(b)}</div><div class="cr-author">${bAuthor(b)}</div><div class="cr-pill">Reading</div></div>
+          <div style="flex:1;min-width:0">
+            <div class="cr-title">${bTitle(b)}</div>
+            <div class="cr-author">${bAuthor(b)}</div>
+            ${pct!==null?`<div style="margin-top:6px"><div style="height:3px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--tx2);margin-top:3px">${b.pages_read} of ${pages} pages · ${pct}%</div></div>`:`<div class="cr-pill" style="margin-top:5px">Reading</div>`}
+          </div>
         </div>`;
       }).join('')}
     </div>`;
@@ -983,6 +1064,7 @@ function openEdit(bookId) {
       <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro_rating||''}"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}"></div>
+      ${b.status==='reading'?`<div class="fg"><label class="fl">Pages read so far</label><input class="fi" type="number" id="e-pages-read" min="0" value="${b.pages_read||''}"></div>`:''}
     </div>
     <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
@@ -1005,6 +1087,10 @@ async function saveEdit(bookId) {
   b.mood=getTagVal('e-mood');b.themes=getTagVal('e-themes');
   b.notes=document.getElementById('e-notes').value.trim();
   b.retro_thoughts=document.getElementById('e-retro-notes').value.trim();
+  if(b.status==='reading'){
+    const pr=document.getElementById('e-pages-read');
+    if(pr)b.pages_read=parseInt(pr.value)||null;
+  }
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
   chartsDrawn=false;renderLibrary();
@@ -1290,6 +1376,234 @@ async function confirmImport(){
 function bookToRow(b){
   const nn=v=>(v===''||v===null||v===undefined)?null:v;
   return{user_id:currentUser.id,isbn:nn(b.isbn),ol_key:nn(b.ol_key),google_id:nn(b.google_id),status:b.status||'finished',start_date:nn(b.start_date),end_date:nn(b.end_date),rating:nn(b.rating),retro_rating:nn(b.retro_rating),notes:b.notes||'',retro_thoughts:b.retro_thoughts||'',mood:b.mood||'',themes:b.themes||'',manual_title:nn(b.manual_title),manual_author:nn(b.manual_author),import_source:b.import_source||''};
+}
+
+/* ── EXPORT ────────────────────────────────────────────────────────────── */
+function exportLibrary() {
+  const fin = books.filter(b => b.status === 'finished');
+  const rows = [
+    ['Title','Author','Year','Rating','Retro Rating','Pages','Start Date','End Date','Days Reading','Pages/Day','Genre','Mood','Themes','Notes','Retro Thoughts','Import Source']
+  ];
+  fin.forEach(b => {
+    rows.push([
+      bTitle(b), bAuthor(b), bYear(b)||'',
+      b.rating||'', b.retro_rating||'',
+      bPages(b)||'', b.start_date||'', b.end_date||'',
+      bDays(b)||'', bPPD(b)||'',
+      bGenre(b)||'', b.mood||'', b.themes||'',
+      b.notes||'', b.retro_thoughts||'', b.import_source||''
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `pageturner-export-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ── DISCOVER TBR ──────────────────────────────────────────────────────── */
+function renderDiscoverTBR() {
+  const tbr = books.filter(b => b.status === 'tbr');
+  document.getElementById('tbr-count').textContent = `(${tbr.length})`;
+  const el = document.getElementById('discover-tbr-list');
+  if (!tbr.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--tx1);padding:10px 0">Your TBR list is empty. Add books from search above.</div>';
+    return;
+  }
+  el.innerHTML = tbr.map(b => {
+    const cover = bCover(b);
+    return `<div class="discover-tbr-item" onclick="openBookPage('${b.id}')">
+      ${cover ? `<img class="discover-tbr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<div class="discover-tbr-cover-ph">📖</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3">${bTitle(b)}</div>
+        <div style="font-size:11px;color:var(--tx1)">${bAuthor(b)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── DISCOVER SEARCH ───────────────────────────────────────────────────── */
+let discoverDebounce = null, discoverResults = [], discoverIdx = -1;
+
+function discoverSearch() {
+  const q = document.getElementById('discover-q').value.trim();
+  clearTimeout(discoverDebounce);
+  if (!q) { closeDiscoverSearch(); return; }
+  if (q.length < 2) return;
+  discoverDebounce = setTimeout(() => doDiscoverSearch(q), 350);
+}
+
+function discoverSearchKey(e) {
+  const box = document.getElementById('discover-results');
+  if (!box.classList.contains('open')) return;
+  if (e.key==='ArrowDown'){e.preventDefault();discoverIdx=Math.min(discoverIdx+1,discoverResults.length-1);highlightDiscover();}
+  else if (e.key==='ArrowUp'){e.preventDefault();discoverIdx=Math.max(discoverIdx-1,0);highlightDiscover();}
+  else if (e.key==='Enter'&&discoverIdx>=0){e.preventDefault();selectDiscoverResult(discoverIdx);}
+  else if (e.key==='Escape'){closeDiscoverSearch();}
+}
+
+function highlightDiscover() {
+  document.querySelectorAll('.gsearch-result').forEach((el,i) => { el.style.background=i===discoverIdx?'var(--amber-l)':''; });
+}
+
+function closeDiscoverSearch() {
+  document.getElementById('discover-results').classList.remove('open');
+  discoverResults=[]; discoverIdx=-1;
+}
+
+async function doDiscoverSearch(q) {
+  const box = document.getElementById('discover-results');
+  box.innerHTML=`<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
+  box.classList.add('open');
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
+    const d = await r.json();
+    discoverResults = d.docs||[];
+    if (!discoverResults.length) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
+    box.innerHTML = discoverResults.map((res,i) => {
+      const inLib = books.find(b => (res.isbn?.[0] && b.isbn===res.isbn[0]) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
+      const author = (res.author_name||[]).slice(0,2).join(', ')||'Unknown';
+      return `<div class="gsearch-result" id="dsr-${i}" onclick="selectDiscoverResult(${i})">
+        ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy">`:`<div class="gsearch-result-cover-ph">📖</div>`}
+        <div style="flex:1;min-width:0">
+          <div class="gsearch-result-title">${res.title}</div>
+          <div class="gsearch-result-author">${author}</div>
+          <div class="gsearch-result-meta">${res.first_publish_year||''}</div>
+          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+inLib.rating+'/10':''}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { box.innerHTML=`<div class="gsearch-empty">Search failed.</div>`; }
+}
+
+function selectDiscoverResult(i) {
+  const res = discoverResults[i]; if (!res) return;
+  closeDiscoverSearch();
+  document.getElementById('discover-q').value='';
+  const isbn = res.isbn?.[0]||null;
+  const inLib = books.find(b => (isbn && b.isbn===isbn) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
+  if (inLib) openBookPage(inLib.id);
+  else openUnreadBookPage(res);
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('discover-q')?.contains(e.target) && !document.getElementById('discover-results')?.contains(e.target)) closeDiscoverSearch();
+});
+
+/* ── REFLECT TAB ───────────────────────────────────────────────────────── */
+const REFLECT_PROMPTS = [
+  { id:'stayed',    q:'What stayed with you?' },
+  { id:'characters',q:'Did any characters feel real or hollow?' },
+  { id:'thought',   q:'What did it make you think about?' },
+  { id:'recommend', q:'Would you recommend it, and to whom?' },
+  { id:'changed',   q:'Has your opinion changed since finishing?' },
+];
+
+function renderReflect() {
+  renderReflectDue();
+  renderReflectTimeline();
+}
+
+function renderReflectDue() {
+  const due = books.filter(isRetroDue);
+  const sec = document.getElementById('reflect-due-section');
+  if (!due.length) {
+    sec.innerHTML = `<div class="reflect-empty"><div class="reflect-empty-icon">✦</div><div style="font-weight:500;margin-bottom:6px">No reflections due</div><div>Books become available for reflection one year after you finish them.</div></div>`;
+    return;
+  }
+  sec.innerHTML = `
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:14px">Due for reflection <span style="background:var(--amber);color:#fff;padding:2px 8px;border-radius:100px;font-size:10px;margin-left:6px">${due.length}</span></div>
+    ${due.map(b => renderReflectCard(b)).join('')}`;
+}
+
+function renderReflectCard(b) {
+  const cover = bCover(b);
+  const yearAgo = new Date(b.end_date); yearAgo.setFullYear(yearAgo.getFullYear()+1);
+  const daysOver = Math.floor((new Date()-yearAgo)/86400000);
+  const when = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
+  return `<div class="reflect-due-card" id="reflect-card-${b.id}">
+    <div class="reflect-due-header">
+      ${cover?`<img class="reflect-due-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="reflect-due-cover-ph">📖</div>`}
+      <div style="flex:1">
+        <div class="reflect-due-title">${bTitle(b)}</div>
+        <div class="reflect-due-author">${bAuthor(b)}</div>
+        <div class="reflect-due-meta">Rated ${b.rating||'—'}/10 · Finished ${when}</div>
+      </div>
+    </div>
+    <div class="reflect-prompts">
+      ${REFLECT_PROMPTS.map(p=>`
+        <div class="reflect-prompt">
+          <div class="reflect-prompt-q">${p.q}</div>
+          <textarea class="reflect-prompt-ta" id="rp-${b.id}-${p.id}" placeholder="Optional — answer as much or as little as you like…"></textarea>
+        </div>`).join('')}
+    </div>
+    <div class="reflect-rating-row">
+      <span class="reflect-rating-label">Retrospective rating</span>
+      <input class="reflect-rating-in" type="number" id="rr-${b.id}" min="1" max="10" placeholder="1–10" value="${b.rating||''}">
+      <span style="font-size:12px;color:var(--tx1)">/ 10</span>
+      <span style="font-size:11px;color:var(--tx2)">How do you feel about it now?</span>
+    </div>
+    <div class="form-acts" style="justify-content:flex-start;gap:8px">
+      <button class="reflect-save-btn" onclick="saveReflection('${b.id}')">Save reflection</button>
+      <button class="reflect-skip-btn" onclick="skipReflection('${b.id}')">Skip for now</button>
+    </div>
+  </div>`;
+}
+
+async function saveReflection(bookId) {
+  const b = books.find(x=>x.id===bookId); if (!b) return;
+  const rating = parseFloat(document.getElementById(`rr-${bookId}`).value)||null;
+  // Combine all prompt answers into retro_thoughts
+  const thoughts = REFLECT_PROMPTS.map(p => {
+    const val = document.getElementById(`rp-${bookId}-${p.id}`)?.value.trim();
+    return val ? `${p.q}\n${val}` : '';
+  }).filter(Boolean).join('\n\n');
+  b.retro_rating = rating;
+  b.retro_thoughts = thoughts || b.retro_thoughts;
+  await saveBook(b);
+  // Replace card with success message
+  const card = document.getElementById(`reflect-card-${bookId}`);
+  if (card) {
+    card.style.borderColor='var(--teal)';
+    card.innerHTML=`<div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+      <div style="font-size:24px">✓</div>
+      <div><div style="font-family:'Lora',serif;font-size:15px;font-weight:500;margin-bottom:3px">${bTitle(b)}</div>
+      <div style="font-size:13px;color:var(--teal)">Reflection saved${rating?' · '+rating+'/10':''}</div></div>
+    </div>`;
+  }
+  chartsDrawn=false;
+  renderRetroDue();
+  renderBooks();
+  renderReflectTimeline();
+}
+
+function skipReflection(bookId) {
+  const card = document.getElementById(`reflect-card-${bookId}`);
+  if (card) card.style.display='none';
+}
+
+function renderReflectTimeline() {
+  const withRetro = books.filter(b => b.status==='finished' && (b.retro_rating||b.retro_thoughts))
+    .sort((a,b) => new Date(b.end_date)-new Date(a.end_date));
+  const sec = document.getElementById('reflect-timeline-section');
+  if (!withRetro.length) { sec.innerHTML=''; return; }
+  sec.innerHTML = `
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin:28px 0 14px">Your reflections <span style="font-weight:400">(${withRetro.length})</span></div>
+    ${withRetro.map(b => {
+      const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+      const thoughts = b.retro_thoughts?.slice(0,200)+(b.retro_thoughts?.length>200?'…':'') || '';
+      return `<div class="reflect-timeline-entry" onclick="openBookPage('${b.id}')">
+        <div class="reflect-timeline-date">Finished ${date}</div>
+        <div class="reflect-timeline-book">${bTitle(b)}</div>
+        <div class="reflect-timeline-author">${bAuthor(b)}</div>
+        <div class="reflect-timeline-ratings">
+          ${b.rating?`<span class="reflect-timeline-rating">Initial: <strong>${b.rating}/10</strong></span>`:''}
+          ${b.retro_rating?`<span class="reflect-timeline-rating">Retrospective: <strong>${b.retro_rating}/10</strong></span>`:''}
+        </div>
+        ${thoughts?`<div class="reflect-timeline-thoughts">"${thoughts}"</div>`:''}
+      </div>`;
+    }).join('')}`;
 }
 
 /* ── STATS ─────────────────────────────────────────────────────────────── */
@@ -1593,11 +1907,20 @@ async function removeAllDupes() {
 function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('p-'+name).classList.add('on');
-  const names=['library','stats','add','chat'];
-  document.querySelectorAll('.tab')[names.indexOf(name)]?.classList.add('on');
-  if(name==='stats'){chartsDrawn=false;drawStats();}
-  if(name==='library')renderLibrary();
+  document.getElementById('p-'+name)?.classList.add('on');
+  document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('on');
+  if(name==='library'){renderLibrary();}
+  if(name==='discover'){renderDiscoverTBR();}
+  if(name==='reflect'){renderReflect();}
+}
+
+function toggleStats(){
+  const sec=document.getElementById('stats-section');
+  const lbl=document.getElementById('stats-toggle-label');
+  const open=sec.style.display==='none';
+  sec.style.display=open?'block':'none';
+  lbl.textContent=open?'Hide stats ▴':'Show stats ▾';
+  if(open){chartsDrawn=false;drawStats();}
 }
 
 /* ── CHAT ──────────────────────────────────────────────────────────────── */
