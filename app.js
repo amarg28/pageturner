@@ -480,7 +480,119 @@ async function fetchMetaForBook(b) {
 
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
 function renderLibrary() {
+  cleanGenreCache();
   renderQuickStats(); renderRetroDue(); renderCR(); renderTBR(); renderBooks();
+  renderSidebar();
+}
+
+// One-time cleanup: canonicalise all cached genres
+function cleanGenreCache() {
+  let changed = false;
+  Object.keys(metaCache).forEach(k => {
+    const m = metaCache[k];
+    if (m?.genre) {
+      const clean = canonicaliseGenres(m.genre);
+      if (clean !== m.genre) { m.genre = clean; changed = true; }
+    }
+  });
+  if (changed) saveMeta();
+}
+
+let sidebarCharsDrawn = false;
+function toggleSidebar() {
+  const content = document.getElementById('sidebar-content');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  const collapsed = content.classList.toggle('collapsed');
+  icon.textContent = collapsed ? '▶' : '◀';
+}
+
+function renderSidebar() {
+  const fin = books.filter(b => b.status === 'finished');
+  if (!fin.length) return;
+
+  // ── PERSONAL FACTS ───────────────────────────────────────────────────────
+  const genreMap = {};
+  fin.forEach(b => {
+    parseTags(bGenre(b)).forEach(g => {
+      if (!g) return;
+      if (!genreMap[g]) genreMap[g] = {count:0,total:0,rated:0};
+      genreMap[g].count++;
+      if (b.rating) { genreMap[g].total+=b.rating; genreMap[g].rated++; }
+    });
+  });
+  const genreSorted = Object.entries(genreMap).sort((a,b)=>b[1].count-a[1].count);
+  const topGenre = genreSorted[0]?.[0] || '—';
+  const highestRatedGenre = Object.entries(genreMap)
+    .filter(([,v]) => v.rated >= 3)
+    .sort((a,b) => (b[1].total/b[1].rated) - (a[1].total/a[1].rated))[0]?.[0] || '—';
+
+  // Most productive month
+  const monthCount = {};
+  fin.forEach(b => {
+    if (!b.end_date) return;
+    const d = new Date(b.end_date);
+    const k = d.toLocaleDateString('en-GB',{month:'long'});
+    monthCount[k] = (monthCount[k]||0)+1;
+  });
+  const topMonth = Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+
+  const rated = fin.filter(b => b.rating > 0);
+  const avgRating = rated.length ? (rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(1) : '—';
+
+  document.getElementById('sidebar-facts').innerHTML = `
+    <div class="sidebar-facts-grid">
+      <div class="sidebar-fact"><div class="sidebar-fact-l">Most read genre</div><div class="sidebar-fact-v">${topGenre}</div><div class="sidebar-fact-s">${genreMap[topGenre]?.count||0} books</div></div>
+      <div class="sidebar-fact"><div class="sidebar-fact-l">Highest rated genre</div><div class="sidebar-fact-v">${highestRatedGenre}</div><div class="sidebar-fact-s">${highestRatedGenre!=='—'?((genreMap[highestRatedGenre]?.total||0)/(genreMap[highestRatedGenre]?.rated||1)).toFixed(1)+' avg':''}</div></div>
+      <div class="sidebar-fact"><div class="sidebar-fact-l">Most read month</div><div class="sidebar-fact-v">${topMonth}</div><div class="sidebar-fact-s">${monthCount[topMonth]||0} books</div></div>
+      <div class="sidebar-fact"><div class="sidebar-fact-l">Avg rating</div><div class="sidebar-fact-v">${avgRating}</div><div class="sidebar-fact-s">out of 10</div></div>
+    </div>`;
+
+  // ── MINI GENRE BARS ──────────────────────────────────────────────────────
+  const top5 = genreSorted.slice(0,5);
+  const maxCount = top5[0]?.[1]?.count || 1;
+  document.getElementById('sidebar-genre-bars').innerHTML = top5.map(([g,v]) => {
+    const avgR = v.rated ? v.total/v.rated : 0;
+    const color = avgR>=8?'#1D9E75':avgR>=6?'#BA7517':'#D85A30';
+    const pct = Math.round(v.count/maxCount*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:90px;font-size:11px;font-weight:500;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx0)" title="${g}">${g}</div>
+      <div style="flex:1;height:16px;background:var(--bg2);border-radius:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px">
+          ${v.count>=2?`<span style="font-size:10px;color:#fff;font-weight:500">${v.count}</span>`:''}
+        </div>
+      </div>
+      <div style="width:24px;font-size:10px;color:var(--tx2);flex-shrink:0">${avgR>0?avgR.toFixed(1):''}</div>
+    </div>`;
+  }).join('');
+
+  // ── MINI CHARTS (only draw once) ─────────────────────────────────────────
+  if (sidebarCharsDrawn) return;
+  sidebarCharsDrawn = true;
+
+  // Books per month line chart
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yearSet=new Set(fin.filter(b=>b.end_date).map(b=>new Date(b.end_date).getFullYear()));
+  const years=[...yearSet].sort();
+  const yearColors=['#534AB7','#1D9E75','#D85A30','#1A6FA8','#BA7517'];
+  const bpmData={};
+  years.forEach(y=>{bpmData[y]=Array(12).fill(0);});
+  fin.forEach(b=>{
+    if(!b.end_date)return;
+    const d=new Date(b.end_date);
+    bpmData[d.getFullYear()][d.getMonth()]++;
+  });
+  const bpmCanvas = document.getElementById('cSidebarBPM');
+  if (bpmCanvas) {
+    new Chart(bpmCanvas,{type:'line',data:{labels:MONTHS,datasets:years.map((y,i)=>({label:String(y),data:bpmData[y],borderColor:yearColors[i%yearColors.length],backgroundColor:'transparent',tension:.3,fill:false,pointRadius:2,borderWidth:1.5}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},padding:6,usePointStyle:true}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false}},y:{ticks:{stepSize:1,font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'},min:0}}}});
+  }
+
+  // Mini rating distribution
+  const bkt=Array(10).fill(0);
+  rated.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
+  const ratingCanvas = document.getElementById('cSidebarRating');
+  if (ratingCanvas) {
+    new Chart(ratingCanvas,{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],datasets:[{data:bkt,backgroundColor:bkt.map((_,i)=>i>=7?'#1D9E75':i>=5?'#BA7517':'#D85A30'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9}},grid:{display:false}},y:{ticks:{stepSize:1,font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'}}}}});
+  }
 }
 
 function renderQuickStats() {
