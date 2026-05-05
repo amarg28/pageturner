@@ -725,10 +725,7 @@ function renderCRTBR() {
               <div class="crbox-title">${bTitle(b)}</div>
               <div class="crbox-author">${bAuthor(b)}</div>
               ${pct!==null?`<div style="margin-top:5px"><div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--tx2);margin-top:2px">${pct}%</div></div>`:''}
-              <div style="margin-top:6px;display:flex;gap:6px">
-                <button onclick="event.stopPropagation();markDNF('${b.id}')" style="font-size:9px;padding:2px 6px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">DNF</button>
-                <button onclick="event.stopPropagation();removeFromActive('${b.id}')" style="font-size:9px;padding:2px 6px;border:0.5px solid var(--coral);border-radius:100px;background:none;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif">Remove</button>
-              </div>
+
             </div>
           </div>`;
         }).join('')}
@@ -753,7 +750,7 @@ function renderCRTBR() {
             <div class="crbox-info">
               <div class="crbox-title">${bTitle(b)}</div>
               <div class="crbox-author">${bAuthor(b)}</div>
-              <button onclick="event.stopPropagation();removeFromActive('${b.id}')" style="margin-top:5px;font-size:9px;padding:2px 6px;border:0.5px solid var(--coral);border-radius:100px;background:none;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif">Remove</button>
+
             </div>
           </div>`;
         }).join('')}
@@ -1120,6 +1117,7 @@ async function openBookPage(bookId) {
     <div class="bp-nav">
       <div class="bp-back" onclick="closeBookModal()">← Back</div>
       <button class="bp-edit-btn" onclick="openEdit('${b.id}')">Edit</button>
+      <button class="bp-remove-btn" onclick="openDel('${b.id}')">Remove</button>
     </div>
     ${ibadge}
     ${due?`<div class="retro-prompt" id="retro-prompt-box">
