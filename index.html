@@ -75,7 +75,7 @@
         <span id="enrich-msg">Fetching book data…</span>
       </div>
 
-      <!-- Quick stats -->
+      <!-- Quick stats strip -->
       <div class="stat-strip" id="quick-stats"></div>
 
       <!-- Due for reflection -->
@@ -87,27 +87,59 @@
       <!-- TBR -->
       <div id="tbr-section"></div>
 
-      <!-- Library controls -->
-      <div class="lib-controls">
-        <input type="text" class="search-box" placeholder="Filter your library…" oninput="renderBooks()" id="q">
-        <select class="fsel" onchange="renderBooks()" id="gf"><option value="">All genres</option></select>
-        <select class="fsel" onchange="renderBooks()" id="mf"><option value="">All moods</option></select>
-        <select class="fsel" onchange="setSort(this.value)" id="sort-sel">
-          <option value="recent">Recently read</option>
-          <option value="first">First read</option>
-          <option value="rating-hi">Rating: high → low</option>
-          <option value="rating-lo">Rating: low → high</option>
-        </select>
-        <div class="view-toggle">
-          <button class="view-btn on" data-view="shelf" onclick="setView('shelf')" title="Bookshelf">⊞</button>
-          <button class="view-btn" data-view="list" onclick="setView('list')" title="Spreadsheet">☰</button>
-        </div>
-        <button class="icon-btn" onclick="showDuplicatesModal()" title="Find duplicates">⚠</button>
-        <button class="icon-btn" onclick="exportLibrary()" title="Export library">↓</button>
-      </div>
+      <!-- 2/3 + 1/3 split layout -->
+      <div class="library-layout">
 
-      <div class="sec-label">Finished books</div>
-      <div class="shelf" id="shelf"></div>
+        <!-- LEFT: Books (2/3) -->
+        <div class="library-main">
+          <!-- Library controls -->
+          <div class="lib-controls">
+            <input type="text" class="search-box" placeholder="Filter your library…" oninput="renderBooks()" id="q">
+            <select class="fsel" onchange="renderBooks()" id="gf"><option value="">All genres</option></select>
+            <select class="fsel" onchange="renderBooks()" id="mf"><option value="">All moods</option></select>
+            <select class="fsel" onchange="setSort(this.value)" id="sort-sel">
+              <option value="recent">Recently read</option>
+              <option value="first">First read</option>
+              <option value="rating-hi">Rating: high → low</option>
+              <option value="rating-lo">Rating: low → high</option>
+            </select>
+            <div class="view-toggle">
+              <button class="view-btn on" data-view="shelf" onclick="setView('shelf')" title="Bookshelf">⊞</button>
+              <button class="view-btn" data-view="list" onclick="setView('list')" title="Spreadsheet">☰</button>
+            </div>
+            <button class="icon-btn" onclick="showDuplicatesModal()" title="Find duplicates">⚠</button>
+            <button class="icon-btn" onclick="exportLibrary()" title="Export library">↓</button>
+          </div>
+          <div class="sec-label">Finished books</div>
+          <div class="shelf" id="shelf"></div>
+        </div>
+
+        <!-- RIGHT: Stats sidebar (1/3) -->
+        <div class="library-sidebar" id="library-sidebar">
+          <div class="sidebar-collapse-btn" onclick="toggleSidebar()">
+            <span id="sidebar-toggle-icon">◀</span>
+          </div>
+          <div id="sidebar-content">
+            <!-- Personal facts -->
+            <div id="sidebar-facts"></div>
+
+            <!-- Mini charts -->
+            <div class="chart-card" style="margin-bottom:14px">
+              <div class="chart-head">Top genres</div>
+              <div id="sidebar-genre-bars" style="padding:2px 0"></div>
+            </div>
+            <div class="chart-card" style="margin-bottom:14px">
+              <div class="chart-head">Books per month</div>
+              <div style="position:relative;height:160px"><canvas id="cSidebarBPM"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-head">Ratings</div>
+              <div style="position:relative;height:140px"><canvas id="cSidebarRating"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /library-layout -->
 
       <!-- Stats section -->
       <div class="stats-toggle" onclick="toggleStats()">
