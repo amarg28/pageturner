@@ -397,3 +397,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .list-row:hover td{background:var(--amber-l)}
 .list-row:last-child td{border-bottom:none}
 .list-title{font-family:'Lora',serif;font-weight:500;line-height:1.3}
+
+/* ── STATS TABLES ──────────────────────────────────────────────────────── */
+.stats-table{width:100%;border-collapse:collapse;font-size:13px}
+.stats-table tr{border-bottom:0.5px solid var(--bd)}
+.stats-table tr:last-child{border-bottom:none}
+.stats-table td,.stats-table th{padding:8px 12px;vertical-align:middle}
+.stats-table thead tr{background:var(--bg2)}
+.stats-table tbody tr:hover{background:var(--bg1)}
