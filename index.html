@@ -96,8 +96,6 @@
       <div class="shelf" id="shelf"></div>
     </div>
 
-    <!-- BOOK PAGE (library books + unread books from search) -->
-    <div id="p-book" class="panel"></div>
 
     <!-- STATS -->
     <div id="p-stats" class="panel">
@@ -249,6 +247,14 @@
 
   </div><!-- /shell -->
 </div><!-- /app -->
+
+<!-- BOOK MODAL -->
+<div id="book-modal" class="book-modal-ov" onclick="bookModalClick(event)">
+  <div class="book-modal-inner" id="book-modal-inner">
+    <button class="book-modal-close" onclick="closeBookModal()" aria-label="Close">×</button>
+    <div class="book-modal-body" id="book-modal-body"></div>
+  </div>
+</div>
 
 <!-- MODALS -->
 <div class="modal-ov" id="edit-modal" onclick="maybeClose(event,'edit-modal')">
