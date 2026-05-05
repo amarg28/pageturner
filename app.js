@@ -13,7 +13,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
 // Fiction genres
-const FICTION_GENRES = ['Adventure','Children's','Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical Fiction','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
+const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical Fiction','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
 // Nonfiction genres
 const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','History','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
 // Combined for backwards compat
@@ -57,7 +57,7 @@ const GENRE_MAP = {
   'classics':'Classics','classic literature':'Classics',
   'adventure':'Adventure','action and adventure':'Adventure',
   'queer':'Queer Fiction','lgbtq':'Queer Fiction','lgbt':'Queer Fiction','queer literature':'Queer Fiction',
-  'children':'Children's','childrens':'Children's','juvenile fiction':'Children's',
+  'children':"Children's",'childrens':"Children's",'juvenile fiction':"Children's",
 };
 
 function canonicaliseGenre(raw) {
