@@ -537,3 +537,15 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .library-sidebar{position:static;flex-direction:column}
   .sidebar-collapse-btn{display:none}
 }
+
+/* ── STATS OVERLAY ─────────────────────────────────────────────────────── */
+.stats-overlay-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:150;align-items:flex-start;justify-content:center;padding:24px 20px;overflow-y:auto}
+.stats-overlay-ov.on{display:flex;animation:fadeIn .2s ease}
+.stats-overlay-inner{background:var(--bg1);border-radius:var(--rxl);width:100%;max-width:1100px;margin:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);animation:slideUp .22s ease}
+.stats-open-btn{padding:6px 12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg0);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--tx1);white-space:nowrap;transition:all .15s}
+.stats-open-btn:hover{border-color:var(--amber);color:var(--amber)}
+
+/* ── SIDEBAR SCROLL FIX ────────────────────────────────────────────────── */
+.library-sidebar{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
+.library-sidebar::-webkit-scrollbar{width:4px}
+.library-sidebar::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
