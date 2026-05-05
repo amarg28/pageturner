@@ -439,3 +439,76 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 }
 .book-modal-close:hover{background:var(--bd2);color:var(--tx0)}
 .book-modal-body{padding:28px 28px 32px}
+
+/* ── THREE-TAB NAV UPDATES ─────────────────────────────────────────────── */
+.tabs .tab{font-size:13px;padding:7px 16px}
+
+/* ── LIBRARY CONTROLS ──────────────────────────────────────────────────── */
+.lib-controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.icon-btn{width:32px;height:32px;border:0.5px solid var(--bd);border-radius:var(--r);background:none;cursor:pointer;font-size:14px;color:var(--tx1);display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.icon-btn:hover{background:var(--bg2);border-color:var(--bd2)}
+
+/* ── STATS TOGGLE ──────────────────────────────────────────────────────── */
+.stats-toggle{margin:28px 0 16px;padding:10px 16px;background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;color:var(--tx1);text-align:center;transition:all .15s}
+.stats-toggle:hover{border-color:var(--bd2);background:var(--bg2)}
+
+/* ── DISCOVER TAB ──────────────────────────────────────────────────────── */
+.discover-hero{text-align:center;padding:32px 20px 28px;margin-bottom:28px;background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rxl)}
+.discover-hero-title{font-family:'Lora',serif;font-size:26px;font-weight:500;letter-spacing:-.02em;margin-bottom:8px}
+.discover-hero-sub{font-size:14px;color:var(--tx1);margin-bottom:20px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6}
+.discover-search-wrap{position:relative;max-width:560px;margin:0 auto}
+.discover-search-in{width:100%;padding:13px 18px;border:0.5px solid var(--bd2);border-radius:100px;background:var(--bg1);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--tx0);outline:none;transition:all .2s}
+.discover-search-in:focus{border-color:var(--amber);background:var(--bg0);box-shadow:0 0 0 4px var(--amber-l)}
+.discover-search-results{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--bg0);border:0.5px solid var(--bd2);border-radius:var(--rl);box-shadow:0 4px 24px rgba(0,0,0,0.12);z-index:100;max-height:400px;overflow-y:auto;display:none}
+.discover-search-results.open{display:block}
+.discover-cols{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+.discover-main{}
+.discover-side{}
+.discover-section-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:12px}
+
+/* ── DISCOVER TBR LIST ─────────────────────────────────────────────────── */
+.discover-tbr-item{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;transition:background .12s}
+.discover-tbr-item:hover{background:var(--amber-l);margin:0 -8px;padding:9px 8px;border-radius:var(--r)}
+.discover-tbr-cover{width:32px;height:48px;object-fit:cover;border-radius:3px;background:var(--bg2);flex-shrink:0}
+.discover-tbr-cover-ph{width:32px;height:48px;border-radius:3px;background:var(--bg2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+
+/* ── REFLECT TAB ───────────────────────────────────────────────────────── */
+.reflect-header{margin-bottom:28px}
+.reflect-title{font-family:'Lora',serif;font-size:24px;font-weight:500;letter-spacing:-.02em;margin-bottom:6px}
+.reflect-sub{font-size:14px;color:var(--tx1);line-height:1.6;max-width:560px}
+.reflect-due-card{background:var(--bg0);border:0.5px solid var(--amber-m);border-radius:var(--rl);padding:20px;margin-bottom:14px}
+.reflect-due-header{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
+.reflect-due-cover{width:52px;height:78px;object-fit:cover;border-radius:6px;background:var(--bg2);flex-shrink:0;border:0.5px solid var(--bd)}
+.reflect-due-cover-ph{width:52px;height:78px;border-radius:6px;background:var(--amber-l);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.reflect-due-title{font-family:'Lora',serif;font-size:16px;font-weight:500;margin-bottom:3px}
+.reflect-due-author{font-size:13px;color:var(--tx1);margin-bottom:4px}
+.reflect-due-meta{font-size:11px;color:var(--tx2)}
+.reflect-prompts{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.reflect-prompt{background:var(--bg1);border-radius:var(--r);padding:12px 14px}
+.reflect-prompt-q{font-size:12px;font-weight:500;color:var(--amber);margin-bottom:6px}
+.reflect-prompt-ta{width:100%;padding:8px 10px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg0);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx0);resize:vertical;min-height:60px;outline:none;line-height:1.5}
+.reflect-prompt-ta:focus{border-color:var(--amber)}
+.reflect-rating-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.reflect-rating-label{font-size:12px;font-weight:500;color:var(--tx1)}
+.reflect-rating-in{width:72px;padding:8px 10px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg1);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx0);outline:none;text-align:center}
+.reflect-rating-in:focus{border-color:var(--amber)}
+.reflect-save-btn{padding:9px 20px;background:var(--amber);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.reflect-save-btn:hover{opacity:.85}
+.reflect-skip-btn{padding:9px 16px;background:none;border:0.5px solid var(--bd2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;color:var(--tx1)}
+.reflect-timeline-entry{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:18px 20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
+.reflect-timeline-entry:hover{border-color:var(--amber)}
+.reflect-timeline-date{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:4px}
+.reflect-timeline-book{font-family:'Lora',serif;font-size:15px;font-weight:500;margin-bottom:2px}
+.reflect-timeline-author{font-size:12px;color:var(--tx1);margin-bottom:8px}
+.reflect-timeline-ratings{display:flex;gap:14px;margin-bottom:8px}
+.reflect-timeline-rating{font-size:12px;color:var(--tx1)}
+.reflect-timeline-rating strong{color:var(--tx0);font-weight:500}
+.reflect-timeline-thoughts{font-size:13px;color:var(--tx1);line-height:1.6;font-style:italic}
+.reflect-empty{text-align:center;padding:40px 20px;color:var(--tx1);font-size:13px}
+.reflect-empty-icon{font-size:32px;margin-bottom:10px}
+
+/* ── RESPONSIVE DISCOVER ───────────────────────────────────────────────── */
+@media(max-width:760px){
+  .discover-cols{grid-template-columns:1fr}
+  .discover-hero-title{font-size:20px}
+}
