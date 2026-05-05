@@ -1293,6 +1293,79 @@ function bookToRow(b){
 }
 
 /* ── STATS ─────────────────────────────────────────────────────────────── */
+function drawGenreTreemap(data) {
+  const canvas = document.getElementById('cGenreTreemap');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 800;
+  const H = canvas.offsetHeight || 300;
+  canvas.width = W; canvas.height = H;
+
+  const total = data.reduce((s,d) => s+d.count, 0);
+  if (!total) return;
+
+  // Simple squarified treemap
+  const items = data.map(d => ({...d, area: d.count/total}));
+  const rects = squarify(items, 0, 0, W, H);
+
+  rects.forEach(r => {
+    // Fill
+    ctx.fillStyle = r.color + 'cc';
+    ctx.beginPath();
+    ctx.roundRect(r.x+2, r.y+2, r.w-4, r.h-4, 6);
+    ctx.fill();
+
+    // Label if big enough
+    if (r.w > 45 && r.h > 28) {
+      ctx.fillStyle = '#fff';
+      ctx.font = `500 ${Math.min(13, r.w/8)}px "DM Sans", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = r.label.length > r.w/7 ? r.label.slice(0, Math.floor(r.w/7))+'…' : r.label;
+      ctx.fillText(label, r.x + r.w/2, r.y + r.h/2 - (r.h>44?8:0));
+      if (r.h > 44) {
+        ctx.font = `400 ${Math.min(11, r.w/9)}px "DM Sans", sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(`${r.count} books · ${r.avg}`, r.x + r.w/2, r.y + r.h/2 + 10);
+      }
+    }
+  });
+
+  // Tooltip on hover
+  canvas.onmousemove = e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W/rect.width);
+    const my = (e.clientY - rect.top) * (H/rect.height);
+    const hit = rects.find(r => mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h);
+    canvas.title = hit ? `${hit.label}: ${hit.count} books · avg ${hit.avg}/10` : '';
+  };
+}
+
+function squarify(items, x, y, w, h) {
+  if (!items.length) return [];
+  if (items.length === 1) {
+    return [{...items[0], x, y, w, h}];
+  }
+  // Split into two halves by count
+  const total = items.reduce((s,i) => s+i.count, 0);
+  let acc = 0, split = 0;
+  for (let i = 0; i < items.length; i++) {
+    acc += items[i].count;
+    if (acc >= total/2) { split = i+1; break; }
+  }
+  split = Math.max(1, Math.min(split, items.length-1));
+  const left = items.slice(0, split);
+  const right = items.slice(split);
+  const leftTotal = left.reduce((s,i) => s+i.count, 0)/total;
+  if (w >= h) {
+    const lw = Math.round(w * leftTotal);
+    return [...squarify(left, x, y, lw, h), ...squarify(right, x+lw, y, w-lw, h)];
+  } else {
+    const lh = Math.round(h * leftTotal);
+    return [...squarify(left, x, y, w, lh), ...squarify(right, x, y+lh, w, h-lh)];
+  }
+}
+
 function drawStats(){
   if(chartsDrawn)return;chartsDrawn=true;
   const fin=books.filter(b=>b.status==='finished');
@@ -1319,36 +1392,41 @@ function drawStats(){
     <div class="stat"><div class="stat-l">Avg page count</div><div class="stat-v">${avgPages}</div></div>
     <div class="stat"><div class="stat-l">TBR remaining</div><div class="stat-v">${tbr}</div></div>`;
 
-  // ── GENRE TABLE ──────────────────────────────────────────────────────────
+  // ── GENRE DATA (shared between chart + treemap) ─────────────────────────
   const genreMap={};
   fin.forEach(b=>{
     parseTags(bGenre(b)).forEach(g=>{
       if(!g)return;
-      if(!genreMap[g])genreMap[g]={count:0,total:0};
+      if(!genreMap[g])genreMap[g]={count:0,total:0,rated:0};
       genreMap[g].count++;
-      if(b.rating)genreMap[g].total+=b.rating;
+      if(b.rating){genreMap[g].total+=b.rating;genreMap[g].rated++;}
     });
   });
-  const genreRows=Object.entries(genreMap)
-    .sort((a,b)=>b[1].count-a[1].count)
-    .map(([g,v])=>{
-      const avg=v.count>0?(v.total/v.count).toFixed(1):'—';
-      const pct=Math.round(v.count/fin.length*100);
-      return`<tr>
-        <td style="font-weight:500;padding:8px 12px">${g}</td>
-        <td style="padding:8px 12px;text-align:center">${v.count}</td>
-        <td style="padding:8px 12px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
-              <div style="width:${pct}%;height:100%;background:var(--amber);border-radius:3px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--tx1);width:28px;text-align:right">${pct}%</span>
-          </div>
-        </td>
-        <td style="padding:8px 12px;text-align:center;color:${parseFloat(avg)>=8?'var(--teal)':parseFloat(avg)>=6?'var(--amber)':'var(--coral)'};font-weight:500">${avg}</td>
-      </tr>`;
-    }).join('');
-  document.getElementById('genre-table-body').innerHTML=genreRows||'<tr><td colspan="4" style="padding:12px;color:var(--tx1)">No genre data yet</td></tr>';
+  const genreSorted=Object.entries(genreMap).sort((a,b)=>b[1].count-a[1].count);
+  const maxGenreCount=genreSorted[0]?.[1]?.count||1;
+
+  // ── GENRE HORIZONTAL BAR CHART ───────────────────────────────────────────
+  const genreChartData=genreSorted.map(([g,v])=>{
+    const avgR=v.rated>0?v.rated>0?(v.total/v.rated):0:0;
+    const color=avgR>=8?'#1D9E75':avgR>=6?'#BA7517':'#D85A30';
+    return{label:g,count:v.count,avg:avgR>0?avgR.toFixed(1):'—',color};
+  });
+
+  // Render as custom HTML bars (more control than Chart.js for this layout)
+  document.getElementById('genre-chart-wrap').innerHTML=genreChartData.map(d=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:130px;font-size:12px;font-weight:500;text-align:right;flex-shrink:0;color:var(--tx0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.label}">${d.label}</div>
+      <div style="flex:1;height:22px;background:var(--bg2);border-radius:4px;overflow:hidden;position:relative">
+        <div style="width:${Math.round(d.count/maxGenreCount*100)}%;height:100%;background:${d.color};border-radius:4px;transition:width .4s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
+          ${d.count>=3?`<span style="font-size:11px;color:#fff;font-weight:500">${d.count}</span>`:''}
+        </div>
+        ${d.count<3?`<span style="position:absolute;left:calc(${Math.round(d.count/maxGenreCount*100)}% + 6px);top:50%;transform:translateY(-50%);font-size:11px;color:var(--tx1);font-weight:500">${d.count}</span>`:''}
+      </div>
+      <div style="width:36px;text-align:right;font-size:11px;font-weight:500;flex-shrink:0;color:${d.avg>=8?'var(--teal)':d.avg>=6?'var(--amber)':'var(--coral)'}">${d.avg}</div>
+    </div>`).join('')||'<div style="font-size:13px;color:var(--tx1)">No genre data yet</div>';
+
+  // ── GENRE TREEMAP ────────────────────────────────────────────────────────
+  drawGenreTreemap(genreChartData);
 
   // ── RATING DISTRIBUTION ──────────────────────────────────────────────────
   const bkt=Array(10).fill(0);
