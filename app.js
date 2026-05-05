@@ -530,7 +530,7 @@ function renderBooks() {
         <th style="min-width:200px">Title</th>
         <th style="min-width:140px">Author</th>
         <th style="min-width:90px">Your Rating</th>
-        <th style="min-width:90px">Retrospective</th>
+
         <th style="min-width:80px">Year Pub.</th>
         <th style="min-width:70px">Pages</th>
         <th style="min-width:110px">Date Started</th>
@@ -808,9 +808,9 @@ async function openBookPage(bookId) {
     </div>
     <div class="bp-body">
       <div>
-        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div><div style="font-size:14px;line-height:1.7">${desc}</div></div>`:''}
+        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div><div id="desc-text" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>${desc.length>300?`<button onclick="document.getElementById('desc-text').style.webkitLineClamp='unset';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}</div></div>`:''}
         ${b.notes?`<div class="bpsec"><div class="bpsec-t">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
-        ${b.retro_thoughts?`<div class="bpsec"><div class="retro-pill">Retrospective</div><div style="font-size:14px;line-height:1.7;margin-top:6px">${b.retro_thoughts}</div></div>`:''}
+        ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec"><div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>${b.retro_thoughts?`<div style="font-size:14px;line-height:1.7;margin-top:6px">${b.retro_thoughts}</div>`:''}</div>`:''}
         <div class="ai-sec">
           <div class="ai-head"><div class="ai-t">AI analysis for you</div><button class="ai-btn" id="ai-gen-btn" onclick="genAnalysis('${b.id}')">✦ Generate analysis</button></div>
           <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for a personalised take based on your reading history.</div></div>
@@ -1279,24 +1279,160 @@ function bookToRow(b){
 function drawStats(){
   if(chartsDrawn)return;chartsDrawn=true;
   const fin=books.filter(b=>b.status==='finished');
-  if(!fin.length){document.getElementById('stats-cards').innerHTML='<div class="stat"><div class="stat-l">No finished books yet</div></div>';return;}
+  if(!fin.length){document.getElementById('stats-strip').innerHTML='<div class="stat"><div class="stat-l">No finished books yet</div></div>';return;}
+
   const rated=fin.filter(b=>b.rating>0);
   const avg=rated.length?(rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(1):'—';
-  const top=rated.length?rated.reduce((a,b)=>(b.retro_rating||b.rating)>(a.retro_rating||a.rating)?b:a):null;
-  const fastArr=fin.filter(b=>bPPD(b)>0);
-  const fast=fastArr.length?fastArr.reduce((a,b)=>bPPD(b)>bPPD(a)?b:a):null;
-  document.getElementById('stats-cards').innerHTML=`
+  const totalPages=fin.reduce((s,b)=>s+bPages(b),0);
+  const daysArr=fin.filter(b=>bDays(b)>0);
+  const avgDays=daysArr.length?(daysArr.reduce((s,b)=>s+bDays(b),0)/daysArr.length).toFixed(1):'—';
+  const pagesArr=fin.filter(b=>bPages(b)>0);
+  const avgPages=pagesArr.length?Math.round(pagesArr.reduce((s,b)=>s+bPages(b),0)/pagesArr.length):'—';
+  const ppdArr=fin.filter(b=>bPPD(b)>0);
+  const avgPPD=ppdArr.length?Math.round(ppdArr.reduce((s,b)=>s+bPPD(b),0)/ppdArr.length):'—';
+  const tbr=books.filter(b=>b.status==='tbr').length;
+
+  // Top strip
+  document.getElementById('stats-strip').innerHTML=`
+    <div class="stat"><div class="stat-l">Books finished</div><div class="stat-v">${fin.length}</div></div>
+    <div class="stat"><div class="stat-l">Total pages</div><div class="stat-v">${totalPages.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Avg rating</div><div class="stat-v">${avg}</div><div class="stat-s">out of 10</div></div>
-    <div class="stat"><div class="stat-l">Top rated</div><div class="stat-v" style="font-size:13px">${top?bTitle(top):'—'}</div><div class="stat-s">${top?(top.retro_rating||top.rating)+'/10':''}</div></div>
-    <div class="stat"><div class="stat-l">Fastest read</div><div class="stat-v" style="font-size:13px">${fast?bTitle(fast):'—'}</div><div class="stat-s">${fast?bPPD(fast)+' p/day':''}</div></div>
-    <div class="stat"><div class="stat-l">Authors</div><div class="stat-v">${new Set(fin.map(b=>bAuthor(b))).size}</div></div>`;
-  const bkt=Array(10).fill(0);rated.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
+    <div class="stat"><div class="stat-l">Avg days/book</div><div class="stat-v">${avgDays}</div></div>
+    <div class="stat"><div class="stat-l">Avg pages/day</div><div class="stat-v">${avgPPD}</div></div>
+    <div class="stat"><div class="stat-l">Avg page count</div><div class="stat-v">${avgPages}</div></div>
+    <div class="stat"><div class="stat-l">TBR remaining</div><div class="stat-v">${tbr}</div></div>`;
+
+  // ── GENRE TABLE ──────────────────────────────────────────────────────────
+  const genreMap={};
+  fin.forEach(b=>{
+    parseTags(bGenre(b)).forEach(g=>{
+      if(!g)return;
+      if(!genreMap[g])genreMap[g]={count:0,total:0};
+      genreMap[g].count++;
+      if(b.rating)genreMap[g].total+=b.rating;
+    });
+  });
+  const genreRows=Object.entries(genreMap)
+    .sort((a,b)=>b[1].count-a[1].count)
+    .map(([g,v])=>{
+      const avg=v.count>0?(v.total/v.count).toFixed(1):'—';
+      const pct=Math.round(v.count/fin.length*100);
+      return`<tr>
+        <td style="font-weight:500;padding:8px 12px">${g}</td>
+        <td style="padding:8px 12px;text-align:center">${v.count}</td>
+        <td style="padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:var(--amber);border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;color:var(--tx1);width:28px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+        <td style="padding:8px 12px;text-align:center;color:${parseFloat(avg)>=8?'var(--teal)':parseFloat(avg)>=6?'var(--amber)':'var(--coral)'};font-weight:500">${avg}</td>
+      </tr>`;
+    }).join('');
+  document.getElementById('genre-table-body').innerHTML=genreRows||'<tr><td colspan="4" style="padding:12px;color:var(--tx1)">No genre data yet</td></tr>';
+
+  // ── RATING DISTRIBUTION ──────────────────────────────────────────────────
+  const bkt=Array(10).fill(0);
+  rated.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
   new Chart(document.getElementById('cRating'),{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],datasets:[{data:bkt,backgroundColor:bkt.map((_,i)=>i>=7?'#1D9E75':i>=5?'#BA7517':'#D85A30'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'}}}}});
-  const s=[...fin].sort((a,b)=>new Date(a.end_date)-new Date(b.end_date)).filter(b=>bPPD(b)>0);
-  new Chart(document.getElementById('cPace'),{type:'bar',data:{labels:s.map(b=>bTitle(b).length>10?bTitle(b).slice(0,10)+'…':bTitle(b)),datasets:[{data:s.map(b=>bPPD(b)),backgroundColor:'#534AB7',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(128,128,128,0.1)'}}}}});
-  const fc={};fin.forEach(b=>{const fmt=getMeta(b.isbn)?.format||'Unknown';fc[fmt]=(fc[fmt]||0)+1;});
-  new Chart(document.getElementById('cFmt'),{type:'doughnut',data:{labels:Object.keys(fc),datasets:[{data:Object.values(fc),backgroundColor:['#1D9E75','#534AB7','#D85A30','#1A6FA8'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}});
-  new Chart(document.getElementById('cRetro'),{type:'scatter',data:{datasets:[{label:'Books',data:fin.filter(b=>b.rating&&b.retro_rating).map(b=>({x:b.rating,y:b.retro_rating,t:bTitle(b)})),backgroundColor:'#BA7517',pointRadius:6,pointHoverRadius:8},{label:'No change',data:[{x:1,y:1},{x:10,y:10}],type:'line',borderColor:'rgba(128,128,128,0.3)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.t?`${c.raw.t} (${c.raw.x}→${c.raw.y})`:''}}},scales:{x:{title:{display:true,text:'Initial rating',font:{size:11}},min:0,max:11},y:{title:{display:true,text:'Retrospective',font:{size:11}},min:0,max:11}}}});
+
+  // ── BOOKS PER MONTH ──────────────────────────────────────────────────────
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yearSet=new Set(fin.filter(b=>b.end_date).map(b=>new Date(b.end_date).getFullYear()));
+  const years=[...yearSet].sort();
+  const yearColors=['#534AB7','#1D9E75','#D85A30','#1A6FA8','#BA7517'];
+
+  // Data table
+  const bpmData={};
+  years.forEach(y=>{bpmData[y]=Array(12).fill(0);});
+  fin.forEach(b=>{
+    if(!b.end_date)return;
+    const d=new Date(b.end_date);
+    const y=d.getFullYear(),m=d.getMonth();
+    if(bpmData[y])bpmData[y][m]++;
+  });
+  const tableRows=MONTHS.map((mo,mi)=>{
+    const cells=years.map(y=>`<td style="text-align:center;padding:7px 10px;font-weight:${bpmData[y][mi]>0?'500':'400'};color:${bpmData[y][mi]>0?'var(--tx0)':'var(--tx2)'}">${bpmData[y][mi]||'—'}</td>`).join('');
+    return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:7px 12px;font-weight:500;color:var(--tx1)">${mo}</td>${cells}</tr>`;
+  }).join('');
+  const totalRow=years.map(y=>`<td style="text-align:center;padding:7px 10px;font-weight:600;color:var(--amber)">${bpmData[y].reduce((s,v)=>s+v,0)}</td>`).join('');
+  document.getElementById('bpm-table-body').innerHTML=tableRows+`<tr style="background:var(--bg2)"><td style="padding:7px 12px;font-weight:600">Total</td>${totalRow}</tr>`;
+  document.getElementById('bpm-table-head').innerHTML=`<tr><th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Month</th>${years.map((y,i)=>`<th style="padding:8px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:${yearColors[i%yearColors.length]}">${y}</th>`).join('')}</tr>`;
+
+  // Line chart
+  new Chart(document.getElementById('cBPM'),{
+    type:'line',
+    data:{
+      labels:MONTHS,
+      datasets:years.map((y,i)=>({
+        label:String(y),
+        data:bpmData[y],
+        borderColor:yearColors[i%yearColors.length],
+        backgroundColor:yearColors[i%yearColors.length]+'22',
+        pointBackgroundColor:yearColors[i%yearColors.length],
+        tension:.3,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2
+      }))
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},padding:12,usePointStyle:true}}},scales:{x:{grid:{color:'rgba(128,128,128,0.08)'}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'},min:0}}}
+  });
+
+  // ── DECADE PUBLISHED ─────────────────────────────────────────────────────
+  const decadeMap={};
+  fin.forEach(b=>{
+    const y=bYear(b);if(!y)return;
+    const dec=Math.floor(y/10)*10;
+    const k=dec+'s';
+    if(!decadeMap[k])decadeMap[k]={count:0,total:0,rated:0};
+    decadeMap[k].count++;
+    if(b.rating){decadeMap[k].total+=b.rating;decadeMap[k].rated++;}
+  });
+  const decLabels=Object.keys(decadeMap).sort();
+  const decCounts=decLabels.map(k=>decadeMap[k].count);
+  const decAvgs=decLabels.map(k=>decadeMap[k].rated?+(decadeMap[k].total/decadeMap[k].rated).toFixed(1):0);
+  new Chart(document.getElementById('cDecade'),{
+    type:'bar',
+    data:{labels:decLabels,datasets:[
+      {label:'Books read',data:decCounts,backgroundColor:'#534AB7',borderRadius:4,borderSkipped:false,yAxisID:'y'},
+      {label:'Avg rating',data:decAvgs,type:'line',borderColor:'#BA7517',backgroundColor:'transparent',pointBackgroundColor:'#BA7517',tension:.3,borderWidth:2,pointRadius:4,yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},padding:10,usePointStyle:true}}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'},title:{display:true,text:'Books',font:{size:10}}},y2:{position:'right',min:0,max:10,grid:{display:false},title:{display:true,text:'Avg rating',font:{size:10}}}}}
+  });
+
+  // ── AVG RATING BY ORIGIN ─────────────────────────────────────────────────
+  const originMap={};
+  fin.forEach(b=>{
+    // origin is stored in notes for imported books — skip if blank
+    // We look for it in the book data; for now group by import_source as proxy
+    const src=b.import_source||'Manual';
+    if(!originMap[src])originMap[src]={count:0,total:0};
+    originMap[src].count++;
+    if(b.rating)originMap[src].total+=b.rating;
+  });
+  const originRows=Object.entries(originMap)
+    .sort((a,b)=>b[1].count-a[1].count)
+    .map(([src,v])=>{
+      const avg=v.count>0?(v.total/v.count).toFixed(1):'—';
+      const label=src==='goodreads'?'Goodreads import':src==='storygraph'?'StoryGraph import':src==='pageturner'?'PageTurner import':'Manually added';
+      return`<tr style="border-bottom:0.5px solid var(--bd)">
+        <td style="padding:8px 12px;font-weight:500">${label}</td>
+        <td style="padding:8px 12px;text-align:center;color:var(--tx1)">${v.count}</td>
+        <td style="padding:8px 12px;text-align:center;font-weight:500;color:${parseFloat(avg)>=8?'var(--teal)':parseFloat(avg)>=6?'var(--amber)':'var(--coral)'}">${avg}</td>
+      </tr>`;
+    }).join('');
+  document.getElementById('origin-table-body').innerHTML=originRows;
+
+  // ── RETRO SCATTER ────────────────────────────────────────────────────────
+  const retroData=fin.filter(b=>b.rating&&b.retro_rating);
+  if(retroData.length){
+    new Chart(document.getElementById('cRetro'),{type:'scatter',data:{datasets:[
+      {label:'Books',data:retroData.map(b=>({x:b.rating,y:b.retro_rating,t:bTitle(b)})),backgroundColor:'#BA7517',pointRadius:6,pointHoverRadius:8},
+      {label:'No change',data:[{x:1,y:1},{x:10,y:10}],type:'line',borderColor:'rgba(128,128,128,0.3)',borderDash:[4,4],pointRadius:0,fill:false}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.t?`${c.raw.t} (${c.raw.x}→${c.raw.y})`:''}}},scales:{x:{title:{display:true,text:'Initial rating',font:{size:11}},min:0,max:11},y:{title:{display:true,text:'Retrospective',font:{size:11}},min:0,max:11}}}});
+  } else {
+    document.getElementById('cRetro').parentElement.innerHTML='<div style="font-size:13px;color:var(--tx1);font-style:italic;padding:20px">No retrospective ratings yet — they appear one year after finishing a book.</div>';
+  }
 }
 
 /* ── TABS ──────────────────────────────────────────────────────────────── */
