@@ -576,3 +576,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* Hover: subtle shadow, no movement */
 .cr-card:hover{transform:none;box-shadow:0 2px 12px rgba(186,117,23,.15);border-color:var(--amber)}
 .tbr-item:hover{transform:none}
+
+/* ── BOOK PAGE NAV REMOVE BUTTON ───────────────────────────────────────── */
+.bp-remove-btn{padding:6px 11px;border:0.5px solid var(--coral);border-radius:var(--r);background:none;font-size:12px;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif;transition:all .12s}
+.bp-remove-btn:hover{background:var(--coral);color:#fff}
