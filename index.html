@@ -101,30 +101,74 @@
 
     <!-- STATS -->
     <div id="p-stats" class="panel">
-      <div class="stat-strip" id="stats-cards"></div>
+
+      <!-- Top strip -->
+      <div class="stat-strip" id="stats-strip"></div>
+
+      <!-- Row 1: Genre table + Rating distribution -->
+      <div class="two-col" style="align-items:start">
+        <div class="chart-card">
+          <div class="chart-head">Books by genre</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="border-bottom:0.5px solid var(--bd)">
+              <th style="padding:6px 12px;text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Genre</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Books</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Share</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Avg rating</th>
+            </tr></thead>
+            <tbody id="genre-table-body"></tbody>
+          </table>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">Ratings distribution</div>
+          <div class="chart-legend">
+            <span><span class="ldot" style="background:#1D9E75"></span>High (8–10)</span>
+            <span><span class="ldot" style="background:#BA7517"></span>Mid (6–7)</span>
+            <span><span class="ldot" style="background:#D85A30"></span>Low (1–5)</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px"><canvas id="cRating"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Row 2: Books per month table + line chart -->
       <div class="chart-card">
-        <div class="chart-head">Ratings distribution</div>
-        <div class="chart-legend">
-          <span><span class="ldot" style="background:#1D9E75"></span>High (8–10)</span>
-          <span><span class="ldot" style="background:#BA7517"></span>Mid (6–7)</span>
-          <span><span class="ldot" style="background:#D85A30"></span>Low (1–5)</span>
-        </div>
-        <div style="position:relative;width:100%;height:200px"><canvas id="cRating"></canvas></div>
-      </div>
-      <div class="two-col">
-        <div class="chart-card">
-          <div class="chart-head">Reading pace</div>
-          <div style="position:relative;width:100%;height:180px"><canvas id="cPace"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-head">Format breakdown</div>
-          <div style="position:relative;width:100%;height:180px"><canvas id="cFmt"></canvas></div>
+        <div class="chart-head">Books read per month</div>
+        <div class="two-col" style="align-items:start;gap:20px">
+          <div style="overflow-x:auto">
+            <table style="border-collapse:collapse;font-size:13px;min-width:200px">
+              <thead id="bpm-table-head"></thead>
+              <tbody id="bpm-table-body"></tbody>
+            </table>
+          </div>
+          <div style="position:relative;width:100%;min-height:220px"><canvas id="cBPM"></canvas></div>
         </div>
       </div>
+
+      <!-- Row 3: Decade published + Origin table -->
+      <div class="two-col" style="align-items:start">
+        <div class="chart-card">
+          <div class="chart-head">Decade published</div>
+          <div style="position:relative;width:100%;height:220px"><canvas id="cDecade"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">Average rating by book origin</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="border-bottom:0.5px solid var(--bd)">
+              <th style="padding:6px 12px;text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Source</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Books</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--tx1)">Avg rating</th>
+            </tr></thead>
+            <tbody id="origin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Row 4: Retro scatter -->
       <div class="chart-card">
         <div class="chart-head">Initial vs retrospective rating</div>
-        <div style="position:relative;width:100%;height:200px"><canvas id="cRetro"></canvas></div>
+        <div style="position:relative;width:100%;height:220px"><canvas id="cRetro"></canvas></div>
       </div>
+
     </div>
 
     <!-- ADD BOOK -->
