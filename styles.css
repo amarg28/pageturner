@@ -40,7 +40,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .auth-msg.success{color:var(--teal);background:var(--teal-l)}
 
 /* ── SHELL ─────────────────────────────────────────────────────────────── */
-.shell{max-width:1040px;margin:0 auto;padding:0 20px 60px}
+.shell{max-width:1400px;margin:0 auto;padding:0 28px 60px}
 .panel{display:none}.panel.on{display:block}
 
 /* ── TOPBAR ────────────────────────────────────────────────────────────── */
@@ -142,7 +142,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .fsel{padding:8px 10px;border:0.5px solid var(--bd);border-radius:var(--r);background:var(--bg0);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx0);outline:none;cursor:pointer}
 .sort-btn{padding:7px 12px;border:0.5px solid var(--bd);border-radius:var(--r);background:none;font-size:12px;color:var(--tx1);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s}
 .sort-btn.on{background:var(--bg2);color:var(--tx0);border-color:var(--bd2)}
-.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:18px}
 .shelf.list-mode{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .book-card{cursor:pointer;display:flex;flex-direction:column;position:relative;transition:transform .18s}
 .book-card:hover{transform:translateY(-3px)}
