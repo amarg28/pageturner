@@ -481,7 +481,7 @@ async function fetchMetaForBook(b) {
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
 function renderLibrary() {
   cleanGenreCache();
-  renderQuickStats(); renderRetroDue(); renderCR(); renderTBR(); renderBooks();
+  renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
   renderSidebar();
 }
 
@@ -672,47 +672,101 @@ function renderCR() {
   const reading = books.filter(b => b.status === 'reading');
   const sec = document.getElementById('cr-section');
   if (!reading.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `<div class="sec-label" style="margin-bottom:5px">Currently reading</div>
-    <div class="cr-strip">
+  // handled together with TBR in renderCRTBR
+}
+
+function renderTBR() {
+  // handled together with CR in renderCRTBR
+}
+
+function renderCRTBR() {
+  const reading = books.filter(b => b.status === 'reading');
+  const tbr     = books.filter(b => b.status === 'tbr');
+  const crSec   = document.getElementById('cr-section');
+  const tbrSec  = document.getElementById('tbr-section');
+
+  // Clear both sections — we render into a combined row
+  tbrSec.innerHTML = '';
+
+  if (!reading.length && !tbr.length) { crSec.innerHTML = ''; return; }
+
+  const MAX_CR  = 3;
+  const MAX_TBR = 6;
+
+  // ── Currently Reading box ────────────────────────────────────────────────
+  const crHtml = reading.length ? `
+    <div class="crbox">
+      <div class="crbox-label">Currently reading</div>
+      <div class="crbox-books">
+        ${reading.slice(0, MAX_CR).map((b, i) => {
+          const cover = bCover(b);
+          const pages = bPages(b);
+          const pct = (b.pages_read && pages) ? Math.min(100, Math.round(b.pages_read/pages*100)) : null;
+          return `${i>0?'<div class="crbox-divider"></div>':''}
+          <div class="crbox-book" onclick="openBookPage('${b.id}')">
+            ${cover?`<img class="crbox-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="crbox-cover-ph">📖</div>`}
+            <div class="crbox-info">
+              <div class="crbox-title">${bTitle(b)}</div>
+              <div class="crbox-author">${bAuthor(b)}</div>
+              ${pct!==null?`<div style="margin-top:5px"><div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--amber);margin-top:2px;opacity:.8">${pct}%</div></div>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+        ${reading.length > MAX_CR ? `<div class="crbox-divider"></div><div class="crbox-more" onclick="openCRModal()">+${reading.length-MAX_CR} more</div>` : ''}
+      </div>
+    </div>` : '';
+
+  // ── TBR box ──────────────────────────────────────────────────────────────
+  const tbrHtml = tbr.length ? `
+    <div class="crbox crbox-tbr" style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="crbox-label">To be read</div>
+        <span style="font-size:10px;color:var(--amber);opacity:.7">${tbr.length} books</span>
+        ${tbr.length > MAX_TBR ? `<button onclick="openTBRModal()" class="crbox-viewall">View all →</button>` : ''}
+      </div>
+      <div class="crbox-books">
+        ${tbr.slice(0, MAX_TBR).map((b, i) => {
+          const cover = bCover(b);
+          return `${i>0?'<div class="crbox-divider"></div>':''}
+          <div class="crbox-book crbox-book-compact" onclick="openBookPage('${b.id}')">
+            ${cover?`<img class="crbox-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="crbox-cover-ph" style="font-size:14px">📚</div>`}
+            <div class="crbox-info">
+              <div class="crbox-title">${bTitle(b)}</div>
+              <div class="crbox-author">${bAuthor(b)}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  crSec.innerHTML = (crHtml || tbrHtml) ? `
+    <div class="crtbr-row">${crHtml}${tbrHtml}</div>` : '';
+}
+
+function openCRModal() {
+  const reading = books.filter(b => b.status === 'reading');
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Currently reading (${reading.length})</div>
+    <div style="max-height:60vh;overflow-y:auto">
       ${reading.map(b => {
         const cover = bCover(b);
         const pages = bPages(b);
         const pct = (b.pages_read && pages) ? Math.min(100, Math.round(b.pages_read/pages*100)) : null;
-        return `<div class="cr-card" onclick="openBookPage('${b.id}')">
-          ${cover?`<img class="cr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cr-cover-ph">📖</div>`}
+        return `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="document.getElementById('del-modal').classList.remove('on');openBookPage('${b.id}')">
+          ${cover?`<img src="${cover}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0" loading="lazy">`:`<div style="width:36px;height:54px;background:var(--bg2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center">📖</div>`}
           <div style="flex:1;min-width:0">
-            <div class="cr-title">${bTitle(b)}</div>
-            <div class="cr-author">${bAuthor(b)}</div>
-            ${pct!==null?`<div style="margin-top:6px"><div style="height:3px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--tx2);margin-top:3px">${b.pages_read} of ${pages} pages · ${pct}%</div></div>`:`<div class="cr-pill" style="margin-top:5px">Reading</div>`}
+            <div style="font-family:'Lora',serif;font-size:14px;font-weight:500">${bTitle(b)}</div>
+            <div style="font-size:12px;color:var(--tx1);margin-top:2px">${bAuthor(b)}</div>
+            ${pct!==null?`<div style="margin-top:5px;font-size:11px;color:var(--tx1)">${b.pages_read} of ${pages} pages · ${pct}%</div>`:''}
           </div>
         </div>`;
       }).join('')}
-    </div>`;
-}
-
-function renderTBR() {
-  const tbr = books.filter(b => b.status === 'tbr');
-  const sec = document.getElementById('tbr-section');
-  if (!tbr.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <div class="sec-label" style="margin-bottom:0">To be read</div>
-      <span style="font-size:11px;color:var(--tx2);font-weight:400">(${tbr.length})</span>
-      <button onclick="openTBRModal()" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif">View all →</button>
     </div>
-    <div class="cr-strip">
-      ${tbr.map(b => {
-        const cover = bCover(b);
-        return `<div class="cr-card" onclick="openBookPage('${b.id}')">
-          ${cover?`<img class="cr-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cr-cover-ph">📚</div>`}
-          <div style="flex:1;min-width:0">
-            <div class="cr-title">${bTitle(b)}</div>
-            <div class="cr-author">${bAuthor(b)}</div>
-            <div class="cr-pill" style="background:var(--purple-l);color:var(--purple);margin-top:5px">TBR</div>
-          </div>
-        </div>`;
-      }).join('')}
+    <div class="form-acts" style="margin-top:14px">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Close</button>
     </div>`;
+  document.getElementById('del-modal').classList.add('on');
 }
 
 function openTBRModal() {
