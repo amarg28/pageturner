@@ -462,7 +462,7 @@ function renderCR() {
   const reading = books.filter(b => b.status === 'reading');
   const sec = document.getElementById('cr-section');
   if (!reading.length) { sec.innerHTML = ''; return; }
-  sec.innerHTML = `<div class="sec-label" style="margin-bottom:8px">Currently reading</div>
+  sec.innerHTML = `<div class="sec-label" style="margin-bottom:5px">Currently reading</div>
     <div class="cr-strip">
       ${reading.map(b => {
         const cover = bCover(b);
@@ -1406,7 +1406,7 @@ function drawStats(){
   const maxGenreCount=genreSorted[0]?.[1]?.count||1;
 
   // ── GENRE HORIZONTAL BAR CHART ───────────────────────────────────────────
-  const genreChartData=genreSorted.map(([g,v])=>{
+  const genreChartData=genreSorted.slice(0,12).map(([g,v])=>{
     const avgR=v.rated>0?v.rated>0?(v.total/v.rated):0:0;
     const color=avgR>=8?'#1D9E75':avgR>=6?'#BA7517':'#D85A30';
     return{label:g,count:v.count,avg:avgR>0?avgR.toFixed(1):'—',color};
@@ -1416,7 +1416,7 @@ function drawStats(){
   document.getElementById('genre-chart-wrap').innerHTML=genreChartData.map(d=>`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <div style="width:130px;font-size:12px;font-weight:500;text-align:right;flex-shrink:0;color:var(--tx0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.label}">${d.label}</div>
-      <div style="flex:1;height:22px;background:var(--bg2);border-radius:4px;overflow:hidden;position:relative">
+      <div style="flex:1;height:18px;background:var(--bg2);border-radius:4px;overflow:hidden;position:relative">
         <div style="width:${Math.round(d.count/maxGenreCount*100)}%;height:100%;background:${d.color};border-radius:4px;transition:width .4s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
           ${d.count>=3?`<span style="font-size:11px;color:#fff;font-weight:500">${d.count}</span>`:''}
         </div>
