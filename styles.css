@@ -549,3 +549,27 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .library-sidebar{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
 .library-sidebar::-webkit-scrollbar{width:4px}
 .library-sidebar::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* ── CR + TBR COMBINED ROW ─────────────────────────────────────────────── */
+.crtbr-row{display:flex;gap:14px;margin-bottom:24px;align-items:stretch;flex-wrap:wrap}
+.crbox{background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:var(--rl);padding:14px 16px;min-width:0}
+.crbox-tbr{flex:1}
+.crbox-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin-bottom:10px}
+.crbox-books{display:flex;align-items:stretch;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.crbox-divider{width:1px;background:var(--amber-m);flex-shrink:0;margin:0 12px;opacity:.5}
+.crbox-book{display:flex;gap:10px;align-items:flex-start;cursor:pointer;padding:4px 6px;border-radius:var(--r);transition:background .15s;flex-shrink:0;max-width:180px}
+.crbox-book:hover{background:rgba(186,117,23,.12)}
+.crbox-book-compact{max-width:150px}
+.crbox-cover{width:40px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid rgba(186,117,23,.2)}
+.crbox-cover-ph{width:40px;height:60px;border-radius:4px;background:rgba(186,117,23,.15);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+.crbox-info{flex:1;min-width:0}
+.crbox-title{font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3;color:var(--tx0)}
+.crbox-author{font-size:10px;color:var(--tx1);margin-top:2px}
+.crbox-more{display:flex;align-items:center;justify-content:center;padding:0 8px;font-size:11px;font-weight:500;color:var(--amber);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.crbox-more:hover{text-decoration:underline}
+.crbox-viewall{margin-left:auto;font-size:10px;padding:3px 8px;border:0.5px solid var(--amber-m);border-radius:100px;background:none;cursor:pointer;color:var(--amber);font-family:'DM Sans',sans-serif}
+.crbox-viewall:hover{background:rgba(186,117,23,.12)}
+
+/* Remove old hover transform on cr/tbr cards */
+.cr-card:hover{transform:none;box-shadow:0 2px 12px rgba(186,117,23,.2);border-color:var(--amber)}
+.tbr-item:hover{transform:none}
