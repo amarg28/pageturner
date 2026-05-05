@@ -514,7 +514,8 @@ function openStatsOverlay() {
   document.getElementById('stats-overlay').classList.add('on');
   document.body.style.overflow = 'hidden';
   chartsDrawn = false;
-  drawStats();
+  // Wait for overlay to render before drawing charts
+  requestAnimationFrame(() => setTimeout(drawStats, 50));
 }
 
 function closeStatsOverlay() {
@@ -609,12 +610,27 @@ function renderSidebar() {
     new Chart(bpmCanvas,{type:'line',data:{labels:MONTHS,datasets:years.map((y,i)=>({label:String(y),data:bpmData[y],borderColor:yearColors[i%yearColors.length],backgroundColor:'transparent',tension:.3,fill:false,pointRadius:2,borderWidth:1.5}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},padding:6,usePointStyle:true}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false}},y:{ticks:{stepSize:1,font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'},min:0}}}});
   }
 
-  // Mini rating distribution
-  const bkt=Array(10).fill(0);
-  rated.forEach(b=>{if(b.rating>=1&&b.rating<=10)bkt[Math.round(b.rating)-1]++;});
-  const ratingCanvas = document.getElementById('cSidebarRating');
-  if (ratingCanvas) {
-    new Chart(ratingCanvas,{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],datasets:[{data:bkt,backgroundColor:bkt.map((_,i)=>i>=7?'#1D9E75':i>=5?'#BA7517':'#D85A30'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9}},grid:{display:false}},y:{ticks:{stepSize:1,font:{size:9}},grid:{color:'rgba(128,128,128,0.1)'}}}}});
+  // Top 5 decades
+  const decMap={};
+  fin.forEach(b=>{
+    const y=bYear(b);if(!y)return;
+    const dec=Math.floor(y/10)*10+'s';
+    decMap[dec]=(decMap[dec]||0)+1;
+  });
+  const top5dec=Object.entries(decMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxDec=top5dec[0]?.[1]||1;
+  const decEl=document.getElementById('sidebar-decades');
+  if(decEl){
+    decEl.innerHTML=top5dec.map(([dec,count])=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:44px;font-size:11px;font-weight:500;text-align:right;flex-shrink:0;color:var(--tx0)">${dec}</div>
+        <div style="flex:1;height:16px;background:var(--bg2);border-radius:3px;overflow:hidden">
+          <div style="width:${Math.round(count/maxDec*100)}%;height:100%;background:var(--purple);border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px">
+            ${count>=2?`<span style="font-size:10px;color:#fff;font-weight:500">${count}</span>`:''}
+          </div>
+        </div>
+        <div style="width:20px;font-size:10px;color:var(--tx2);flex-shrink:0">${count<2?count:''}</div>
+      </div>`).join('');
   }
 }
 
@@ -703,12 +719,16 @@ function renderCRTBR() {
           const pages = bPages(b);
           const pct = (b.pages_read && pages) ? Math.min(100, Math.round(b.pages_read/pages*100)) : null;
           return `${i>0?'<div class="crbox-divider"></div>':''}
-          <div class="crbox-book" onclick="openBookPage('${b.id}')">
+          <div class="crbox-book" style="position:relative" onclick="openBookPage('${b.id}')">
             ${cover?`<img class="crbox-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="crbox-cover-ph">📖</div>`}
             <div class="crbox-info">
               <div class="crbox-title">${bTitle(b)}</div>
               <div class="crbox-author">${bAuthor(b)}</div>
-              ${pct!==null?`<div style="margin-top:5px"><div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--amber);margin-top:2px;opacity:.8">${pct}%</div></div>`:''}
+              ${pct!==null?`<div style="margin-top:5px"><div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--amber);border-radius:2px"></div></div><div style="font-size:10px;color:var(--tx2);margin-top:2px">${pct}%</div></div>`:''}
+              <div style="margin-top:6px;display:flex;gap:6px">
+                <button onclick="event.stopPropagation();markDNF('${b.id}')" style="font-size:9px;padding:2px 6px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">DNF</button>
+                <button onclick="event.stopPropagation();removeFromActive('${b.id}')" style="font-size:9px;padding:2px 6px;border:0.5px solid var(--coral);border-radius:100px;background:none;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif">Remove</button>
+              </div>
             </div>
           </div>`;
         }).join('')}
@@ -728,11 +748,12 @@ function renderCRTBR() {
         ${tbr.slice(0, MAX_TBR).map((b, i) => {
           const cover = bCover(b);
           return `${i>0?'<div class="crbox-divider"></div>':''}
-          <div class="crbox-book crbox-book-compact" onclick="openBookPage('${b.id}')">
+          <div class="crbox-book crbox-book-compact" style="position:relative" onclick="openBookPage('${b.id}')">
             ${cover?`<img class="crbox-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="crbox-cover-ph" style="font-size:14px">📚</div>`}
             <div class="crbox-info">
               <div class="crbox-title">${bTitle(b)}</div>
               <div class="crbox-author">${bAuthor(b)}</div>
+              <button onclick="event.stopPropagation();removeFromActive('${b.id}')" style="margin-top:5px;font-size:9px;padding:2px 6px;border:0.5px solid var(--coral);border-radius:100px;background:none;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif">Remove</button>
             </div>
           </div>`;
         }).join('')}
@@ -1046,12 +1067,37 @@ async function loadUnreadOLData(olBook) {
 }
 
 async function quickAddBook(status, isbn, olKey, title, author) {
+  // Prevent duplicates
+  const exists = books.find(b =>
+    (isbn && b.isbn === isbn) ||
+    (olKey && b.ol_key === olKey) ||
+    bTitle(b).toLowerCase() === title.toLowerCase()
+  );
+  if (exists) {
+    const statusLabel = exists.status==='finished'?'finished':exists.status==='reading'?'currently reading':exists.status==='tbr'?'on your TBR':'in your library';
+    alert(`"${title}" is already ${statusLabel}.`);
+    return;
+  }
   const newBook = { isbn: isbn||null, ol_key: olKey||null, google_id: null, status, start_date: null, end_date: null, rating: null, retro_rating: null, notes: '', retro_thoughts: '', mood: '', themes: '', manual_title: title||null, manual_author: author||null, import_source: '' };
   try {
     await saveBook(newBook);
     books.unshift(newBook);
     closeBookModal(); renderLibrary(); go('library');
   } catch(e) { alert('Could not add book: '+e.message); }
+}
+
+async function removeFromActive(bookId) {
+  if (!confirm('Remove this book from your library?')) return;
+  const ok = await deleteBookById(bookId);
+  if (ok) books = books.filter(x => x.id !== bookId);
+  chartsDrawn = false; renderLibrary();
+}
+
+async function markDNF(bookId) {
+  const b = books.find(x => x.id === bookId); if (!b) return;
+  b.status = 'dnf';
+  await saveBook(b);
+  chartsDrawn = false; renderLibrary();
 }
 
 /* ── BOOK PAGE ─────────────────────────────────────────────────────────── */
@@ -1278,6 +1324,7 @@ function openEdit(bookId) {
           <option value="finished"${b.status==='finished'?' selected':''}>Finished</option>
           <option value="reading"${b.status==='reading'?' selected':''}>Currently Reading</option>
           <option value="tbr"${b.status==='tbr'?' selected':''}>To Be Read</option>
+          <option value="dnf"${b.status==='dnf'?' selected':''}>Did Not Finish</option>
         </select>
       </div>
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="e-rating" min="1" max="10" value="${b.rating||''}"></div>
