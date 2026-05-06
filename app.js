@@ -345,6 +345,22 @@ function onSignedIn() {
   if (apiKey) { const akEl = document.getElementById('ak'); if(akEl) akEl.value = apiKey; }
   go('library');
   loadBooks();
+  // Show tour on first ever sign-in
+  const toured = localStorage.getItem('pt_toured');
+  if (!toured) {
+    setTimeout(() => showTour(), 1200);
+  }
+}
+
+function showTour() {
+  const toured = localStorage.getItem('pt_toured');
+  if (toured) return;
+  localStorage.setItem('pt_toured', '1');
+  document.getElementById('tour-overlay').classList.add('on');
+}
+
+function closeTour() {
+  document.getElementById('tour-overlay').classList.remove('on');
 }
 
 async function signOut() {
@@ -522,7 +538,10 @@ async function fetchMetaForBook(b) {
 function renderLibrary() {
   cleanGenreCache();
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
-  renderSidebar();
+  // Hide sidebar until user has books
+  const sidebar = document.getElementById('library-sidebar');
+  if (sidebar) sidebar.style.display = books.length >= 3 ? '' : 'none';
+  if (books.length >= 3) renderSidebar();
 }
 
 // One-time cleanup: canonicalise all cached genres
@@ -883,7 +902,41 @@ function renderBooks() {
 
   const shelf = document.getElementById('shelf');
   if (!list.length) {
-    shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!q&&!gf&&!mf?'Your finished library is empty.<br><br><span style="font-size:12px">Go to <strong>Add Book</strong> to get started.</span>':'No books match your filters.'}</div>`;
+    if (!gf && !mf && books.length === 0) {
+      // Completely new user - show onboarding
+      shelf.innerHTML = `<div class="empty-onboard">
+        <div class="empty-onboard-title">Welcome to PageTurner</div>
+        <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
+        <div class="onboard-steps">
+          <div class="onboard-step" onclick="go('discover')">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-icon">🔭</div>
+            <div class="onboard-step-title">Add a book</div>
+            <div class="onboard-step-desc">Search for books you've read and log your rating, dates, and thoughts</div>
+            <div class="onboard-step-cta">Go to Discover →</div>
+          </div>
+          <div class="onboard-step">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-icon">✦</div>
+            <div class="onboard-step-title">Reflect on it</div>
+            <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
+            <div class="onboard-step-cta">Available after one year</div>
+          </div>
+          <div class="onboard-step" onclick="go('discover')">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-icon">🤖</div>
+            <div class="onboard-step-title">Discover what's next</div>
+            <div class="onboard-step-desc">Ask the AI book advisor for recommendations based on your reading history and taste</div>
+            <div class="onboard-step-cta">Go to Discover →</div>
+          </div>
+        </div>
+        <div style="margin-top:20px">
+          <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
+        </div>
+      </div>`;
+    } else {
+      shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!gf&&!mf?'Your finished library is empty.':'No books match your filters.'}</div>`;
+    }
     return;
   }
 
@@ -1277,7 +1330,10 @@ async function openBookPage(bookId) {
     </div>
     <div class="bp-body">
       <div>
-        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div><div id="desc-text" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>${desc.length>300?`<button onclick="document.getElementById('desc-text').style.webkitLineClamp='unset';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}</div></div>`:''}
+        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div>
+          <div id="desc-text-${b.id}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
+          ${desc.length>300?`<button onclick="var el=document.getElementById('desc-text-${b.id}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}
+        </div></div>`:''}
         ${b.notes?`<div class="bpsec"><div class="bpsec-t">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
         ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec">
           <div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>
