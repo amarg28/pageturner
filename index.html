@@ -61,8 +61,7 @@
           <button class="tab"     data-tab="discover" onclick="go('discover')">🔭 Discover</button>
           <button class="tab"     data-tab="reflect"  onclick="go('reflect')">✦ Reflect</button>
         </nav>
-        <div class="uavatar" id="uavatar">?</div>
-        <button class="so-btn" onclick="signOut()">Sign out</button>
+        <div class="uavatar" id="uavatar" onclick="openSettings()" title="Settings">?</div>
       </div>
     </div>
 
@@ -362,6 +361,85 @@
 </div>
 <div class="modal-ov" id="del-modal" onclick="maybeClose(event,'del-modal')">
   <div class="modal" id="del-body"></div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div id="settings-backdrop" class="settings-backdrop" onclick="closeSettings()"></div>
+<div id="settings-drawer" class="settings-drawer">
+  <div class="settings-header">
+    <div class="settings-title">Settings</div>
+    <button class="settings-close" onclick="closeSettings()">×</button>
+  </div>
+  <div class="settings-body">
+
+    <!-- Account -->
+    <div class="settings-section">
+      <div class="settings-section-label">Account</div>
+      <div class="settings-row">
+        <label class="settings-label">Display name</label>
+        <input class="settings-input" id="s-display-name" type="text" placeholder="Your name">
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">Email</label>
+        <input class="settings-input" id="s-email" type="email" readonly style="opacity:.6;cursor:default">
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">New password</label>
+        <input class="settings-input" id="s-password" type="password" placeholder="Leave blank to keep current">
+      </div>
+      <button class="settings-save-btn" onclick="saveAccountSettings()">Save account</button>
+    </div>
+
+    <!-- AI -->
+    <div class="settings-section">
+      <div class="settings-section-label">AI settings</div>
+      <div class="settings-row">
+        <label class="settings-label">Anthropic API key</label>
+        <input class="settings-input" id="s-api-key" type="password" placeholder="sk-ant-api03-…">
+      </div>
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:10px;line-height:1.5">Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--amber)">console.anthropic.com</a>. Stored only in your browser, never sent to our servers.</div>
+      <button class="settings-save-btn" onclick="saveApiKey()">Save API key</button>
+    </div>
+
+    <!-- Preferences -->
+    <div class="settings-section">
+      <div class="settings-section-label">Preferences</div>
+      <div class="settings-row">
+        <label class="settings-label">Date format</label>
+        <select class="settings-input" id="s-date-format">
+          <option value="dmy">DD/MM/YYYY (European)</option>
+          <option value="mdy">MM/DD/YYYY (US)</option>
+          <option value="ymd">YYYY-MM-DD (ISO)</option>
+        </select>
+      </div>
+      <button class="settings-save-btn" onclick="savePreferences()">Save preferences</button>
+    </div>
+
+    <!-- Privacy -->
+    <div class="settings-section">
+      <div class="settings-section-label">Privacy & data</div>
+      <div class="settings-privacy">
+        <p><strong>What we store</strong><br>Your reading history (books, ratings, dates, notes), your email address, and your reflection journal entries. Nothing else.</p>
+        <p><strong>Where it's stored</strong><br>All data is stored in Supabase, a secure cloud database. Each user's data is isolated — no one else can see yours.</p>
+        <p><strong>What we don't do</strong><br>We do not sell your data, share it with third parties, use it for advertising, or analyse it for any purpose other than showing it back to you.</p>
+        <p><strong>AI features</strong><br>When you use AI recommendations, your reading history is sent to Anthropic's API to generate responses. Your API key is stored locally in your browser only — it never touches our servers.</p>
+        <p><strong>Your rights</strong><br>You can export your data at any time using the export button in your library. You can delete your account and all associated data by contacting us.</p>
+        <p><strong>Third-party services</strong><br>Book metadata is sourced from <a href="https://openlibrary.org" target="_blank" style="color:var(--amber)">Open Library</a> (Internet Archive) and <a href="https://books.google.com" target="_blank" style="color:var(--amber)">Google Books</a>, used under their respective terms of service.</p>
+      </div>
+    </div>
+
+    <!-- Sign out -->
+    <div class="settings-section">
+      <button class="settings-signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+
+    <!-- Footer attribution -->
+    <div class="settings-footer">
+      <div>PageTurner — a personal reading companion</div>
+      <div style="margin-top:4px">Book data from <a href="https://openlibrary.org" target="_blank">Open Library</a> & <a href="https://books.google.com" target="_blank">Google Books</a></div>
+    </div>
+
+  </div>
 </div>
 
 <script src="app.js"></script>
