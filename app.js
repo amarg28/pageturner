@@ -961,7 +961,7 @@ function renderBooks() {
   const onboard = document.getElementById('onboard-fullwidth');
   if (onboard) onboard.style.display = 'none';
 
-  shelf = document.getElementById('shelf');
+
   if (!list.length) {
     shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!gf&&!mf?'Your finished library is empty.':'No books match your filters.'}</div>`;
     return;
