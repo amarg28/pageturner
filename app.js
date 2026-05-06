@@ -538,10 +538,10 @@ async function fetchMetaForBook(b) {
 function renderLibrary() {
   cleanGenreCache();
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
-  // Show/hide sidebar based on book count
+  // Sidebar: show only when 5+ books
   const sidebar = document.getElementById('library-sidebar');
   const layout = document.querySelector('.library-layout');
-  const hasSidebar = books.length >= 3;
+  const hasSidebar = books.length >= 5;
   if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
   if (layout) {
     layout.style.cssText = '';
@@ -910,10 +910,19 @@ function renderBooks() {
   else list.sort((a,b)=>new Date(b.end_date)-new Date(a.end_date));
 
   const shelf = document.getElementById('shelf');
-  if (!list.length) {
-    if (!gf && !mf && books.length === 0) {
-      // Completely new user - show onboarding
-      shelf.innerHTML = `<div class="empty-onboard">
+
+  // Zero books: render onboarding fullwidth, bypass the grid entirely
+  if (books.length === 0) {
+    document.querySelector('.library-layout').style.display = 'none';
+    document.getElementById('quick-stats').style.display = 'none';
+    let onboard = document.getElementById('onboard-fullwidth');
+    if (!onboard) {
+      onboard = document.createElement('div');
+      onboard.id = 'onboard-fullwidth';
+      document.getElementById('p-library').appendChild(onboard);
+    }
+    onboard.style.display = 'block';
+    onboard.innerHTML = `<div class="empty-onboard">
         <div class="empty-onboard-title">Welcome to PageTurner</div>
         <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
         <div class="onboard-steps">
@@ -943,9 +952,18 @@ function renderBooks() {
           <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
         </div>
       </div>`;
-    } else {
-      shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!gf&&!mf?'Your finished library is empty.':'No books match your filters.'}</div>`;
-    }
+    return;
+  }
+
+  // Has books: show the grid, hide onboarding
+  document.querySelector('.library-layout').style.display = '';
+  document.getElementById('quick-stats').style.display = '';
+  const onboard = document.getElementById('onboard-fullwidth');
+  if (onboard) onboard.style.display = 'none';
+
+  shelf = document.getElementById('shelf');
+  if (!list.length) {
+    shelf.innerHTML = `<div class="empty"><div class="empty-icon">📚</div>${!gf&&!mf?'Your finished library is empty.':'No books match your filters.'}</div>`;
     return;
   }
 
