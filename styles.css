@@ -580,3 +580,13 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* ── BOOK PAGE NAV REMOVE BUTTON ───────────────────────────────────────── */
 .bp-remove-btn{padding:6px 11px;border:0.5px solid var(--coral);border-radius:var(--r);background:none;font-size:12px;cursor:pointer;color:var(--coral);font-family:'DM Sans',sans-serif;transition:all .12s}
 .bp-remove-btn:hover{background:var(--coral);color:#fff}
+
+/* ── SERIES ────────────────────────────────────────────────────────────── */
+.card-series{font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic}
+.series-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px 18px;margin-bottom:12px}
+.series-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.series-card-name{font-family:'Lora',serif;font-size:16px;font-weight:500;margin-bottom:3px}
+.series-card-meta{font-size:11px;color:var(--tx1)}
+.series-books-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.series-book-item{cursor:pointer;display:flex;flex-direction:column;align-items:center;transition:transform .15s}
+.series-book-item:hover{transform:translateY(-2px)}
