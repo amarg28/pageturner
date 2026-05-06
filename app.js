@@ -538,10 +538,13 @@ async function fetchMetaForBook(b) {
 function renderLibrary() {
   cleanGenreCache();
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
-  // Hide sidebar until user has books
+  // Hide sidebar and collapse grid until user has enough books
   const sidebar = document.getElementById('library-sidebar');
-  if (sidebar) sidebar.style.display = books.length >= 3 ? '' : 'none';
-  if (books.length >= 3) renderSidebar();
+  const layout = document.querySelector('.library-layout');
+  const hasSidebar = books.length >= 3;
+  if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
+  if (layout) layout.style.gridTemplateColumns = hasSidebar ? '' : '1fr';
+  if (hasSidebar) renderSidebar();
 }
 
 // One-time cleanup: canonicalise all cached genres
