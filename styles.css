@@ -639,7 +639,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .empty-onboard{padding:32px 20px;text-align:center}
 .empty-onboard-title{font-family:'Lora',serif;font-size:22px;font-weight:500;margin-bottom:8px}
 .empty-onboard-sub{font-size:14px;color:var(--tx1);margin-bottom:28px}
-.onboard-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:720px;margin:0 auto 24px;text-align:left}
+.onboard-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:0 auto 24px;text-align:left}
 .onboard-step{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:18px;cursor:pointer;transition:border-color .15s}
 .onboard-step:hover{border-color:var(--amber)}
 .onboard-step-num{font-size:10px;font-weight:500;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
