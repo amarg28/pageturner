@@ -515,6 +515,8 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 
 /* ── LIBRARY SPLIT LAYOUT ──────────────────────────────────────────────── */
 .library-layout{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;margin-top:0}
+.library-layout.no-sidebar{grid-template-columns:1fr!important}
+.library-layout.no-sidebar .library-main{grid-column:1/-1}
 .library-main{}
 .library-sidebar{position:sticky;top:20px;display:flex;gap:0;align-items:flex-start}
 .sidebar-collapse-btn{width:20px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:8px 0;color:var(--tx2);font-size:11px;margin-right:8px;margin-top:4px;transition:color .15s}
