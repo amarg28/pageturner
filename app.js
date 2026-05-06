@@ -915,40 +915,49 @@ function renderBooks() {
 
   const shelf = document.getElementById('shelf');
 
-  // Zero books after load complete: show onboarding in shelf
+  // Zero books after load: show full-width onboarding, hide grid
+  const onboardEl = document.getElementById('onboard-fullwidth');
+  const layoutEl  = document.getElementById('library-layout');
   if (books.length === 0 && booksLoaded) {
-    shelf.innerHTML = `<div class="empty-onboard">
-      <div class="empty-onboard-title">Welcome to PageTurner</div>
-      <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
-      <div class="onboard-steps">
-        <div class="onboard-step" onclick="go('discover')">
-          <div class="onboard-step-num">1</div>
-          <div class="onboard-step-icon">🔭</div>
-          <div class="onboard-step-title">Add a book</div>
-          <div class="onboard-step-desc">Search for books you've read and log your rating, dates, and thoughts</div>
-          <div class="onboard-step-cta">Go to Discover →</div>
+    if (onboardEl) {
+      onboardEl.style.display = 'block';
+      onboardEl.innerHTML = `<div class="empty-onboard">
+        <div class="empty-onboard-title">Welcome to PageTurner</div>
+        <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
+        <div class="onboard-steps">
+          <div class="onboard-step" onclick="go('discover')">
+            <div class="onboard-step-num">1</div>
+            <div class="onboard-step-icon">🔭</div>
+            <div class="onboard-step-title">Add a book</div>
+            <div class="onboard-step-desc">Search for books you've read and log your rating, dates, and thoughts</div>
+            <div class="onboard-step-cta">Go to Discover →</div>
+          </div>
+          <div class="onboard-step">
+            <div class="onboard-step-num">2</div>
+            <div class="onboard-step-icon">✦</div>
+            <div class="onboard-step-title">Reflect on it</div>
+            <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
+            <div class="onboard-step-cta">Available after one year</div>
+          </div>
+          <div class="onboard-step" onclick="go('discover')">
+            <div class="onboard-step-num">3</div>
+            <div class="onboard-step-icon">🤖</div>
+            <div class="onboard-step-title">Discover what's next</div>
+            <div class="onboard-step-desc">Ask the AI book advisor for recommendations based on your reading history and taste</div>
+            <div class="onboard-step-cta">Go to Discover →</div>
+          </div>
         </div>
-        <div class="onboard-step">
-          <div class="onboard-step-num">2</div>
-          <div class="onboard-step-icon">✦</div>
-          <div class="onboard-step-title">Reflect on it</div>
-          <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
-          <div class="onboard-step-cta">Available after one year</div>
+        <div style="margin-top:20px">
+          <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
         </div>
-        <div class="onboard-step" onclick="go('discover')">
-          <div class="onboard-step-num">3</div>
-          <div class="onboard-step-icon">🤖</div>
-          <div class="onboard-step-title">Discover what's next</div>
-          <div class="onboard-step-desc">Ask the AI book advisor for recommendations based on your reading history and taste</div>
-          <div class="onboard-step-cta">Go to Discover →</div>
-        </div>
-      </div>
-      <div style="margin-top:20px">
-        <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
-      </div>
-    </div>`;
+      </div>`;
+    }
+    if (layoutEl) layoutEl.style.display = 'none';
     return;
   }
+  // Has books: hide onboarding, show grid
+  if (onboardEl) onboardEl.style.display = 'none';
+  if (layoutEl)  layoutEl.style.display  = '';
 
 
   if (!list.length) {
