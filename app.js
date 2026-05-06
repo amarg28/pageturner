@@ -541,6 +541,9 @@ async function fetchMetaForBook(b) {
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
 function renderLibrary() {
   cleanGenreCache();
+  // Hide grid until books are loaded
+  const layoutEl = document.getElementById('library-layout');
+  if (layoutEl && !booksLoaded) layoutEl.style.display = 'none';
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
   // Sidebar: show only when 5+ books
   const sidebar = document.getElementById('library-sidebar');
