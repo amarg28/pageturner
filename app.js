@@ -30,6 +30,7 @@ const GENRE_MAP = {
   'thriller':'Thriller','suspense':'Thriller','espionage':'Thriller',
   'romance':'Romance','love stories':'Romance','romantic fiction':'Romance',
   'historical fiction':'Historical Fiction','historical novel':'Historical Fiction',
+  'historical fantasy':'Fantasy', // before 'historical' so it doesn't map to History
   'literary fiction':'Literary Fiction','literary':'Literary Fiction','contemporary fiction':'Literary Fiction',
   'magical realism':'Magical Realism','magic realism':'Magical Realism',
   'dystopian':'Dystopian','dystopia':'Dystopian','post-apocalyptic':'Dystopian',
@@ -39,7 +40,7 @@ const GENRE_MAP = {
   'memoir':'Memoir','autobiography':'Memoir','personal narrative':'Memoir',
   'biography':'Biography','biographies':'Biography',
   'true crime':'True Crime','crime nonfiction':'True Crime',
-  'history':'History','historical':'History',
+  'history':'History', // note: 'historical' intentionally removed - too greedy, catches 'historical fiction'
   'philosophy':'Philosophy','philosophical':'Philosophy',
   'science':'Science','popular science':'Science','natural history':'Science',
   'self-help':'Self-Help','self help':'Self-Help','personal development':'Self-Help',
@@ -1233,6 +1234,7 @@ async function openBookPage(bookId) {
       <div class="bp-back" onclick="closeBookModal()">← Back</div>
       <button class="bp-edit-btn" onclick="openEdit('${b.id}')">Edit</button>
       <button class="bp-remove-btn" onclick="openDel('${b.id}')">Remove</button>
+      <button class="bp-refresh-btn" onclick="refreshBookMeta('${b.id}')" title="Refresh cover and metadata">↻</button>
     </div>
     ${ibadge}
     ${due?`<div class="retro-prompt" id="retro-prompt-box">
@@ -1444,18 +1446,61 @@ async function saveSeriesEdit(bookId) {
   loadSeriesSection(b, 'series-section');
 }
 
+async function refreshBookMeta(bookId) {
+  const b = books.find(x=>x.id===bookId); if (!b) return;
+  const ck = b.isbn || b.ol_key || b.manual_title;
+  if (ck) delete metaCache[ck];
+  saveMeta();
+  showToast('Refreshing metadata…');
+  await fetchMetaForBook(b);
+  showToast('Metadata updated ✓');
+  sidebarCharsDrawn = false;
+  renderLibrary();
+  openBookPage(bookId);
+}
+
 async function loadOLData(b) {
-  const olKey = b.ol_key || getMeta(b.isbn)?.olKey;
+  let olKey = b.ol_key || bMeta(b)?.olKey;
+  const el = document.getElementById('ol-data');
+  if (!el) return;
+
+  // If no OL key, try to find it via ISBN search
+  if (!olKey && b.isbn) {
+    try {
+      const r = await fetch(`https://openlibrary.org/search.json?isbn=${b.isbn}&limit=1&fields=key`);
+      const d = await r.json();
+      olKey = d.docs?.[0]?.key || null;
+      if (olKey) { b.ol_key = olKey; await saveBook(b); }
+    } catch(e) {}
+  }
+  // If still no key, try by title+author
+  if (!olKey && bTitle(b) !== '(Unknown title)') {
+    try {
+      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(bTitle(b))}&author=${encodeURIComponent(bAuthor(b))}&limit=1&fields=key`);
+      const d = await r.json();
+      olKey = d.docs?.[0]?.key || null;
+      if (olKey) { b.ol_key = olKey; await saveBook(b); }
+    } catch(e) {}
+  }
+
+  if (!olKey) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>
+      ${b.isbn?`<div style="font-family:monospace;font-size:11px;margin-top:6px;color:var(--tx2)">ISBN: ${b.isbn}</div>`:''}`;
+    return;
+  }
   try {
-    if (!olKey) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Not found on Open Library.</div>'; return; }
-    const r = await fetch(`https://openlibrary.org${olKey}.json`); const work = await r.json();
-    const ra = work.ratings_average?parseFloat(work.ratings_average).toFixed(1):null;
-    const rc = work.ratings_count?work.ratings_count.toLocaleString():null;
-    document.getElementById('ol-data').innerHTML =
-      `${ra?`<div style="margin-bottom:10px"><div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div><div style="font-size:12px;color:var(--tx1)">On Open Library${rc?' · '+rc+' ratings':''}</div></div>`:''}
-       ${work.first_publish_date?`<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>`:''}
-       ${b.isbn?`<div class="ol-row"><span style="color:var(--tx2)">ISBN</span><span style="font-family:monospace;font-size:11px">${b.isbn}</span></div>`:''}`;
-  } catch(e) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
+    const r = await fetch(`https://openlibrary.org${olKey}.json`);
+    const work = await r.json();
+    const ra = work.ratings_average ? parseFloat(work.ratings_average).toFixed(1) : null;
+    const rc = work.ratings_count ? work.ratings_count.toLocaleString() : null;
+    el.innerHTML = `
+      ${ra?`<div style="margin-bottom:10px">
+        <div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div>
+        <div style="font-size:12px;color:var(--tx1)">On Open Library${rc?' · '+rc+' ratings':''}</div>
+      </div>`:''}
+      ${work.first_publish_date?`<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>`:''}
+      ${b.isbn?`<div class="ol-row"><span style="color:var(--tx2)">ISBN</span><span style="font-family:monospace;font-size:11px">${b.isbn}</span></div>`:''}`;
+  } catch(e) { el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
 }
 
 async function loadAlsoBy(b) {
@@ -1596,9 +1641,11 @@ function openEdit(bookId) {
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
     <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="e-notes">${b.notes||''}</textarea></div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="e-retro-notes">${b.retro_thoughts||''}</textarea></div>
-    <div class="form-acts">
-      <button class="btn-ghost" onclick="document.getElementById('edit-modal').classList.remove('on')">Cancel</button>
-      <button class="btn-primary" onclick="saveEdit('${b.id}')">Save changes</button>
+    <div class="edit-modal-footer">
+      <div class="form-acts">
+        <button class="btn-ghost" onclick="document.getElementById('edit-modal').classList.remove('on')">Cancel</button>
+        <button class="btn-primary" id="save-edit-btn" onclick="saveEdit('${b.id}')">Save changes</button>
+      </div>
     </div>`;
   document.getElementById('edit-modal').classList.add('on');
 }
@@ -1624,6 +1671,8 @@ async function saveEdit(bookId) {
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
   chartsDrawn=false;renderLibrary();
+  // Brief save confirmation toast
+  showToast('Changes saved ✓');
 }
 
 function openDel(bookId) {
@@ -2530,6 +2579,37 @@ async function removeAllDupes() {
   }
   document.getElementById('del-modal').classList.remove('on');
   chartsDrawn = false; renderLibrary();
+}
+
+function showToast(msg, duration=2000) {
+  let toast = document.getElementById('pt-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pt-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--tx0);color:#fff;padding:9px 18px;border-radius:100px;font-size:13px;font-family:"DM Sans",sans-serif;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.style.opacity = '0', duration);
+}
+
+function resetLibrary() {
+  // Reset all filters and sort to defaults
+  const q = document.getElementById('q');
+  const gf = document.getElementById('gf');
+  const mf = document.getElementById('mf');
+  const sortSel = document.getElementById('sort-sel');
+  if (q) q.value = '';
+  if (gf) gf.value = '';
+  if (mf) mf.value = '';
+  if (sortSel) sortSel.value = 'recent';
+  sort = 'recent';
+  window.libraryView = 'shelf';
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('on', b.dataset.view === 'shelf'));
+  go('library');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function go(name){
