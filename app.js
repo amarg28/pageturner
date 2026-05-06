@@ -544,8 +544,10 @@ function renderLibrary() {
   const hasSidebar = books.length >= 3;
   if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
   if (layout) {
+    layout.style.gridTemplateColumns = ''; // clear any lingering inline style
     layout.classList.toggle('has-sidebar', hasSidebar);
     layout.classList.toggle('no-sidebar', !hasSidebar);
+    layout.classList.remove('sidebar-collapsed');
   }
   if (hasSidebar) renderSidebar();
 }
@@ -565,14 +567,17 @@ function cleanGenreCache() {
 
 let sidebarCharsDrawn = false;
 function toggleSidebar() {
-  const sidebar = document.getElementById('library-sidebar');
   const sidebarContent = document.getElementById('sidebar-content');
   const icon = document.getElementById('sidebar-toggle-icon');
+  const layout = document.querySelector('.library-layout');
   const collapsed = sidebarContent.classList.toggle('collapsed');
   icon.textContent = collapsed ? '▶' : '◀';
-  // Expand main area when sidebar collapses
-  const layout = document.querySelector('.library-layout');
-  if (layout) layout.style.gridTemplateColumns = collapsed ? '1fr 24px' : '1fr 320px';
+  // Use CSS class, never inline styles
+  if (layout) {
+    layout.classList.toggle('sidebar-collapsed', collapsed);
+    // Remove any lingering inline style from old code
+    layout.style.gridTemplateColumns = '';
+  }
 }
 
 function openStatsOverlay() {
