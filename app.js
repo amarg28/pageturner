@@ -387,12 +387,16 @@ window.addEventListener('load', async () => {
 });
 
 /* ── DATABASE ──────────────────────────────────────────────────────────── */
+let booksLoaded = false;
+
 async function loadBooks() {
+  booksLoaded = false;
   document.getElementById('shelf').innerHTML =
     `<div class="loading-wrap"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><span>Loading your library…</span></div>`;
   try {
     const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
     books = data || [];
+    booksLoaded = true;
     // Fetch missing metadata for all books
     await fetchMissingMeta(books);
     renderLibrary();
@@ -912,7 +916,7 @@ function renderBooks() {
   const shelf = document.getElementById('shelf');
 
   // Zero books: render onboarding fullwidth, bypass the grid entirely
-  if (books.length === 0) {
+  if (books.length === 0 && booksLoaded) {
     document.querySelector('.library-layout').style.display = 'none';
     document.getElementById('quick-stats').style.display = 'none';
     let onboard = document.getElementById('onboard-fullwidth');
