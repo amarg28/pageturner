@@ -134,6 +134,32 @@ const parseTags = s => s ? s.split(',').map(t => t.trim()).filter(Boolean) : [];
 const joinTags  = a => a.join(', ');
 const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escQ = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+// Format retro_thoughts as Q&A pairs if they contain the prompt format
+function formatRetroThoughts(text) {
+  if (!text) return '';
+  // Check if it contains our prompt format (question followed by newline and answer)
+  const lines = text.split('\n');
+  const html = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line) { i++; continue; }
+    // Check if this line looks like a question (ends with ?)
+    if (line.endsWith('?') && i+1 < lines.length && lines[i+1].trim()) {
+      html.push(`<div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:3px">${line}</div>
+        <div style="font-size:14px;line-height:1.6;color:var(--tx0)">${lines[i+1].trim()}</div>
+      </div>`);
+      i += 2;
+    } else {
+      // Plain text — just render it
+      html.push(`<div style="font-size:14px;line-height:1.7;margin-bottom:6px">${line}</div>`);
+      i++;
+    }
+  }
+  return html.join('');
+}
+
 const isRetroDue = b => {
   if (b.status !== 'finished' || !b.end_date || b.retro_rating) return false;
   const due = new Date(b.end_date); due.setFullYear(due.getFullYear() + 1);
@@ -672,7 +698,7 @@ function renderRetroDue() {
         const yearAgo = new Date(b.end_date); yearAgo.setFullYear(yearAgo.getFullYear()+1);
         const daysOver = Math.floor((new Date()-yearAgo)/86400000);
         const txt = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
-        return `<div class="retro-due-card" onclick="openBookPage('${b.id}')">
+        return `<div class="retro-due-card" onclick="openReflectFromLibrary('${b.id}')">
           <div class="retro-dot"></div>
           ${cover?`<img class="retro-due-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="retro-due-cover-ph">📖</div>`}
           <div>
@@ -1238,7 +1264,10 @@ async function openBookPage(bookId) {
       <div>
         ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div><div id="desc-text" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>${desc.length>300?`<button onclick="document.getElementById('desc-text').style.webkitLineClamp='unset';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}</div></div>`:''}
         ${b.notes?`<div class="bpsec"><div class="bpsec-t">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
-        ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec"><div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>${b.retro_thoughts?`<div style="font-size:14px;line-height:1.7;margin-top:6px">${b.retro_thoughts}</div>`:''}</div>`:''}
+        ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec">
+          <div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>
+          ${b.retro_thoughts?`<div style="margin-top:10px">${formatRetroThoughts(b.retro_thoughts)}</div>`:''}
+        </div>`:''}
         <div class="ai-sec">
           <div class="ai-head"><div class="ai-t">AI analysis for you</div><button class="ai-btn" id="ai-gen-btn" onclick="genAnalysis('${b.id}')">✦ Generate analysis</button></div>
           <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for a personalised take based on your reading history.</div></div>
@@ -1847,6 +1876,15 @@ const REFLECT_PROMPTS = [
   { id:'recommend', q:'Would you recommend it, and to whom?' },
   { id:'changed',   q:'Has your opinion changed since finishing?' },
 ];
+
+function openReflectFromLibrary(bookId) {
+  go('reflect');
+  // Scroll to the specific card after a short delay for render
+  setTimeout(() => {
+    const card = document.getElementById(`reflect-card-${bookId}`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
 
 function renderReflect() {
   renderReflectDue();
