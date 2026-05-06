@@ -340,8 +340,9 @@ function showAErr(m) { const el = document.getElementById('auth-error'); el.text
 function onSignedIn() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('uavatar').textContent = currentUser.email.slice(0,1).toUpperCase();
-  if (apiKey) document.getElementById('ak').value = apiKey;
+  const displayName = localStorage.getItem('pt_display_name');
+  document.getElementById('uavatar').textContent = (displayName || currentUser.email).slice(0,1).toUpperCase();
+  if (apiKey) { const akEl = document.getElementById('ak'); if(akEl) akEl.value = apiKey; }
   go('library');
   loadBooks();
 }
@@ -566,6 +567,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('book-modal')?.classList.contains('on')) closeBookModal();
     if (document.getElementById('stats-overlay')?.classList.contains('on')) closeStatsOverlay();
+    if (document.getElementById('settings-drawer')?.classList.contains('open')) closeSettings();
   }
 });
 
@@ -2036,6 +2038,66 @@ function renderDiscoverSeries() {
         </div>
       </div>`;
     }).join('');
+}
+
+/* ── SETTINGS ──────────────────────────────────────────────────────────── */
+function openSettings() {
+  // Populate fields
+  document.getElementById('s-email').value = currentUser?.email || '';
+  document.getElementById('s-api-key').value = apiKey || '';
+  const savedName = localStorage.getItem('pt_display_name') || '';
+  document.getElementById('s-display-name').value = savedName;
+  const savedFmt = localStorage.getItem('pt_date_format') || 'dmy';
+  document.getElementById('s-date-format').value = savedFmt;
+  document.getElementById('settings-drawer').classList.add('open');
+  document.getElementById('settings-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSettings() {
+  document.getElementById('settings-drawer').classList.remove('open');
+  document.getElementById('settings-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function saveAccountSettings() {
+  const name = document.getElementById('s-display-name').value.trim();
+  const pw = document.getElementById('s-password').value;
+  if (name) {
+    localStorage.setItem('pt_display_name', name);
+    // Update avatar
+    document.getElementById('uavatar').textContent = name.slice(0,1).toUpperCase();
+  }
+  if (pw) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      if (!r.ok) throw new Error('Password update failed');
+      document.getElementById('s-password').value = '';
+      showToast('Password updated ✓');
+    } catch(e) { showToast('Could not update password: ' + e.message); return; }
+  } else {
+    showToast('Account saved ✓');
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('s-api-key').value.trim();
+  apiKey = key;
+  localStorage.setItem('pt_ak', key);
+  // Also update the discover tab key field if it exists
+  const akEl = document.getElementById('ak');
+  if (akEl) akEl.value = key;
+  showToast('API key saved ✓');
+}
+
+function savePreferences() {
+  const fmt = document.getElementById('s-date-format').value;
+  localStorage.setItem('pt_date_format', fmt);
+  showToast('Preferences saved ✓');
 }
 
 /* ── EXPORT ────────────────────────────────────────────────────────────── */
