@@ -543,7 +543,7 @@ function renderLibrary() {
   const layout = document.querySelector('.library-layout');
   const hasSidebar = books.length >= 3;
   if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
-  if (layout) layout.style.gridTemplateColumns = hasSidebar ? '' : '1fr';
+  if (layout) layout.classList.toggle('no-sidebar', !hasSidebar);
   if (hasSidebar) renderSidebar();
 }
 
