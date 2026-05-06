@@ -1357,9 +1357,24 @@ async function loadAlsoBy(b) {
 
 /* ── AI ────────────────────────────────────────────────────────────────── */
 function booksCtxStr() {
-  return books.filter(b=>b.status==='finished').map(b=>
-    `"${bTitle(b)}" by ${bAuthor(b)}: ${b.rating||'?'}/10 (retro:${b.retro_rating||'?'}/10). Genre:${bGenre(b)}. Mood:${b.mood||''}. Notes:"${b.notes||'none'}"`
-  ).join('\n');
+  return books.filter(b=>b.status==='finished').map(b => {
+    const parts = [];
+    parts.push(`"${bTitle(b)}" by ${bAuthor(b)}`);
+    parts.push(`Rating: ${b.rating||'?'}/10`);
+    if (b.retro_rating) parts.push(`Retrospective: ${b.retro_rating}/10`);
+    if (bGenre(b)) parts.push(`Genre: ${bGenre(b)}`);
+    if (b.mood) parts.push(`Mood: ${b.mood}`);
+    if (bPPD(b) > 0) parts.push(`Read at ${bPPD(b)} pages/day`);
+    if (b.notes) parts.push(`Notes while reading: "${b.notes}"`);
+    if (b.retro_thoughts) {
+      // Strip the Q&A format down to just the answers for context
+      const answers = b.retro_thoughts.split('\n')
+        .filter(l => l.trim() && !l.trim().endsWith('?'))
+        .join(' ');
+      if (answers) parts.push(`Reflection: "${answers}"`);
+    }
+    return parts.join('. ');
+  }).join('\n');
 }
 
 async function callClaude(prompt, maxTokens=600) {
@@ -2323,7 +2338,19 @@ async function sendMsg(){
   if(!apiKey){alert('Add your Anthropic API key above first.');return;}
   addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
   const typing=addTyping();chatHistory.push({role:'user',content:msg});
-  const sys=`You are a personal book advisor with full knowledge of the user's reading history:\n\n${booksCtxStr()}\n\nThis reader values: rich worldbuilding, developed characters, satisfying narratives. Dislikes: shallow writing, declining series, filler. Be direct, specific, conversational. When recommending, explain WHY and estimate a likely rating (1–10).`;
+  const sys=`You are a personal book advisor with deep knowledge of this reader's history, tastes, and reflections.
+
+READING HISTORY:
+${booksCtxStr()}
+
+HOW TO USE THIS DATA:
+- Ratings and retrospective ratings show immediate vs lasting impressions — a book rated 7 initially but 9 retrospectively had a slow build that paid off
+- Pages/day shows engagement — fast pace means they were hooked, slow means they struggled
+- Notes while reading capture raw reactions
+- Reflections are their most considered thoughts, written a year later — weight these heavily
+- Mood and genre tags show patterns in what they enjoy
+
+Be direct, specific, and personal. Reference actual books from their history. When recommending, explain exactly why this reader specifically would enjoy it, not just general praise. Estimate a likely rating (1–10) when relevant.`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
