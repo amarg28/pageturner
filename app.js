@@ -160,6 +160,9 @@ function formatRetroThoughts(text) {
   return html.join('');
 }
 
+const bSeriesName   = b => b.series_name || null;
+const bSeriesNumber = b => b.series_number || null;
+
 const isRetroDue = b => {
   if (b.status !== 'finished' || !b.end_date || b.retro_rating) return false;
   const due = new Date(b.end_date); due.setFullYear(due.getFullYear() + 1);
@@ -396,7 +399,9 @@ function bookToRow(b) {
     manual_title: b.manual_title || null,
     manual_author: b.manual_author || null,
     import_source: b.import_source || '',
-    pages_read: nn(b.pages_read)
+    pages_read: nn(b.pages_read),
+    series_name: b.series_name || null,
+    series_number: nn(b.series_number)
   };
 }
 
@@ -931,6 +936,7 @@ function renderBooks() {
         <div onclick="openBookPage('${b.id}')">
           <div class="card-title">${bTitle(b)}${iflag}</div>
           <div class="card-author">${bAuthor(b)}</div>
+          ${b.series_name?`<div style="font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.series_name}${b.series_number?' #'+b.series_number:''}</div>`:''}
           ${b.rating?`<div class="card-stars">${toStars(b.rating)}</div>`:''}
           ${date?`<div class="card-date">${date}</div>`:''}
         </div>
@@ -1281,12 +1287,15 @@ async function openBookPage(bookId) {
         </div>
       </div>
       <div>
+        ${b.series_name||b.ol_key?`<div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>`:''}
+        <div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
         <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
         <div class="scard"><div class="scard-t">Books by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
       </div>
     </div>
   </div>`;
-  loadOLData(b); loadAlsoBy(b);
+  loadOLData(b); loadAlsoBy(b); loadSeriesSection(b);
+  if (b.series_name || b.ol_key) loadSeriesSection(b, 'series-section');
 }
 
 function openBookModal() {
@@ -1314,6 +1323,125 @@ async function saveRetro(bookId) {
   document.getElementById('retro-prompt-box').innerHTML =
     `<div style="padding:14px;font-size:13px;color:var(--teal);background:var(--teal-l);border-radius:var(--rl)">✓ Reflection saved. Retrospective rating: ${b.retro_rating}/10</div>`;
   chartsDrawn=false; renderRetroDue(); renderBooks();
+}
+
+/* ── SERIES ────────────────────────────────────────────────────────────── */
+async function fetchSeriesFromOL(olKey) {
+  if (!olKey) return null;
+  try {
+    const r = await fetch(`https://openlibrary.org${olKey}.json`);
+    const work = await r.json();
+    // OL stores series in work.series as array of strings like "The Broken Earth (3)"
+    const seriesRaw = work.series?.[0] || null;
+    if (!seriesRaw) return null;
+    // Parse "Series Name (#N)" or just "Series Name"
+    const match = seriesRaw.match(/^(.+?)\s*\(#?(\d+(?:\.\d+)?)\)$/);
+    if (match) return { name: match[1].trim(), number: parseFloat(match[2]) };
+    return { name: seriesRaw.trim(), number: null };
+  } catch(e) { return null; }
+}
+
+async function loadSeriesSection(b, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  const olKey = b.ol_key;
+  const seriesName = bSeriesName(b);
+
+  // Try to get series from OL if we don't have it stored
+  let series = null;
+  if (seriesName) {
+    series = { name: seriesName, number: bSeriesNumber(b) };
+  } else if (olKey) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Loading series info…</div>';
+    series = await fetchSeriesFromOL(olKey);
+    if (series && !b.series_name) {
+      // Auto-save the series data
+      b.series_name = series.name;
+      b.series_number = series.number;
+      await saveBook(b);
+    }
+  }
+
+  if (!series) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Not part of a series, or series data unavailable.</div>';
+    return;
+  }
+
+  // Find all books in same series in library
+  const inLib = books.filter(x => x.series_name && x.series_name.toLowerCase() === series.name.toLowerCase())
+    .sort((a,b) => (a.series_number||999) - (b.series_number||999));
+
+  // Search OL for all books in this series
+  el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Loading series books…</div>';
+  let seriesBooks = [];
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(series.name)}&fields=key,title,author_name,cover_i,first_publish_year&limit=12`);
+    const d = await r.json();
+    // Filter to likely series books
+    seriesBooks = (d.docs||[]).filter(x =>
+      x.title.toLowerCase().includes(series.name.toLowerCase().split(' ')[0]) ||
+      series.name.toLowerCase().includes(x.title.toLowerCase().split(' ')[0])
+    ).slice(0, 8);
+  } catch(e) {}
+
+  // Render series header + book list
+  el.innerHTML = `
+    <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:4px">${series.name}</div>
+    ${series.number ? `<div style="font-size:11px;color:var(--tx2);margin-bottom:12px">This is book ${series.number} in the series</div>` : '<div style="margin-bottom:12px"></div>'}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${inLib.map(sb => `
+        <div style="display:flex;gap:10px;align-items:center;padding:8px;border:0.5px solid var(--teal-l);border-radius:var(--r);background:var(--teal-l);cursor:pointer" onclick="closeBookModal();setTimeout(()=>openBookPage('${sb.id}'),50)">
+          ${bCover(sb) ? `<img src="${bCover(sb)}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0">` : `<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;color:var(--tx2)">${sb.series_number ? 'Book '+sb.series_number : ''}</div>
+            <div style="font-family:'Lora',serif;font-size:12px;font-weight:500">${bTitle(sb)}</div>
+            ${sb.rating ? `<div style="font-size:10px;color:var(--teal)">${toStars(sb.rating)} ${sb.rating}/10</div>` : ''}
+          </div>
+          <div style="font-size:10px;color:var(--teal);flex-shrink:0">In library</div>
+        </div>`).join('')}
+      ${seriesBooks.filter(sb => !inLib.find(x => bTitle(x).toLowerCase() === sb.title.toLowerCase())).map(sb => {
+        const olData = {key:sb.key,title:sb.title,author_name:sb.author_name,cover_i:sb.cover_i,first_publish_year:sb.first_publish_year};
+        const idx = window._seriesBooks ? window._seriesBooks.length : 0;
+        if (!window._seriesBooks) window._seriesBooks = [];
+        window._seriesBooks.push(olData);
+        return `<div style="display:flex;gap:10px;align-items:center;padding:8px;border:0.5px solid var(--bd);border-radius:var(--r);cursor:pointer" onclick="openUnreadBookPage(window._seriesBooks[${idx}])" onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
+          ${sb.cover_i ? `<img src="${cUrl(sb.cover_i,'S')}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">` : `<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Lora',serif;font-size:12px;font-weight:500">${sb.title}</div>
+            <div style="font-size:10px;color:var(--tx2)">${sb.first_publish_year||''}</div>
+          </div>
+          <button onclick="event.stopPropagation();quickAddBook('tbr','','${sb.key||''}','${sb.title.replace(/'/g,"\'")}','${(sb.author_name||[])[0]?.replace(/'/g,"\'")||''}')" style="font-size:10px;padding:3px 8px;background:var(--purple-l);color:var(--purple);border:none;border-radius:100px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0">+ TBR</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <button onclick="openEditSeriesModal('${b.id}')" style="margin-top:10px;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif">Edit series info</button>`;
+}
+
+function openEditSeriesModal(bookId) {
+  const b = books.find(x => x.id === bookId); if (!b) return;
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Edit series info</div>
+    <div class="fgrid" style="margin-bottom:16px">
+      <div class="fg full"><label class="fl">Series name</label><input class="fi" id="es-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth"></div>
+      <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="es-num" value="${b.series_number||''}" placeholder="e.g. 1"></div>
+    </div>
+    <div class="form-acts">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
+      <button class="btn-primary" onclick="saveSeriesEdit('${bookId}')">Save</button>
+    </div>`;
+  document.getElementById('del-modal').classList.add('on');
+}
+
+async function saveSeriesEdit(bookId) {
+  const b = books.find(x => x.id === bookId); if (!b) return;
+  b.series_name = document.getElementById('es-name').value.trim() || null;
+  b.series_number = parseFloat(document.getElementById('es-num').value) || null;
+  await saveBook(b);
+  document.getElementById('del-modal').classList.remove('on');
+  // Reload the series section
+  loadSeriesSection(b, 'series-section');
 }
 
 async function loadOLData(b) {
@@ -1457,6 +1585,12 @@ function openEdit(bookId) {
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}"></div>
       ${b.status==='reading'?`<div class="fg"><label class="fl">Pages read so far</label><input class="fi" type="number" id="e-pages-read" min="0" value="${b.pages_read||''}"></div>`:''}
+      <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="e-series-name" placeholder="e.g. The Broken Earth" value="${b.series_name||''}" list="series-datalist"><datalist id="series-datalist">${[...new Set(books.filter(x=>x.series_name).map(x=>x.series_name))].map(s=>`<option value="${s}">`).join('')}</datalist></div>
+      <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="e-series-num" min="1" step="0.5" placeholder="e.g. 1" value="${b.series_number||''}"></div>
+    </div>
+    <div class="fgrid" style="margin-bottom:12px">
+      <div class="fg full"><label class="fl">Series name</label><input class="fi" id="e-series-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth"></div>
+      <div class="fg"><label class="fl">Book number in series</label><input class="fi" type="number" id="e-series-num" value="${b.series_number||''}" placeholder="e.g. 1"></div>
     </div>
     <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
@@ -1477,12 +1611,16 @@ async function saveEdit(bookId) {
   b.start_date=document.getElementById('e-start').value||null;
   b.end_date=document.getElementById('e-end').value||null;
   b.mood=getTagVal('e-mood');b.themes=getTagVal('e-themes');
+  b.series_name = document.getElementById('e-series-name')?.value.trim() || null;
+  b.series_number = parseFloat(document.getElementById('e-series-num')?.value) || null;
   b.notes=document.getElementById('e-notes').value.trim();
   b.retro_thoughts=document.getElementById('e-retro-notes').value.trim();
   if(b.status==='reading'){
     const pr=document.getElementById('e-pages-read');
     if(pr)b.pages_read=parseInt(pr.value)||null;
   }
+  b.series_name=document.getElementById('e-series-name')?.value.trim()||null;
+  b.series_number=parseFloat(document.getElementById('e-series-num')?.value)||null;
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
   chartsDrawn=false;renderLibrary();
@@ -1770,6 +1908,156 @@ function bookToRow(b){
   return{user_id:currentUser.id,isbn:nn(b.isbn),ol_key:nn(b.ol_key),google_id:nn(b.google_id),status:b.status||'finished',start_date:nn(b.start_date),end_date:nn(b.end_date),rating:nn(b.rating),retro_rating:nn(b.retro_rating),notes:b.notes||'',retro_thoughts:b.retro_thoughts||'',mood:b.mood||'',themes:b.themes||'',manual_title:nn(b.manual_title),manual_author:nn(b.manual_author),import_source:b.import_source||''};
 }
 
+/* ── SERIES ────────────────────────────────────────────────────────────── */
+
+// Fetch series info from Open Library for a work key
+async function fetchOLSeries(olKey) {
+  if (!olKey) return null;
+  try {
+    // OL works can have a 'series' field or we check via search
+    const r = await fetch(`https://openlibrary.org${olKey}.json`);
+    const d = await r.json();
+    if (d.series?.length) {
+      return { name: d.series[0], number: null };
+    }
+    // Try subjects for series hints
+    const subjects = d.subjects || [];
+    for (const s of subjects) {
+      const m = s.match(/^(.+?),?\s+(?:book|vol\.?|volume|#)\s*(\d+(?:\.\d+)?)/i);
+      if (m) return { name: m[1].trim(), number: parseFloat(m[2]) };
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+// Get all books in a series from OL by series name
+async function fetchSeriesBooks(seriesName, currentOlKey) {
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent('"'+seriesName+'"')}&limit=12&fields=key,title,author_name,cover_i,first_publish_year`);
+    const d = await r.json();
+    return (d.docs || []).filter(x => x.key !== currentOlKey).slice(0, 10);
+  } catch(e) { return []; }
+}
+
+// Render series section on book page sidebar
+async function loadSeriesSection(b) {
+  const el = document.getElementById('series-section');
+  if (!el) return;
+
+  // Use stored series data first, fall back to OL
+  let seriesName = b.series_name;
+  let seriesNumber = b.series_number;
+
+  if (!seriesName && b.ol_key) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Checking series data…</div>';
+    const olSeries = await fetchOLSeries(b.ol_key);
+    if (olSeries) {
+      seriesName = olSeries.name;
+      seriesNumber = olSeries.number;
+      // Auto-save to book if found
+      b.series_name = seriesName;
+      b.series_number = seriesNumber;
+      await saveBook(b);
+    }
+  }
+
+  if (!seriesName) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Not part of a series, or series unknown.<br><span style="font-size:11px">You can add series info via Edit.</span></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Loading ${seriesName}…</div>`;
+
+  // Find all books in this series from user's library
+  const librarySeriesBooks = books.filter(x => x.series_name === seriesName)
+    .sort((a,b) => (a.series_number||0) - (b.series_number||0));
+
+  // Fetch from OL too
+  const olBooks = await fetchSeriesBooks(seriesName, b.ol_key);
+
+  // Build a merged list - library books first, then OL books not in library
+  const allTitles = new Set(librarySeriesBooks.map(x => bTitle(x).toLowerCase()));
+  const extraOL = olBooks.filter(x => !allTitles.has(x.title.toLowerCase()));
+
+  const currentNum = seriesNumber || 0;
+
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:500;color:var(--amber);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${seriesName}</div>
+    ${librarySeriesBooks.map(lb => {
+      const isCurrent = lb.id === b.id;
+      const cover = bCover(lb);
+      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;${isCurrent?'background:var(--amber-l);margin:0 -6px;padding:7px 6px;border-radius:var(--r)':''}" onclick="closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),50)">
+        ${cover?`<img src="${cUrl(bMeta(lb)?.coverId,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px">${lb.series_number||'?'}</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${lb.series_number?'#'+lb.series_number+' ':''} ${bTitle(lb)}</div>
+          <div style="font-size:10px;color:var(--teal);margin-top:2px">${lb.rating?lb.rating+'/10 '+toStars(lb.rating):'In library'}</div>
+        </div>
+        ${isCurrent?'<div style="font-size:10px;color:var(--amber);flex-shrink:0">← this</div>':''}
+      </div>`;
+    }).join('')}
+    ${extraOL.slice(0,5).map(w => {
+      const inLib = books.find(x => bTitle(x).toLowerCase()===w.title.toLowerCase());
+      if (inLib) return ''; // already shown above
+      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd)">
+        ${w.cover_i?`<img src="${cUrl(w.cover_i,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
+          <div style="font-size:10px;color:var(--tx2);margin-top:1px">${(w.author_name||[]).slice(0,1).join('')}${w.first_publish_year?' · '+w.first_publish_year:''}</div>
+        </div>
+        <button onclick="quickAddBook('tbr','','${w.key}','${w.title.replace(/'/g,"\'")}','${((w.author_name||[])[0]||'').replace(/'/g,"\'")}');this.textContent='Added!';this.disabled=true" style="font-size:9px;padding:3px 7px;border:0.5px solid var(--amber);border-radius:100px;background:none;cursor:pointer;color:var(--amber);font-family:'DM Sans',sans-serif;flex-shrink:0;align-self:center">+TBR</button>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// Render series browse in Discover tab
+function renderDiscoverSeries() {
+  const el = document.getElementById('discover-series-list');
+  if (!el) return;
+
+  // Group library books by series
+  const seriesMap = {};
+  books.filter(b => b.series_name).forEach(b => {
+    const s = b.series_name;
+    if (!seriesMap[s]) seriesMap[s] = [];
+    seriesMap[s].push(b);
+  });
+
+  if (!Object.keys(seriesMap).length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--tx1)">No series tracked yet. Add series info to books via Edit.</div>';
+    return;
+  }
+
+  el.innerHTML = Object.entries(seriesMap)
+    .sort((a,b) => b[1].length - a[1].length)
+    .map(([name, sBooks]) => {
+      const sorted = sBooks.sort((a,b) => (a.series_number||0)-(b.series_number||0));
+      const finished = sBooks.filter(b=>b.status==='finished').length;
+      const avgRating = sBooks.filter(b=>b.rating>0).reduce((s,b)=>s+b.rating,0) / (sBooks.filter(b=>b.rating>0).length||1);
+      return `<div class="series-card">
+        <div class="series-card-header">
+          <div>
+            <div class="series-card-name">${name}</div>
+            <div class="series-card-meta">${finished} book${finished!==1?'s':''} read${sBooks.filter(b=>b.rating>0).length?` · avg ${avgRating.toFixed(1)}/10`:''}</div>
+          </div>
+        </div>
+        <div class="series-books-row">
+          ${sorted.map(b => {
+            const cover = bCover(b);
+            const statusColor = b.status==='finished'?'var(--teal)':b.status==='reading'?'var(--amber)':'var(--purple)';
+            return `<div class="series-book-item" onclick="openBookPage('${b.id}')">
+              <div style="position:relative">
+                ${cover?`<img src="${cover}" style="width:52px;height:78px;object-fit:cover;border-radius:5px;display:block;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:52px;height:78px;border-radius:5px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--tx2);text-align:center;padding:4px">📖</div>`}
+                ${b.series_number?`<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);background:var(--bg0);border:0.5px solid var(--bd);border-radius:100px;font-size:9px;font-weight:500;padding:1px 5px;white-space:nowrap">#${b.series_number}</div>`:''}
+              </div>
+              <div style="margin-top:10px;font-size:10px;color:${statusColor};text-align:center">${b.status==='finished'?b.rating?b.rating+'/10':'✓':b.status==='reading'?'Reading':'TBR'}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+}
+
 /* ── EXPORT ────────────────────────────────────────────────────────────── */
 function exportLibrary() {
   const fin = books.filter(b => b.status === 'finished');
@@ -1795,6 +2083,11 @@ function exportLibrary() {
 }
 
 /* ── DISCOVER TBR ──────────────────────────────────────────────────────── */
+function renderDiscover() {
+  renderDiscoverTBR();
+  renderDiscoverSeries();
+}
+
 function renderDiscoverTBR() {
   const tbr = books.filter(b => b.status === 'tbr');
   document.getElementById('tbr-count').textContent = `(${tbr.length})`;
@@ -1810,6 +2103,53 @@ function renderDiscoverTBR() {
       <div style="flex:1;min-width:0">
         <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3">${bTitle(b)}</div>
         <div style="font-size:11px;color:var(--tx1)">${bAuthor(b)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── DISCOVER SERIES ───────────────────────────────────────────────────── */
+function renderDiscoverSeries() {
+  const el = document.getElementById('discover-series-list');
+  if (!el) return;
+
+  // Group books by series
+  const seriesMap = {};
+  books.filter(b => b.series_name).forEach(b => {
+    const key = b.series_name.toLowerCase();
+    if (!seriesMap[key]) seriesMap[key] = { name: b.series_name, books: [] };
+    seriesMap[key].books.push(b);
+  });
+
+  const series = Object.values(seriesMap)
+    .filter(s => s.books.length > 0)
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  if (!series.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--tx1);padding:10px 0">No series found. Add series info to books via the Edit button on any book page.</div>';
+    return;
+  }
+
+  el.innerHTML = series.map(s => {
+    const sorted = s.books.sort((a,b) => (a.series_number||999)-(b.series_number||999));
+    const finished = sorted.filter(b => b.status === 'finished');
+    const reading  = sorted.filter(b => b.status === 'reading');
+    const maxNum   = Math.max(...sorted.map(b => b.series_number||0));
+    const nextNum  = (Math.max(...finished.map(b => b.series_number||0)) || 0) + 1;
+    const covers   = sorted.slice(0,3).map(b => bCover(b)).filter(Boolean);
+
+    return `<div style="padding:12px 0;border-bottom:0.5px solid var(--bd)">
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        ${covers.map(c => `<img src="${c}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;border:0.5px solid var(--bd)" loading="lazy">`).join('')}
+        ${covers.length === 0 ? '<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px"></div>' : ''}
+      </div>
+      <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:3px">${s.name}</div>
+      <div style="font-size:11px;color:var(--tx1);margin-bottom:6px">
+        ${finished.length} of ${sorted.length} read
+        ${reading.length ? ` · Currently reading book ${reading[0].series_number||'?'}` : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${sorted.map(b => `<span onclick="openBookPage('${b.id}')" style="font-size:10px;padding:2px 8px;border-radius:100px;cursor:pointer;background:${b.status==='finished'?'var(--teal-l)':b.status==='reading'?'var(--amber-l)':'var(--bg2)'};color:${b.status==='finished'?'var(--teal)':b.status==='reading'?'var(--amber)':'var(--tx2)'}">${b.series_number ? '#'+b.series_number+' ' : ''}${bTitle(b).length>20?bTitle(b).slice(0,20)+'…':bTitle(b)}</span>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -2317,7 +2657,7 @@ function go(name){
   document.getElementById('p-'+name)?.classList.add('on');
   document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('on');
   if(name==='library'){renderLibrary();}
-  if(name==='discover'){renderDiscoverTBR();}
+  if(name==='discover'){renderDiscoverTBR();renderDiscoverSeries();}
   if(name==='reflect'){renderReflect();}
 }
 
