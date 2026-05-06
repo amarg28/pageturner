@@ -542,17 +542,10 @@ function renderLibrary() {
   const sidebar = document.getElementById('library-sidebar');
   const layout = document.querySelector('.library-layout');
   const hasSidebar = books.length >= 3;
-  if (sidebar) {
-    sidebar.style.display = hasSidebar ? '' : 'none';
-  }
+  if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
   if (layout) {
-    // Always clear inline styles first
     layout.style.cssText = '';
-    if (!hasSidebar) {
-      // Force single column with inline style - most reliable approach
-      layout.style.gridTemplateColumns = '1fr';
-      layout.style.maxWidth = '100%';
-    }
+    layout.classList.toggle('has-sidebar', hasSidebar);
   }
   if (hasSidebar) renderSidebar();
 }
