@@ -15,7 +15,12 @@
 <div id="auth-screen" class="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">page<em>turner</em></div>
-    <div class="auth-tagline">Your personal reading companion</div>
+    <div class="auth-tagline">Track what you read. Reflect on what stayed with you. Discover what's next.</div>
+    <div class="auth-steps">
+      <div class="auth-step"><span class="auth-step-icon">📚</span><div><strong>Track</strong> your reading history with ratings, notes and dates</div></div>
+      <div class="auth-step"><span class="auth-step-icon">✦</span><div><strong>Reflect</strong> on books a year later — does your opinion still hold?</div></div>
+      <div class="auth-step"><span class="auth-step-icon">🔭</span><div><strong>Discover</strong> your next book with AI that knows your taste</div></div>
+    </div>
     <div class="auth-tabs">
       <button class="auth-tab on" onclick="switchAuthTab('signin')">Sign in</button>
       <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
@@ -273,6 +278,48 @@
 
   </div><!-- /shell -->
 </div><!-- /app -->
+
+<!-- FIRST-RUN TOUR -->
+<div id="tour-overlay" class="tour-overlay" onclick="if(event.target.id==='tour-overlay')closeTour()">
+  <div class="tour-card">
+    <div class="tour-logo">page<em>turner</em></div>
+    <div class="tour-title">Welcome! Here's a quick tour.</div>
+    <div class="tour-steps">
+      <div class="tour-step">
+        <div class="tour-step-icon">📚</div>
+        <div>
+          <div class="tour-step-title">Library — your reading history</div>
+          <div class="tour-step-desc">Everything you've read lives here. Stats, reflections due, and your currently reading shelf.</div>
+        </div>
+      </div>
+      <div class="tour-step">
+        <div class="tour-step-icon">🔭</div>
+        <div>
+          <div class="tour-step-title">Discover — find your next book</div>
+          <div class="tour-step-desc">Search any book to see if it fits your taste. Chat with an AI advisor that knows your reading history. Add books to your library or TBR.</div>
+        </div>
+      </div>
+      <div class="tour-step">
+        <div class="tour-step-icon">✦</div>
+        <div>
+          <div class="tour-step-title">Reflect — revisit what you've read</div>
+          <div class="tour-step-desc">A year after finishing a book, you'll be prompted to reflect on it. The more you write, the better your AI recommendations become.</div>
+        </div>
+      </div>
+      <div class="tour-step">
+        <div class="tour-step-icon">👤</div>
+        <div>
+          <div class="tour-step-title">Settings — click your avatar</div>
+          <div class="tour-step-desc">Set your display name, add your Anthropic API key for AI features, and manage your account.</div>
+        </div>
+      </div>
+    </div>
+    <div class="tour-actions">
+      <button class="btn-primary" onclick="closeTour();go('discover')">Add my first book →</button>
+      <button class="btn-ghost" onclick="closeTour()">I'll explore on my own</button>
+    </div>
+  </div>
+</div>
 
 <!-- BOOK MODAL -->
 <div id="book-modal" class="book-modal-ov" onclick="bookModalClick(event)">
