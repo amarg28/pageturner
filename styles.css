@@ -688,6 +688,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* ── LIBRARY LAYOUT (clean rewrite) ───────────────────────────────────── */
 .library-layout{display:grid;gap:24px;align-items:start}
 .library-layout.has-sidebar{grid-template-columns:1fr 320px}
+.library-layout.has-sidebar.sidebar-collapsed{grid-template-columns:1fr 24px}
 .library-layout:not(.has-sidebar){grid-template-columns:1fr}
 .library-layout:not(.has-sidebar) .library-main{grid-column:1}
 .library-main{min-width:0}
