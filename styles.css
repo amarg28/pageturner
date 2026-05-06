@@ -590,3 +590,15 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .series-books-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
 .series-book-item{cursor:pointer;display:flex;flex-direction:column;align-items:center;transition:transform .15s}
 .series-book-item:hover{transform:translateY(-2px)}
+
+/* ── SIDEBAR STATS BUTTON ──────────────────────────────────────────────── */
+.sidebar-stats-btn{width:100%;padding:8px 12px;margin-bottom:14px;background:var(--bg0);border:0.5px solid var(--bd2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--tx1);text-align:left;transition:all .15s}
+.sidebar-stats-btn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-l)}
+
+/* ── EDIT MODAL STICKY FOOTER ──────────────────────────────────────────── */
+.modal{position:relative}
+.edit-modal-footer{position:sticky;bottom:0;background:var(--bg0);padding:12px 0 2px;margin-top:8px;border-top:0.5px solid var(--bd)}
+
+/* ── BOOK PAGE REFRESH BUTTON ──────────────────────────────────────────── */
+.bp-refresh-btn{padding:5px 9px;border:0.5px solid var(--bd2);border-radius:var(--r);background:none;font-size:14px;cursor:pointer;color:var(--tx2);transition:all .12s;margin-left:auto}
+.bp-refresh-btn:hover{border-color:var(--teal);color:var(--teal)}
