@@ -1436,8 +1436,8 @@ function openEditSeriesModal(bookId) {
 
 async function saveSeriesEdit(bookId) {
   const b = books.find(x => x.id === bookId); if (!b) return;
-  b.series_name = document.getElementById('es-name').value.trim() || null;
-  b.series_number = parseFloat(document.getElementById('es-num').value) || null;
+  b.series_name = document.getElementById('e-series-name').value.trim() || null;
+  b.series_number = parseFloat(document.getElementById('e-series-num').value) || null;
   await saveBook(b);
   document.getElementById('del-modal').classList.remove('on');
   // Reload the series section
@@ -1903,11 +1903,6 @@ async function confirmImport(){
   alert(`Imported ${inserted} book${inserted!==1?'s':''} successfully!`);
 }
 
-function bookToRow(b){
-  const nn=v=>(v===''||v===null||v===undefined)?null:v;
-  return{user_id:currentUser.id,isbn:nn(b.isbn),ol_key:nn(b.ol_key),google_id:nn(b.google_id),status:b.status||'finished',start_date:nn(b.start_date),end_date:nn(b.end_date),rating:nn(b.rating),retro_rating:nn(b.retro_rating),notes:b.notes||'',retro_thoughts:b.retro_thoughts||'',mood:b.mood||'',themes:b.themes||'',manual_title:nn(b.manual_title),manual_author:nn(b.manual_author),import_source:b.import_source||''};
-}
-
 /* ── SERIES ────────────────────────────────────────────────────────────── */
 
 // Fetch series info from Open Library for a work key
@@ -1940,75 +1935,6 @@ async function fetchSeriesBooks(seriesName, currentOlKey) {
 }
 
 // Render series section on book page sidebar
-async function loadSeriesSection(b) {
-  const el = document.getElementById('series-section');
-  if (!el) return;
-
-  // Use stored series data first, fall back to OL
-  let seriesName = b.series_name;
-  let seriesNumber = b.series_number;
-
-  if (!seriesName && b.ol_key) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Checking series data…</div>';
-    const olSeries = await fetchOLSeries(b.ol_key);
-    if (olSeries) {
-      seriesName = olSeries.name;
-      seriesNumber = olSeries.number;
-      // Auto-save to book if found
-      b.series_name = seriesName;
-      b.series_number = seriesNumber;
-      await saveBook(b);
-    }
-  }
-
-  if (!seriesName) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Not part of a series, or series unknown.<br><span style="font-size:11px">You can add series info via Edit.</span></div>`;
-    return;
-  }
-
-  el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Loading ${seriesName}…</div>`;
-
-  // Find all books in this series from user's library
-  const librarySeriesBooks = books.filter(x => x.series_name === seriesName)
-    .sort((a,b) => (a.series_number||0) - (b.series_number||0));
-
-  // Fetch from OL too
-  const olBooks = await fetchSeriesBooks(seriesName, b.ol_key);
-
-  // Build a merged list - library books first, then OL books not in library
-  const allTitles = new Set(librarySeriesBooks.map(x => bTitle(x).toLowerCase()));
-  const extraOL = olBooks.filter(x => !allTitles.has(x.title.toLowerCase()));
-
-  const currentNum = seriesNumber || 0;
-
-  el.innerHTML = `
-    <div style="font-size:11px;font-weight:500;color:var(--amber);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${seriesName}</div>
-    ${librarySeriesBooks.map(lb => {
-      const isCurrent = lb.id === b.id;
-      const cover = bCover(lb);
-      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;${isCurrent?'background:var(--amber-l);margin:0 -6px;padding:7px 6px;border-radius:var(--r)':''}" onclick="closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),50)">
-        ${cover?`<img src="${cUrl(bMeta(lb)?.coverId,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px">${lb.series_number||'?'}</div>`}
-        <div style="flex:1;min-width:0">
-          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${lb.series_number?'#'+lb.series_number+' ':''} ${bTitle(lb)}</div>
-          <div style="font-size:10px;color:var(--teal);margin-top:2px">${lb.rating?lb.rating+'/10 '+toStars(lb.rating):'In library'}</div>
-        </div>
-        ${isCurrent?'<div style="font-size:10px;color:var(--amber);flex-shrink:0">← this</div>':''}
-      </div>`;
-    }).join('')}
-    ${extraOL.slice(0,5).map(w => {
-      const inLib = books.find(x => bTitle(x).toLowerCase()===w.title.toLowerCase());
-      if (inLib) return ''; // already shown above
-      return `<div style="display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bd)">
-        ${w.cover_i?`<img src="${cUrl(w.cover_i,'S')}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">`:`<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
-        <div style="flex:1;min-width:0">
-          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
-          <div style="font-size:10px;color:var(--tx2);margin-top:1px">${(w.author_name||[]).slice(0,1).join('')}${w.first_publish_year?' · '+w.first_publish_year:''}</div>
-        </div>
-        <button onclick="quickAddBook('tbr','','${w.key}','${w.title.replace(/'/g,"\'")}','${((w.author_name||[])[0]||'').replace(/'/g,"\'")}');this.textContent='Added!';this.disabled=true" style="font-size:9px;padding:3px 7px;border:0.5px solid var(--amber);border-radius:100px;background:none;cursor:pointer;color:var(--amber);font-family:'DM Sans',sans-serif;flex-shrink:0;align-self:center">+TBR</button>
-      </div>`;
-    }).join('')}
-  `;
-}
 
 // Render series browse in Discover tab
 function renderDiscoverSeries() {
@@ -2109,51 +2035,6 @@ function renderDiscoverTBR() {
 }
 
 /* ── DISCOVER SERIES ───────────────────────────────────────────────────── */
-function renderDiscoverSeries() {
-  const el = document.getElementById('discover-series-list');
-  if (!el) return;
-
-  // Group books by series
-  const seriesMap = {};
-  books.filter(b => b.series_name).forEach(b => {
-    const key = b.series_name.toLowerCase();
-    if (!seriesMap[key]) seriesMap[key] = { name: b.series_name, books: [] };
-    seriesMap[key].books.push(b);
-  });
-
-  const series = Object.values(seriesMap)
-    .filter(s => s.books.length > 0)
-    .sort((a,b) => a.name.localeCompare(b.name));
-
-  if (!series.length) {
-    el.innerHTML = '<div style="font-size:13px;color:var(--tx1);padding:10px 0">No series found. Add series info to books via the Edit button on any book page.</div>';
-    return;
-  }
-
-  el.innerHTML = series.map(s => {
-    const sorted = s.books.sort((a,b) => (a.series_number||999)-(b.series_number||999));
-    const finished = sorted.filter(b => b.status === 'finished');
-    const reading  = sorted.filter(b => b.status === 'reading');
-    const maxNum   = Math.max(...sorted.map(b => b.series_number||0));
-    const nextNum  = (Math.max(...finished.map(b => b.series_number||0)) || 0) + 1;
-    const covers   = sorted.slice(0,3).map(b => bCover(b)).filter(Boolean);
-
-    return `<div style="padding:12px 0;border-bottom:0.5px solid var(--bd)">
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        ${covers.map(c => `<img src="${c}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;border:0.5px solid var(--bd)" loading="lazy">`).join('')}
-        ${covers.length === 0 ? '<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px"></div>' : ''}
-      </div>
-      <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:3px">${s.name}</div>
-      <div style="font-size:11px;color:var(--tx1);margin-bottom:6px">
-        ${finished.length} of ${sorted.length} read
-        ${reading.length ? ` · Currently reading book ${reading[0].series_number||'?'}` : ''}
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${sorted.map(b => `<span onclick="openBookPage('${b.id}')" style="font-size:10px;padding:2px 8px;border-radius:100px;cursor:pointer;background:${b.status==='finished'?'var(--teal-l)':b.status==='reading'?'var(--amber-l)':'var(--bg2)'};color:${b.status==='finished'?'var(--teal)':b.status==='reading'?'var(--amber)':'var(--tx2)'}">${b.series_number ? '#'+b.series_number+' ' : ''}${bTitle(b).length>20?bTitle(b).slice(0,20)+'…':bTitle(b)}</span>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
-}
 
 /* ── DISCOVER SEARCH ───────────────────────────────────────────────────── */
 let discoverDebounce = null, discoverResults = [], discoverIdx = -1;
@@ -2662,12 +2543,8 @@ function go(name){
 }
 
 function toggleStats(){
-  const sec=document.getElementById('stats-section');
-  const lbl=document.getElementById('stats-toggle-label');
-  const open=sec.style.display==='none';
-  sec.style.display=open?'block':'none';
-  lbl.textContent=open?'Hide stats ▴':'Show stats ▾';
-  if(open){chartsDrawn=false;drawStats();}
+  // Stats moved to overlay - redirect to openStatsOverlay
+  openStatsOverlay();
 }
 
 /* ── CHAT ──────────────────────────────────────────────────────────────── */
