@@ -538,16 +538,21 @@ async function fetchMetaForBook(b) {
 function renderLibrary() {
   cleanGenreCache();
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
-  // Hide sidebar and collapse grid until user has enough books
+  // Show/hide sidebar based on book count
   const sidebar = document.getElementById('library-sidebar');
   const layout = document.querySelector('.library-layout');
   const hasSidebar = books.length >= 3;
-  if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
+  if (sidebar) {
+    sidebar.style.display = hasSidebar ? '' : 'none';
+  }
   if (layout) {
-    layout.style.gridTemplateColumns = ''; // clear any lingering inline style
-    layout.classList.toggle('has-sidebar', hasSidebar);
-    layout.classList.toggle('no-sidebar', !hasSidebar);
-    layout.classList.remove('sidebar-collapsed');
+    // Always clear inline styles first
+    layout.style.cssText = '';
+    if (!hasSidebar) {
+      // Force single column with inline style - most reliable approach
+      layout.style.gridTemplateColumns = '1fr';
+      layout.style.maxWidth = '100%';
+    }
   }
   if (hasSidebar) renderSidebar();
 }
