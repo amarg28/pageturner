@@ -1024,7 +1024,7 @@ async function openUnreadBookPage(olBook) {
       <div class="bp-add-btns">
         <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Add to TBR</button>
         <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Currently reading</button>
-        <button class="bp-add-btn bp-add-btn-finished" onclick="closeBookModal();go('discover')">+ Add as finished</button>
+        <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}',${olBook.cover_i||'null'},${olBook.first_publish_year||'null'})">+ Add as finished</button>
       </div>
     </div>
     <div class="bp-hero">
@@ -1097,6 +1097,87 @@ async function markDNF(bookId) {
   b.status = 'dnf';
   await saveBook(b);
   chartsDrawn = false; renderLibrary();
+}
+
+function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
+  // Pre-fill the modal with an add form
+  const coverSrc = coverId ? cUrl(coverId,'M') : null;
+  document.getElementById('book-modal-body').innerHTML = `<div class="bp">
+    <div class="bp-nav">
+      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+    </div>
+    <div class="fcard">
+      <div class="fcard-title">Add to your library — ${title}</div>
+      <div class="sel-header">
+        ${coverSrc?`<img class="sel-cover" src="${coverSrc}" alt="">`:`<div class="sel-cover-ph">📖</div>`}
+        <div>
+          <div class="sel-title">${title}</div>
+          <div class="sel-author">${author}</div>
+          ${year?`<span class="stag">${year}</span>`:''}
+        </div>
+      </div>
+      <div class="fgrid">
+        <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="af-rating" min="1" max="10" placeholder="e.g. 8"></div>
+        <div class="fg"><label class="fl">Format</label>
+          <select class="fi" id="af-format">
+            <option>Print</option><option>Paperback</option><option>Hardcover</option><option>EBook</option><option>Audiobook</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="af-start"></div>
+        <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="af-end"></div>
+      </div>
+      <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('af-mood','','mood',MOODS)}</div>
+      <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('af-themes','','theme',THEMES)}</div>
+      <div class="fg full" style="margin-bottom:12px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="af-notes" placeholder="Thoughts while reading…"></textarea></div>
+      <div class="form-acts">
+        <button class="btn-ghost" onclick="closeBookModal()">Cancel</button>
+        <button class="btn-primary" id="af-submit" onclick="submitAddFinished('${isbn}','${olKey}','${title}','${author}',${coverId||'null'})">Add to library</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function submitAddFinished(isbn, olKey, title, author, coverId) {
+  const btn = document.getElementById('af-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const start = document.getElementById('af-start').value || null;
+  const end   = document.getElementById('af-end').value || null;
+  const rating = parseFloat(document.getElementById('af-rating').value) || null;
+  // Pre-cache metadata
+  if (isbn || olKey) {
+    const fakeBook = { isbn: isbn||null, ol_key: olKey||null, manual_title: title, manual_author: author };
+    await fetchMetaForBook(fakeBook);
+  }
+  const newBook = {
+    isbn: isbn||null, ol_key: olKey||null, google_id: null,
+    status: 'finished', start_date: start, end_date: end,
+    rating, retro_rating: null,
+    notes: document.getElementById('af-notes').value.trim(),
+    retro_thoughts: '',
+    mood: getTagVal('af-mood'),
+    themes: getTagVal('af-themes'),
+    manual_title: title||null, manual_author: author||null,
+    import_source: ''
+  };
+  // Check for duplicates
+  const exists = books.find(b =>
+    (isbn && b.isbn === isbn) ||
+    (olKey && b.ol_key === olKey) ||
+    bTitle(b).toLowerCase() === title.toLowerCase()
+  );
+  if (exists) {
+    alert(`"${title}" is already in your library.`);
+    btn.disabled = false; btn.textContent = 'Add to library'; return;
+  }
+  try {
+    await saveBook(newBook);
+    books.unshift(newBook);
+    closeBookModal();
+    renderLibrary(); go('library');
+  } catch(e) {
+    alert('Could not save: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Add to library';
+  }
 }
 
 /* ── BOOK PAGE ─────────────────────────────────────────────────────────── */
