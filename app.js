@@ -1024,7 +1024,7 @@ async function openUnreadBookPage(olBook) {
       <div class="bp-add-btns">
         <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Add to TBR</button>
         <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Currently reading</button>
-        <button class="bp-add-btn bp-add-btn-finished" onclick="go('add')">+ Add as finished</button>
+        <button class="bp-add-btn bp-add-btn-finished" onclick="closeBookModal();go('discover')">+ Add as finished</button>
       </div>
     </div>
     <div class="bp-hero">
