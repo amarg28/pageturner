@@ -65,9 +65,11 @@ function canonicaliseGenre(raw) {
   const lower = raw.toLowerCase().trim();
   // Direct match
   if (GENRE_MAP[lower]) return GENRE_MAP[lower];
-  // Partial match
-  for (const [key, val] of Object.entries(GENRE_MAP)) {
-    if (lower.includes(key)) return val;
+  // Partial match — sort by key length descending so longer/more specific keys match first
+  // e.g. 'historical fiction' matches before 'historical'
+  const sortedKeys = Object.keys(GENRE_MAP).sort((a,b) => b.length - a.length);
+  for (const key of sortedKeys) {
+    if (lower.includes(key)) return GENRE_MAP[key];
   }
   // Check if it's already a canonical genre
   if (GENRES.includes(raw)) return raw;
