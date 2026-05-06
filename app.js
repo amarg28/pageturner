@@ -545,7 +545,7 @@ function renderLibrary() {
   // Sidebar: show only when 5+ books
   const sidebar = document.getElementById('library-sidebar');
   const layout = document.querySelector('.library-layout');
-  const hasSidebar = books.length >= 5;
+  const hasSidebar = booksLoaded && books.length >= 5;
   if (sidebar) sidebar.style.display = hasSidebar ? '' : 'none';
   if (layout) {
     layout.style.cssText = '';
@@ -915,55 +915,40 @@ function renderBooks() {
 
   const shelf = document.getElementById('shelf');
 
-  // Zero books: render onboarding fullwidth, bypass the grid entirely
+  // Zero books after load complete: show onboarding in shelf
   if (books.length === 0 && booksLoaded) {
-    document.querySelector('.library-layout').style.display = 'none';
-    document.getElementById('quick-stats').style.display = 'none';
-    let onboard = document.getElementById('onboard-fullwidth');
-    if (!onboard) {
-      onboard = document.createElement('div');
-      onboard.id = 'onboard-fullwidth';
-      document.getElementById('p-library').appendChild(onboard);
-    }
-    onboard.style.display = 'block';
-    onboard.innerHTML = `<div class="empty-onboard">
-        <div class="empty-onboard-title">Welcome to PageTurner</div>
-        <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
-        <div class="onboard-steps">
-          <div class="onboard-step" onclick="go('discover')">
-            <div class="onboard-step-num">1</div>
-            <div class="onboard-step-icon">🔭</div>
-            <div class="onboard-step-title">Add a book</div>
-            <div class="onboard-step-desc">Search for books you've read and log your rating, dates, and thoughts</div>
-            <div class="onboard-step-cta">Go to Discover →</div>
-          </div>
-          <div class="onboard-step">
-            <div class="onboard-step-num">2</div>
-            <div class="onboard-step-icon">✦</div>
-            <div class="onboard-step-title">Reflect on it</div>
-            <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
-            <div class="onboard-step-cta">Available after one year</div>
-          </div>
-          <div class="onboard-step" onclick="go('discover')">
-            <div class="onboard-step-num">3</div>
-            <div class="onboard-step-icon">🤖</div>
-            <div class="onboard-step-title">Discover what's next</div>
-            <div class="onboard-step-desc">Ask the AI book advisor for recommendations based on your reading history and taste</div>
-            <div class="onboard-step-cta">Go to Discover →</div>
-          </div>
+    shelf.innerHTML = `<div class="empty-onboard">
+      <div class="empty-onboard-title">Welcome to PageTurner</div>
+      <div class="empty-onboard-sub">Your personal reading companion. Here's how to get started:</div>
+      <div class="onboard-steps">
+        <div class="onboard-step" onclick="go('discover')">
+          <div class="onboard-step-num">1</div>
+          <div class="onboard-step-icon">🔭</div>
+          <div class="onboard-step-title">Add a book</div>
+          <div class="onboard-step-desc">Search for books you've read and log your rating, dates, and thoughts</div>
+          <div class="onboard-step-cta">Go to Discover →</div>
         </div>
-        <div style="margin-top:20px">
-          <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
+        <div class="onboard-step">
+          <div class="onboard-step-num">2</div>
+          <div class="onboard-step-icon">✦</div>
+          <div class="onboard-step-title">Reflect on it</div>
+          <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
+          <div class="onboard-step-cta">Available after one year</div>
         </div>
-      </div>`;
+        <div class="onboard-step" onclick="go('discover')">
+          <div class="onboard-step-num">3</div>
+          <div class="onboard-step-icon">🤖</div>
+          <div class="onboard-step-title">Discover what's next</div>
+          <div class="onboard-step-desc">Ask the AI book advisor for recommendations based on your reading history and taste</div>
+          <div class="onboard-step-cta">Go to Discover →</div>
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn-primary" onclick="go('discover')" style="font-size:14px;padding:11px 24px">Add your first book →</button>
+      </div>
+    </div>`;
     return;
   }
-
-  // Has books: show the grid, hide onboarding
-  document.querySelector('.library-layout').style.display = '';
-  document.getElementById('quick-stats').style.display = '';
-  const onboard = document.getElementById('onboard-fullwidth');
-  if (onboard) onboard.style.display = 'none';
 
 
   if (!list.length) {
