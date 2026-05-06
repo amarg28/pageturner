@@ -1876,9 +1876,15 @@ function drawGenreTreemap(data) {
   const canvas = document.getElementById('cGenreTreemap');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 800;
   const H = canvas.offsetHeight || 300;
-  canvas.width = W; canvas.height = H;
+  // Scale canvas for high-DPI screens
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
 
   const total = data.reduce((s,d) => s+d.count, 0);
   if (!total) return;
