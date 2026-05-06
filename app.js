@@ -541,9 +541,16 @@ async function fetchMetaForBook(b) {
 /* ── LIBRARY ───────────────────────────────────────────────────────────── */
 function renderLibrary() {
   cleanGenreCache();
-  // Hide grid until books are loaded
+  // Hide entire layout until books are loaded
   const layoutEl = document.getElementById('library-layout');
-  if (layoutEl && !booksLoaded) layoutEl.style.display = 'none';
+  const mainEl = document.querySelector('.library-main');
+  if (!booksLoaded) {
+    if (layoutEl) layoutEl.style.display = 'none';
+    if (mainEl) mainEl.style.display = 'none';
+  } else {
+    if (layoutEl) layoutEl.style.display = '';
+    if (mainEl) mainEl.style.display = '';
+  }
   renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
   // Sidebar: show only when 5+ books
   const sidebar = document.getElementById('library-sidebar');
@@ -956,11 +963,15 @@ function renderBooks() {
       </div>`;
     }
     if (layoutEl) layoutEl.style.display = 'none';
+    const mainEl2 = document.querySelector('.library-main');
+    if (mainEl2) mainEl2.style.display = 'none';
     return;
   }
-  // Has books: hide onboarding, show grid
+  // Has books: hide onboarding, show everything
   if (onboardEl) onboardEl.style.display = 'none';
   if (layoutEl)  layoutEl.style.display  = '';
+  const mainEl2 = document.querySelector('.library-main');
+  if (mainEl2) mainEl2.style.display = '';
 
 
   if (!list.length) {
