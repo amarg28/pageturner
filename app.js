@@ -64,16 +64,21 @@ const GENRE_MAP = {
 function canonicaliseGenre(raw) {
   if (!raw) return null;
   const lower = raw.toLowerCase().trim();
-  // Direct match
+  // Direct match first
   if (GENRE_MAP[lower]) return GENRE_MAP[lower];
-  // Partial match — sort by key length descending so longer/more specific keys match first
-  // e.g. 'historical fiction' matches before 'historical'
+  // Check if it's already a canonical genre (exact case match)
+  if (GENRES.includes(raw)) return raw;
+  // Partial match — longest keys first so specific beats general
+  // Special protection: if tag contains 'historical' AND 'fiction/novel/fantasy/mystery'
+  // it must NOT map to History nonfiction
+  const FICTION_SIGNALS = ['fiction','novel','fantasy','mystery','thriller','romance','horror'];
+  const isHistoricalFiction = lower.includes('historical') && FICTION_SIGNALS.some(s => lower.includes(s));
   const sortedKeys = Object.keys(GENRE_MAP).sort((a,b) => b.length - a.length);
   for (const key of sortedKeys) {
+    // Skip 'history' mapping if the tag contains 'historical' + fiction signal
+    if (key === 'history' && isHistoricalFiction) continue;
     if (lower.includes(key)) return GENRE_MAP[key];
   }
-  // Check if it's already a canonical genre
-  if (GENRES.includes(raw)) return raw;
   return null;
 }
 
@@ -2597,16 +2602,17 @@ function showToast(msg, duration=2000) {
 
 function resetLibrary() {
   // Reset all filters and sort to defaults
-  const q = document.getElementById('q');
   const gf = document.getElementById('gf');
   const mf = document.getElementById('mf');
   const sortSel = document.getElementById('sort-sel');
-  if (q) q.value = '';
   if (gf) gf.value = '';
   if (mf) mf.value = '';
   if (sortSel) sortSel.value = 'recent';
   sort = 'recent';
+  // Reset view to shelf - must also remove list-mode class
   window.libraryView = 'shelf';
+  const shelf = document.getElementById('shelf');
+  if (shelf) shelf.classList.remove('list-mode');
   document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('on', b.dataset.view === 'shelf'));
   go('library');
   window.scrollTo({ top: 0, behavior: 'smooth' });
