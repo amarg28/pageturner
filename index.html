@@ -40,7 +40,7 @@
 
     <!-- TOPBAR -->
     <div class="topbar">
-      <div class="logo" onclick="go('library')">page<em>turner</em></div>
+      <div class="logo" onclick="resetLibrary()">page<em>turner</em></div>
 
       <!-- Global search -->
       <div class="gsearch-wrap" id="gsearch-wrap">
@@ -108,7 +108,6 @@
             </div>
             <button class="icon-btn" onclick="showDuplicatesModal()" title="Find duplicates">⚠</button>
             <button class="icon-btn" onclick="exportLibrary()" title="Export library">↓</button>
-            <button class="stats-open-btn" onclick="openStatsOverlay()" title="View full stats">📊 Stats</button>
           </div>
           <div class="sec-label">Finished books</div>
           <div class="shelf" id="shelf"></div>
@@ -120,6 +119,7 @@
             <span id="sidebar-toggle-icon">◀</span>
           </div>
           <div id="sidebar-content">
+            <button class="sidebar-stats-btn" onclick="openStatsOverlay()">📊 View all stats</button>
             <!-- Personal facts -->
             <div id="sidebar-facts"></div>
 
