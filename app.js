@@ -141,6 +141,24 @@ const joinTags  = a => a.join(', ');
 const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escQ = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 // Format retro_thoughts as Q&A pairs if they contain the prompt format
+function parseInitialPrompt(notes, question) {
+  if (!notes) return '';
+  const lines = notes.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === question && i+1 < lines.length) {
+      // Collect lines until next question or end
+      let answer = '';
+      let j = i+1;
+      while (j < lines.length && !lines[j].trim().endsWith('?')) {
+        answer += (answer ? '\n' : '') + lines[j];
+        j++;
+      }
+      return answer.trim();
+    }
+  }
+  return '';
+}
+
 function formatRetroThoughts(text) {
   if (!text) return '';
   // Check if it contains our prompt format (question followed by newline and answer)
@@ -171,7 +189,9 @@ const bSeriesNumber = b => b.series_number || null;
 
 const isRetroDue = b => {
   if (b.status !== 'finished' || !b.end_date || b.retro_rating) return false;
-  const due = new Date(b.end_date); due.setFullYear(due.getFullYear() + 1);
+  const months = getReflectWaitMonths();
+  const due = new Date(b.end_date);
+  due.setMonth(due.getMonth() + months);
   return new Date() >= due;
 };
 
@@ -750,9 +770,9 @@ function renderRetroDue() {
     <div class="retro-due-strip">
       ${due.map(b => {
         const cover = bCover(b);
-        const yearAgo = new Date(b.end_date); yearAgo.setFullYear(yearAgo.getFullYear()+1);
+        const yearAgo = new Date(b.end_date); yearAgo.setMonth(yearAgo.getMonth() + getReflectWaitMonths());
         const daysOver = Math.floor((new Date()-yearAgo)/86400000);
-        const txt = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
+        const txt = daysOver<=7?'Just became due':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
         return `<div class="retro-due-card" onclick="openReflectFromLibrary('${b.id}')">
           <div class="retro-dot"></div>
           ${cover?`<img class="retro-due-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="retro-due-cover-ph">📖</div>`}
@@ -1260,7 +1280,12 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
       </div>
       <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('af-mood','','mood',MOODS)}</div>
       <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('af-themes','','theme',THEMES)}</div>
-      <div class="fg full" style="margin-bottom:12px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="af-notes" placeholder="Thoughts while reading…"></textarea></div>
+      <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
+        ${INITIAL_PROMPTS.map(p=>`<div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
+          <textarea class="fi fta" id="af-ip-${p.id}" placeholder="Optional…" style="min-height:50px"></textarea>
+        </div>`).join('')}
+      </div>
       <div class="form-acts">
         <button class="btn-ghost" onclick="closeBookModal()">Cancel</button>
         <button class="btn-primary" id="af-submit" onclick="submitAddFinished('${isbn}','${olKey}','${title}','${author}',${coverId||'null'})">Add to library</button>
@@ -1284,7 +1309,10 @@ async function submitAddFinished(isbn, olKey, title, author, coverId) {
     isbn: isbn||null, ol_key: olKey||null, google_id: null,
     status: 'finished', start_date: start, end_date: end,
     rating, retro_rating: null,
-    notes: document.getElementById('af-notes').value.trim(),
+    notes: INITIAL_PROMPTS.map(p => {
+      const v = document.getElementById('af-ip-'+p.id)?.value.trim();
+      return v ? p.q+'\n'+v : '';
+    }).filter(Boolean).join('\n\n'),
     retro_thoughts: '',
     mood: getTagVal('af-mood'),
     themes: getTagVal('af-themes'),
@@ -1373,7 +1401,7 @@ async function openBookPage(bookId) {
           <div id="desc-text-${b.id}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
           ${desc.length>300?`<button onclick="var el=document.getElementById('desc-text-${b.id}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}
         </div></div>`:''}
-        ${b.notes?`<div class="bpsec"><div class="bpsec-t">Notes while reading</div><div style="font-size:14px;line-height:1.7">${b.notes}</div></div>`:''}
+        ${b.notes?`<div class="bpsec"><div class="bpsec-t">Initial thoughts</div><div style="margin-top:6px">${formatRetroThoughts(b.notes)}</div></div>`:''}
         ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec">
           <div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>
           ${b.retro_thoughts?`<div style="margin-top:10px">${formatRetroThoughts(b.retro_thoughts)}</div>`:''}
@@ -1741,7 +1769,15 @@ function openEdit(bookId) {
     </div>
     <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
-    <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="e-notes">${b.notes||''}</textarea></div>
+    <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
+      ${INITIAL_PROMPTS.map(p=>{
+        const existing = parseInitialPrompt(b.notes||'', p.q);
+        return `<div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
+          <textarea class="fi fta" id="e-ip-${p.id}" placeholder="Optional…" style="min-height:50px">${existing}</textarea>
+        </div>`;
+      }).join('')}
+    </div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="e-retro-notes">${b.retro_thoughts||''}</textarea></div>
     <div class="edit-modal-footer">
       <div class="form-acts">
@@ -1762,7 +1798,7 @@ async function saveEdit(bookId) {
   b.mood=getTagVal('e-mood');b.themes=getTagVal('e-themes');
   b.series_name = document.getElementById('e-series-name')?.value.trim() || null;
   b.series_number = parseFloat(document.getElementById('e-series-num')?.value) || null;
-  b.notes=document.getElementById('e-notes').value.trim();
+  b.notes=INITIAL_PROMPTS.map(p=>{const v=document.getElementById('e-ip-'+p.id)?.value.trim();return v?p.q+'\n'+v:'';}).filter(Boolean).join('\n\n');
   b.retro_thoughts=document.getElementById('e-retro-notes').value.trim();
   if(b.status==='reading'){
     const pr=document.getElementById('e-pages-read');
@@ -1896,7 +1932,12 @@ function buildForm(){
     </div>
     <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('f-mood','','mood',MOODS)}</div>
     <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('f-themes','','theme',THEMES)}</div>
-    <div class="fg full" style="margin-bottom:10px"><label class="fl">Notes while reading</label><textarea class="fi fta" id="f-notes" placeholder="Thoughts while reading…"></textarea></div>
+    <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
+      ${INITIAL_PROMPTS.map(p=>`<div style="margin-bottom:8px">
+        <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
+        <textarea class="fi fta" id="f-ip-${p.id}" placeholder="Optional…" style="min-height:50px"></textarea>
+      </div>`).join('')}
+    </div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="f-retro" placeholder="How do you feel about it now?"></textarea></div>
     <div class="form-acts">
       <button class="btn-ghost" onclick="resetAdd()">Clear</button>
@@ -1917,7 +1958,7 @@ async function submitBook(){
   const fd=document.getElementById('book-form').dataset;
   if(!fd.isbn&&!fd.olKey){alert('No book selected.');return;}
   const btn=document.getElementById('submit-book-btn');btn.disabled=true;btn.textContent='Saving…';
-  const newBook={isbn:fd.isbn||null,ol_key:fd.olKey||null,google_id:null,status:document.getElementById('f-status').value,start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,rating:parseFloat(document.getElementById('f-rating').value)||null,retro_rating:null,notes:document.getElementById('f-notes').value.trim(),retro_thoughts:document.getElementById('f-retro').value.trim(),mood:getTagVal('f-mood'),themes:getTagVal('f-themes'),manual_title:null,manual_author:null,import_source:''};
+  const newBook={isbn:fd.isbn||null,ol_key:fd.olKey||null,google_id:null,status:document.getElementById('f-status').value,start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,rating:parseFloat(document.getElementById('f-rating').value)||null,retro_rating:null,notes:INITIAL_PROMPTS.map(p=>{const v=document.getElementById('f-ip-'+p.id)?.value.trim();return v?p.q+'\n'+v:'';}).filter(Boolean).join('\n\n'),retro_thoughts:document.getElementById('f-retro').value.trim(),mood:getTagVal('f-mood'),themes:getTagVal('f-themes'),manual_title:null,manual_author:null,import_source:''};
   try{await saveBook(newBook);books.unshift(newBook);resetAdd();renderLibrary();go('library');}
   catch(e){alert('Could not save: '+e.message);btn.disabled=false;btn.textContent='Add to library';}
 }
@@ -2144,6 +2185,8 @@ function openSettings() {
   document.getElementById('s-display-name').value = savedName;
   const savedFmt = localStorage.getItem('pt_date_format') || 'dmy';
   document.getElementById('s-date-format').value = savedFmt;
+  const savedWait = localStorage.getItem('pt_reflect_wait') || '12';
+  document.getElementById('s-reflect-wait').value = savedWait;
   document.getElementById('settings-drawer').classList.add('open');
   document.getElementById('settings-backdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -2195,6 +2238,8 @@ function updateApiNotice() {
 function savePreferences() {
   const fmt = document.getElementById('s-date-format').value;
   localStorage.setItem('pt_date_format', fmt);
+  const wait = document.getElementById('s-reflect-wait').value;
+  localStorage.setItem('pt_reflect_wait', wait);
   showToast('Preferences saved ✓');
 }
 
@@ -2414,6 +2459,12 @@ document.addEventListener('click', e => {
 });
 
 /* ── REFLECT TAB ───────────────────────────────────────────────────────── */
+const INITIAL_PROMPTS = [
+  { id:'impression', q:'What was your overall impression?' },
+  { id:'love',       q:'What did you love or struggle with?' },
+  { id:"stick",      q:"What's one thing that will stick with you?" },
+];
+
 const REFLECT_PROMPTS = [
   { id:'stayed',    q:'What stayed with you?' },
   { id:'characters',q:'Did any characters feel real or hollow?' },
@@ -2421,6 +2472,10 @@ const REFLECT_PROMPTS = [
   { id:'recommend', q:'Would you recommend it, and to whom?' },
   { id:'changed',   q:'Has your opinion changed since finishing?' },
 ];
+
+function getReflectWaitMonths() {
+  return parseInt(localStorage.getItem('pt_reflect_wait') || '12');
+}
 
 function openReflectFromLibrary(bookId) {
   go('reflect');
@@ -2448,7 +2503,7 @@ function renderReflectDue() {
       emptyEl.innerHTML = `<div class="reflect-empty">
         <div class="reflect-empty-icon">✦</div>
         <div style="font-weight:500;margin-bottom:8px">Your reflection journal is waiting</div>
-        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here for reflection one year later.</div>
+        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here for reflection after your chosen wait period.</div>
         <button class="btn-primary" onclick="go('discover')">Add your first book →</button>
       </div>`;
     }
@@ -2468,7 +2523,7 @@ function renderReflectDue() {
 
 function renderReflectCard(b) {
   const cover = bCover(b);
-  const yearAgo = new Date(b.end_date); yearAgo.setFullYear(yearAgo.getFullYear()+1);
+  const yearAgo = new Date(b.end_date); yearAgo.setMonth(yearAgo.getMonth() + getReflectWaitMonths());
   const daysOver = Math.floor((new Date()-yearAgo)/86400000);
   const when = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
   return `<div class="reflect-due-card" id="reflect-card-${b.id}">
