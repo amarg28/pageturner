@@ -864,3 +864,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .genre-suggestion-item{padding:8px 12px;font-size:13px;cursor:pointer;transition:background .1s}
 .genre-suggestion-item:hover{background:var(--bg2)}
 .tchip-genre{background:var(--purple-l);color:var(--purple);border-color:var(--purple)}
+
+/* ── FICTION/NONFICTION TAG ────────────────────────────────────────────── */
+.bptag-fn{background:var(--purple);color:#fff;border-color:var(--purple)}
+.card-fn-tag{display:inline-block;font-size:9px;font-weight:500;background:var(--purple);color:#fff;padding:1px 6px;border-radius:100px;margin-top:3px;margin-right:3px;vertical-align:middle}
