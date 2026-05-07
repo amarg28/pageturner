@@ -173,11 +173,8 @@
         <!-- Left: AI recommendation chat -->
         <div class="discover-main">
           <div class="discover-section-label">Ask your book advisor</div>
-          <div class="apibar">
-            <label>Anthropic API Key</label>
-            <input type="password" class="api-in" id="ak" placeholder="sk-ant-api03-…">
-            <button class="api-save" onclick="saveKey()">Save</button>
-            <div class="api-note">Get a free key at console.anthropic.com — stored only in your browser.</div>
+          <div id="chat-api-notice" style="display:none;font-size:12px;color:var(--tx2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r)">
+            No API key set. <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">Add one in Settings →</button>
           </div>
           <div class="chat-wrap">
             <div class="chat-head">
@@ -215,6 +212,8 @@
               <input class="bsearch-in" id="ol-q" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')olSearch()">
               <button class="btn-search" id="ol-btn" onclick="olSearch()">Search</button>
             </div>
+            <div style="font-size:11px;color:var(--tx2);margin-top:6px">Can't find it? <button onclick="openManualEntry()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">Add manually →</button></div>
+            <div id="manual-entry-form" style="display:none"></div>
             <div id="ol-results" style="display:none"></div>
             <div id="edition-section" style="display:none"></div>
             <div id="book-form" style="display:none"></div>
@@ -271,6 +270,9 @@
 
       <!-- Recent reflections timeline -->
       <div id="reflect-timeline-section"></div>
+
+      <!-- Empty state for brand new users -->
+      <div id="reflect-empty" style="display:none"></div>
     </div><!-- /p-reflect -->
 
   </div><!-- /shell -->
