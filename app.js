@@ -56,9 +56,9 @@ function genreKey(e, id) {
 }
 
 // Fiction genres
-const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical Fiction','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
+const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
 // Nonfiction genres
-const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','History','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
+const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','Historical','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
 // Combined for backwards compat
 const GENRES = [...FICTION_GENRES, ...NONFICTION_GENRES];
 const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettling','Dreamy','Gritty','Propulsive','Atmospheric','Whimsical','Intense','Slow-burn','Heartwarming'];
@@ -72,8 +72,9 @@ const GENRE_MAP = {
   'mystery':'Mystery','detective':'Mystery','whodunit':'Mystery',
   'thriller':'Thriller','suspense':'Thriller','espionage':'Thriller',
   'romance':'Romance','love stories':'Romance','romantic fiction':'Romance',
-  'historical fiction':'Historical Fiction','historical novel':'Historical Fiction',
-  'historical fantasy':'Fantasy', // before 'historical' so it doesn't map to History
+  'historical fiction':'Historical','historical novel':'Historical',
+  'historical fantasy':'Historical','historical mystery':'Historical',
+  'history':'Historical','historical':'Historical',
   'literary fiction':'Literary Fiction','literary':'Literary Fiction','contemporary fiction':'Literary Fiction',
   'magical realism':'Magical Realism','magic realism':'Magical Realism',
   'dystopian':'Dystopian','dystopia':'Dystopian','post-apocalyptic':'Dystopian',
@@ -83,7 +84,7 @@ const GENRE_MAP = {
   'memoir':'Memoir','autobiography':'Memoir','personal narrative':'Memoir',
   'biography':'Biography','biographies':'Biography',
   'true crime':'True Crime','crime nonfiction':'True Crime',
-  'history':'History', // note: 'historical' intentionally removed - too greedy, catches 'historical fiction'
+
   'philosophy':'Philosophy','philosophical':'Philosophy',
   'science':'Science','popular science':'Science','natural history':'Science',
   'self-help':'Self-Help','self help':'Self-Help','personal development':'Self-Help',
@@ -165,6 +166,8 @@ function setMeta(isbn, data) { if (!isbn) return; metaCache[isbn] = { ...metaCac
 const cUrl  = (id, s='M') => id ? `https://covers.openlibrary.org/b/id/${id}-${s}.jpg` : null;
 // All helpers try isbn first, then ol_key, then manual_title as cache key
 const bMeta   = b => getMeta(b.isbn) || getMeta(b.ol_key) || getMeta(b.manual_title) || {};
+const bFN = b => b.fiction_nonfiction || '';
+
 const bCover  = b => { const m=bMeta(b); if(m.coverId)return cUrl(m.coverId); if(m.googleCover)return m.googleCover; return null; };
 const bTitle  = b => bMeta(b).title  || b.manual_title  || '(Unknown title)';
 const bAuthor = b => bMeta(b).author || b.manual_author || '(Unknown author)';
@@ -517,7 +520,8 @@ function bookToRow(b) {
     import_source: b.import_source || '',
     pages_read: nn(b.pages_read),
     series_name: b.series_name || null,
-    series_number: nn(b.series_number)
+    series_number: nn(b.series_number),
+    fiction_nonfiction: b.fiction_nonfiction || null
   };
 }
 
@@ -1133,6 +1137,7 @@ function renderBooks() {
         <div onclick="openBookPage('${b.id}')">
           <div class="card-title">${bTitle(b)}${iflag}</div>
           <div class="card-author">${bAuthor(b)}</div>
+          ${bFN(b)?`<span class="card-fn-tag">${bFN(b)}</span>`:''}
           ${b.series_name?`<div style="font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.series_name}${b.series_number?' #'+b.series_number:''}</div>`:''}
           ${b.rating?`<div class="card-stars">${toStars(b.rating)}</div>`:''}
           ${date?`<div class="card-date">${date}</div>`:''}
@@ -1453,6 +1458,7 @@ async function openBookPage(bookId) {
   const desc = bDesc(b), genre = bGenre(b);
   const pages = bPages(b), days = bDays(b), ppd = bPPD(b);
   const due = isRetroDue(b);
+  const fntag = bFN(b) ? `<span class="bptag bptag-fn">${bFN(b)}</span>` : '';
   const gtags = parseTags(genre).map(g=>`<span class="bptag bptag-g">${g}</span>`).join('');
   const mtags = ''; // mood removed
   const ttags = parseTags(b.themes||'').map(t=>`<span class="bptag bptag-t">${t}</span>`).join('');
@@ -1484,7 +1490,7 @@ async function openBookPage(bookId) {
       <div>
         <div class="bp-title">${title}</div>
         <div class="bp-author">${author}${year?' · '+year:''}</div>
-        <div class="bp-tags">${gtags}${mtags}${ttags}</div>
+        <div class="bp-tags">${fntag}${gtags}</div>
         <div class="bp-scores">
           <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating||'—'}<span style="font-size:12px;opacity:.6">${b.rating?'/10':''}</span></div>${b.rating?`<div class="bps-stars">${toStars(b.rating)}</div>`:''}</div>
           <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages||'—'}</div></div>
@@ -1939,6 +1945,13 @@ function openEdit(bookId) {
           <option value="dnf"${b.status==='dnf'?' selected':''}>Did Not Finish</option>
         </select>
       </div>
+      <div class="fg"><label class="fl">Fiction / Nonfiction</label>
+        <select class="fi" id="e-fn">
+          <option value="">—</option>
+          <option value="Fiction"${b.fiction_nonfiction==='Fiction'?' selected':''}>Fiction</option>
+          <option value="Nonfiction"${b.fiction_nonfiction==='Nonfiction'?' selected':''}>Nonfiction</option>
+        </select>
+      </div>
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="e-rating" min="1" max="10" value="${b.rating||''}"></div>
       <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro_rating||''}"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
@@ -1993,6 +2006,7 @@ async function saveEdit(bookId) {
   }
   b.series_name=document.getElementById('e-series-name')?.value.trim()||null;
   b.series_number=parseFloat(document.getElementById('e-series-num')?.value)||null;
+  b.fiction_nonfiction=document.getElementById('e-fn')?.value||null;
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
   chartsDrawn=false;renderLibrary();
@@ -2113,6 +2127,9 @@ function buildForm(){
       <div class="fg"><label class="fl">Status</label>
         <select class="fi" id="f-status"><option value="finished">Finished</option><option value="reading">Currently Reading</option><option value="tbr">To Be Read</option></select>
       </div>
+      <div class="fg"><label class="fl">Fiction / Nonfiction</label>
+        <select class="fi" id="f-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
+      </div>
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="f-rating" min="1" max="10" placeholder="e.g. 8"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
@@ -2222,7 +2239,8 @@ function parseCSV(text,platform){
       const sgGenreStr = [...new Set(sgGenres)].join(', ');
       // StoryGraph moods column
       const sgMoods = parseTags(get(row,'moods')||'').map(m=>m.trim()).filter(Boolean).join(', ');
-      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:(()=>{const r=get(row,'review')||'';return r?`${INITIAL_PROMPTS[0].q}\n${r}`:''})(),retro_thoughts:'',mood:sgMoods,themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0,_importGenre:sgGenreStr};
+      const sgFN = (() => { const f=get(row,'fiction/non-fiction')||get(row,'fiction')||''; if(f.toLowerCase().includes('nonfiction')||f.toLowerCase().includes('non-fiction'))return'Nonfiction'; if(f.toLowerCase().includes('fiction'))return'Fiction'; return ''; })();
+      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:(()=>{const r=get(row,'review')||'';return r?`${INITIAL_PROMPTS[0].q}\n${r}`:''})(),retro_thoughts:'',mood:'',themes:'',fiction_nonfiction:sgFN||null,manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0,_importGenre:sgGenreStr};
     }else{
       const title=get(row,'title');if(!title)continue;
       const retro=parseFloat(get(row,'retrospective rating'))||null;
@@ -2297,6 +2315,32 @@ async function confirmImport(){
   if(!pendingImport)return;
   const btn=document.getElementById('confirm-import-btn');
   btn.disabled=true;btn.textContent='Importing…';
+  // Merge genre + notes + fiction_nonfiction into existing duplicate books
+  pendingImport.books.filter(b=>b._isDupe).forEach(incoming => {
+    const existing = books.find(x =>
+      bTitle(x).toLowerCase() === (incoming.manual_title||'').toLowerCase() ||
+      (incoming.isbn && x.isbn === incoming.isbn)
+    );
+    if (!existing) return;
+    let changed = false;
+    const ck = existing.isbn || existing.ol_key || existing.manual_title;
+    // Merge genre
+    if (incoming._importGenre && !bGenre(existing)) {
+      if (ck) setMeta(ck, { genre: incoming._importGenre });
+      changed = true;
+    }
+    // Merge notes
+    if (incoming.notes && !existing.notes) {
+      existing.notes = incoming.notes;
+      changed = true;
+    }
+    // Merge fiction_nonfiction
+    if (incoming.fiction_nonfiction && !existing.fiction_nonfiction) {
+      existing.fiction_nonfiction = incoming.fiction_nonfiction;
+      changed = true;
+    }
+    if (changed) saveBook(existing);
+  });
   const toInsert=pendingImport.books.filter(b=>!b._isDupe).map(b=>({...bookToRow({...b,id:null})}));
   if(!toInsert.length){alert('No new books to import.');pendingImport=null;document.getElementById('import-preview').style.display='none';return;}
   const chunkSize=50;let inserted=0;
@@ -2527,6 +2571,9 @@ function openManualEntry() {
           <option value="tbr">To Be Read</option>
         </select>
       </div>
+      <div class="fg"><label class="fl">Fiction / Nonfiction</label>
+        <select class="fi" id="m-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
+      </div>
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" id="m-rating" type="number" min="1" max="10" placeholder="e.g. 8"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" id="m-start" type="date"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" id="m-end" type="date"></div>
@@ -2582,6 +2629,7 @@ async function submitManualEntry() {
     notes:      document.getElementById('m-notes')?.value.trim() || '',
     retro_thoughts: '',
     mood: '', themes: '',
+    fiction_nonfiction: document.getElementById('m-fn')?.value||null,
     manual_title:  title,
     manual_author: author,
     import_source: 'manual',
