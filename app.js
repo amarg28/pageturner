@@ -2351,7 +2351,13 @@ async function confirmImport(){
     const chunk=toInsert.slice(i,i+chunkSize);
     try{
       const rows=await sbInsert('books',chunk);
-      rows.forEach((row,j)=>{books.push({...pendingImport.books[i+j],id:row.id});});
+      rows.forEach((row,j)=>{
+        // Find the original book object from pendingImport that matches this inserted row
+        const origIdx = pendingImport.books.filter(b=>!b._isDupe).indexOf(
+          pendingImport.books.filter(b=>!b._isDupe)[i+j]
+        );
+        books.push({...pendingImport.books.filter(b=>!b._isDupe)[i+j],id:row.id});
+      });
       inserted+=chunk.length;btn.textContent=`Importing… ${inserted}/${toInsert.length}`;
     }catch(e){
       console.error('Import error:',e);
