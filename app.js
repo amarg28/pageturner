@@ -12,6 +12,49 @@ const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
+// Genre autocomplete input builder
+function buildGenreInput(id, currentGenres) {
+  const current = parseTags(currentGenres);
+  const chips = current.map(g => {
+    const safeG = g.replace(/'/g, "\\'");
+    return `<span class="tchip tchip-genre" data-tag="${g}">${g}<span class="tchip-x" onclick="removeTag('${id}','${safeG}')">×</span></span>`;
+  }).join('');
+  return `<div class="genre-input-wrap">
+    <div class="tag-wrap" id="${id}-wrap" onclick="document.getElementById('${id}-in').focus()">${chips}<input class="tag-txt" id="${id}-in" placeholder="Type a genre…" oninput="genreAutocomplete('${id}')" onkeydown="genreKey(event,'${id}')" autocomplete="off"></div>
+    <div class="genre-suggestions" id="${id}-suggestions"></div>
+  </div>`;
+}
+
+function genreAutocomplete(id) {
+  const inp = document.getElementById(id+'-in');
+  const val = inp.value.trim().toLowerCase();
+  const sugEl = document.getElementById(id+'-suggestions');
+  if (!val) { sugEl.innerHTML=''; return; }
+  const existing = [...document.querySelectorAll(`#${id}-wrap .tchip`)].map(c=>c.dataset.tag);
+  const matches = GENRES.filter(g => g.toLowerCase().includes(val) && !existing.includes(g));
+  if (!matches.length) { sugEl.innerHTML=''; return; }
+  sugEl.innerHTML = matches.slice(0,6).map(g =>
+    `<div class="genre-suggestion-item" onmousedown="event.preventDefault();addTag('${id}','${g.replace(/'/g,"\'").replace(/"/g,'\"')}','genre');document.getElementById('${id}-in').value='';document.getElementById('${id}-suggestions').innerHTML=''">${g}</div>`
+  ).join('');
+}
+
+function genreKey(e, id) {
+  const inp = e.target;
+  const sugEl = document.getElementById(id+'-suggestions');
+  if (e.key === 'Enter' && inp.value.trim()) {
+    e.preventDefault();
+    // If exact match in canonical list, add it
+    const match = GENRES.find(g => g.toLowerCase() === inp.value.trim().toLowerCase());
+    if (match) { addTag(id, match, 'genre'); inp.value=''; sugEl.innerHTML=''; }
+  }
+  if (e.key === 'Escape') { sugEl.innerHTML=''; }
+  if (e.key === 'Backspace' && !inp.value) {
+    const wrap = document.getElementById(id+'-wrap');
+    const chips = [...wrap.querySelectorAll('.tchip')];
+    if (chips.length) removeTag(id, chips[chips.length-1].dataset.tag);
+  }
+}
+
 // Fiction genres
 const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical Fiction','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
 // Nonfiction genres
@@ -404,7 +447,6 @@ async function signOut() {
 
 /* ── INIT ──────────────────────────────────────────────────────────────── */
 window.addEventListener('load', async () => {
-  if (apiKey) document.getElementById('ak').value = apiKey;
   if (loadSavedSession()) {
     onSignedIn();
   } else {
@@ -416,6 +458,23 @@ window.addEventListener('load', async () => {
 
 /* ── DATABASE ──────────────────────────────────────────────────────────── */
 let booksLoaded = false;
+let notesMigrated = false;
+
+function migrateRawNotes() {
+  if (notesMigrated || localStorage.getItem('pt_notes_migrated')) return;
+  let changed = false;
+  books.forEach(b => {
+    if (!b.notes) return;
+    // If notes don't start with a question, wrap in impression prompt
+    const firstLine = b.notes.split('\n')[0].trim();
+    if (!firstLine.endsWith('?')) {
+      b.notes = `${INITIAL_PROMPTS[0].q}\n${b.notes}`;
+      saveBook(b); // fire and forget
+      changed = true;
+    }
+  });
+  if (changed) { notesMigrated = true; localStorage.setItem('pt_notes_migrated', '1'); }
+}
 
 async function loadBooks() {
   booksLoaded = false;
@@ -425,6 +484,8 @@ async function loadBooks() {
     const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
     books = data || [];
     booksLoaded = true;
+    // One-time migration: wrap raw notes in impression question format
+    migrateRawNotes();
     // Fetch missing metadata for all books
     await fetchMissingMeta(books);
     renderLibrary();
@@ -513,7 +574,8 @@ async function fetchMetaForBook(b) {
       meta.coverId     = doc.cover_i || null;
       meta.year        = doc.first_publish_year || null;
       meta.pages       = doc.number_of_pages_median || null;
-      meta.genre       = (doc.subject||[]).slice(0,5).join(', ');
+      // Genre not taken from OL — user assigns manually
+      // meta.genre stays empty
       meta.olKey       = doc.key || null;
       if (!b.ol_key && doc.key) b.ol_key = doc.key;
       if (!b.isbn && doc.isbn?.[0]) b.isbn = doc.isbn[0];
@@ -554,7 +616,7 @@ async function fetchMetaForBook(b) {
         if (!meta.year)        meta.year        = parseInt(item.publishedDate?.slice(0,4)) || null;
         if (!meta.pages)       meta.pages       = item.pageCount || null;
         if (!meta.description) meta.description = item.description?.slice(0,500) || '';
-        if (!meta.genre)       meta.genre       = item.categories?.join(', ') || '';
+        // Genre not taken from Google Books — user assigns manually
         if (!meta.coverId)     meta.googleCover = item.imageLinks?.thumbnail?.replace('http://','https://') || null;
         if (!b.google_id)      b.google_id      = d.items?.[0]?.id || null;
       }
@@ -936,23 +998,21 @@ function renderBooks() {
   }
   const q  = ''; // search removed - use global topbar search
   const gf = document.getElementById('gf')?.value||'';
-  const mf = document.getElementById('mf')?.value||'';
+  const mf = ''; // mood filter removed
   const fin = books.filter(b => b.status==='finished');
 
   // Rebuild dropdowns from cached metadata
   const genres = new Set(); fin.forEach(b => parseTags(bGenre(b)).forEach(g=>genres.add(g)));
-  const moods  = new Set(); fin.forEach(b => parseTags(b.mood||'').forEach(m=>moods.add(m)));
+  // mood filter removed
   const gsel = document.getElementById('gf'); const gcur=gsel.value;
   gsel.innerHTML='<option value="">All genres</option>';
   [...genres].sort().forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;if(g===gcur)o.selected=true;gsel.appendChild(o);});
-  const msel = document.getElementById('mf'); const mcur=msel.value;
-  msel.innerHTML='<option value="">All moods</option>';
-  [...moods].sort().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;if(m===mcur)o.selected=true;msel.appendChild(o);});
+  // mood dropdown removed
 
   let list = fin.filter(b =>
     (!q || bTitle(b).toLowerCase().includes(q) || bAuthor(b).toLowerCase().includes(q)) &&
     (!gf || bGenre(b).toLowerCase().includes(gf.toLowerCase())) &&
-    (!mf || (b.mood||'').toLowerCase().includes(mf.toLowerCase()))
+    true // mood filter removed
   );
 
   if (sort==='rating-hi') list.sort((a,b)=>b.rating-a.rating);
@@ -1394,7 +1454,7 @@ async function openBookPage(bookId) {
   const pages = bPages(b), days = bDays(b), ppd = bPPD(b);
   const due = isRetroDue(b);
   const gtags = parseTags(genre).map(g=>`<span class="bptag bptag-g">${g}</span>`).join('');
-  const mtags = parseTags(b.mood||'').map(m=>`<span class="bptag bptag-m">${m}</span>`).join('');
+  const mtags = ''; // mood removed
   const ttags = parseTags(b.themes||'').map(t=>`<span class="bptag bptag-t">${t}</span>`).join('');
   const ibadge = b.import_source==='goodreads'?'<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from Goodreads — rating converted from 5-star scale</span>':b.import_source==='storygraph'?'<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from StoryGraph</span>':'';
 
@@ -1731,7 +1791,6 @@ function booksCtxStr() {
     parts.push(`"${bTitle(b)}" by ${bAuthor(b)}`);
     parts.push(`Rating: ${b.rating||'?'}/10`);
     if (bGenre(b)) parts.push(`Genre: ${bGenre(b)}`);
-    if (b.mood) parts.push(`Mood: ${b.mood}`);
     if (bPPD(b) > 0) parts.push(`Read at ${bPPD(b)} pages/day`);
     if (b.notes) {
       const answers = b.notes.split('\n')
@@ -1892,8 +1951,7 @@ function openEdit(bookId) {
       <div class="fg full"><label class="fl">Series name</label><input class="fi" id="e-series-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth"></div>
       <div class="fg"><label class="fl">Book number in series</label><input class="fi" type="number" id="e-series-num" value="${b.series_number||''}" placeholder="e.g. 1"></div>
     </div>
-    <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
-    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
+    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('e-genre', bGenre(b))}</div>
     <div class="fg full" style="margin-bottom:10px">
       <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
       ${INITIAL_PROMPTS.map(p=>{
@@ -1921,7 +1979,10 @@ async function saveEdit(bookId) {
   b.retro_rating=parseFloat(document.getElementById('e-retro').value)||null;
   b.start_date=document.getElementById('e-start').value||null;
   b.end_date=document.getElementById('e-end').value||null;
-  b.mood=getTagVal('e-mood');b.themes=getTagVal('e-themes');
+  // Save genre to metadata cache (not Supabase - it's metadata)
+  const newGenre = getTagVal('e-genre');
+  const ck = b.isbn || b.ol_key || b.manual_title;
+  if (ck && newGenre !== undefined) setMeta(ck, { genre: newGenre });
   b.series_name = document.getElementById('e-series-name')?.value.trim() || null;
   b.series_number = parseFloat(document.getElementById('e-series-num')?.value) || null;
   b.notes=INITIAL_PROMPTS.map(p=>{const v=document.getElementById('e-ip-'+p.id)?.value.trim();return v?p.q+'\n'+v:'';}).filter(Boolean).join('\n\n');
@@ -2056,8 +2117,7 @@ function buildForm(){
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
     </div>
-    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('f-mood','','mood',MOODS)}</div>
-    <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('f-themes','','theme',THEMES)}</div>
+    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('f-genre','')}</div>
     <div class="fg full" style="margin-bottom:10px">
       <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
       ${INITIAL_PROMPTS.map(p=>`<div class="fg full" style="margin-bottom:10px">
@@ -2085,8 +2145,15 @@ async function submitBook(){
   const fd=document.getElementById('book-form').dataset;
   if(!fd.isbn&&!fd.olKey){alert('No book selected.');return;}
   const btn=document.getElementById('submit-book-btn');btn.disabled=true;btn.textContent='Saving…';
-  const newBook={isbn:fd.isbn||null,ol_key:fd.olKey||null,google_id:null,status:document.getElementById('f-status').value,start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,rating:parseFloat(document.getElementById('f-rating').value)||null,retro_rating:null,notes:INITIAL_PROMPTS.map(p=>{const v=document.getElementById('f-ip-'+p.id)?.value.trim();return v?p.q+'\n'+v:'';}).filter(Boolean).join('\n\n'),retro_thoughts:document.getElementById('f-retro').value.trim(),mood:getTagVal('f-mood'),themes:getTagVal('f-themes'),manual_title:null,manual_author:null,import_source:''};
-  try{await saveBook(newBook);books.unshift(newBook);resetAdd();renderLibrary();go('library');}
+  const newBook={isbn:fd.isbn||null,ol_key:fd.olKey||null,google_id:null,status:document.getElementById('f-status').value,start_date:document.getElementById('f-start').value||null,end_date:document.getElementById('f-end').value||null,rating:parseFloat(document.getElementById('f-rating').value)||null,retro_rating:null,notes:INITIAL_PROMPTS.map(p=>{const v=document.getElementById('f-ip-'+p.id)?.value.trim();return v?p.q+'\n'+v:'';}).filter(Boolean).join('\n\n'),retro_thoughts:document.getElementById('f-retro').value.trim(),mood:'',themes:'',manual_title:null,manual_author:null,import_source:''};
+  try{
+    await saveBook(newBook);
+    books.unshift(newBook);
+    // Cache genre from form
+    const fGenre = getTagVal('f-genre');
+    const fck = newBook.isbn||newBook.ol_key||newBook.manual_title;
+    if(fck && fGenre) setMeta(fck, {genre: fGenre});
+    resetAdd();renderLibrary();go('library');}
   catch(e){alert('Could not save: '+e.message);btn.disabled=false;btn.textContent='Add to library';}
 }
 
@@ -2142,7 +2209,7 @@ function parseCSV(text,platform){
         .filter(s=>s && !['read','to-read','currently-reading','owned','favorites','did-not-finish','dnf'].includes(s.toLowerCase()))
         .map(s=>canonicaliseGenre(s)).filter(Boolean);
       const grGenreStr = [...new Set(grGenres)].join(', ');
-      b={isbn:get(row,'isbn13')||get(row,'isbn')||null,ol_key:null,google_id:null,status,start_date:null,end_date:fmtDate(get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'my review')||'',retro_thoughts:'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||get(row,'author l-f')||null,import_source:'goodreads',_ratingConverted:grR>0,_importGenre:grGenreStr};
+      b={isbn:get(row,'isbn13')||get(row,'isbn')||null,ol_key:null,google_id:null,status,start_date:null,end_date:fmtDate(get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:(()=>{const r=get(row,'my review')||'';return r?`${INITIAL_PROMPTS[0].q}\n${r}`:''})(),retro_thoughts:'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||get(row,'author l-f')||null,import_source:'goodreads',_ratingConverted:grR>0,_importGenre:grGenreStr};
     }else if(platform==='storygraph'){
       const title=get(row,'title');if(!title)continue;
       const sgR=parseFloat(get(row,'star rating'))||parseFloat(get(row,'my rating'))||0;const rating=sgR>0?sgR*2:0;
@@ -2155,7 +2222,7 @@ function parseCSV(text,platform){
       const sgGenreStr = [...new Set(sgGenres)].join(', ');
       // StoryGraph moods column
       const sgMoods = parseTags(get(row,'moods')||'').map(m=>m.trim()).filter(Boolean).join(', ');
-      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'review')||'',retro_thoughts:'',mood:sgMoods,themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0,_importGenre:sgGenreStr};
+      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:(()=>{const r=get(row,'review')||'';return r?`${INITIAL_PROMPTS[0].q}\n${r}`:''})(),retro_thoughts:'',mood:sgMoods,themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0,_importGenre:sgGenreStr};
     }else{
       const title=get(row,'title');if(!title)continue;
       const retro=parseFloat(get(row,'retrospective rating'))||null;
@@ -2464,8 +2531,7 @@ function openManualEntry() {
       <div class="fg"><label class="fl">Start date</label><input class="fi" id="m-start" type="date"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" id="m-end" type="date"></div>
     </div>
-    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildTagInput('m-genre','','genre',GENRES)}</div>
-    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('m-mood','','mood',MOODS)}</div>
+    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('m-genre','')}</div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Notes</label><textarea class="fi fta" id="m-notes" placeholder="Thoughts while reading…"></textarea></div>
     <div class="form-acts">
       <button class="btn-ghost" onclick="closeManualEntry()">Cancel</button>
@@ -2492,7 +2558,6 @@ async function submitManualEntry() {
   const year  = parseInt(document.getElementById('m-year')?.value)  || null;
   const pages = parseInt(document.getElementById('m-pages')?.value) || null;
   const genre = getTagVal('m-genre');
-  const mood  = getTagVal('m-mood');
 
   // Cache metadata manually since there's no API to fetch from
   const cacheKey = title;
@@ -2502,6 +2567,7 @@ async function submitManualEntry() {
     pages,
     genre: genre || '',
     description: '',
+    mood: '',
     coverId: null,
     googleCover: null
   });
@@ -2515,7 +2581,7 @@ async function submitManualEntry() {
     retro_rating: null,
     notes:      document.getElementById('m-notes')?.value.trim() || '',
     retro_thoughts: '',
-    mood, themes: '',
+    mood: '', themes: '',
     manual_title:  title,
     manual_author: author,
     import_source: 'manual',
@@ -3162,7 +3228,7 @@ function toggleStats(){
 }
 
 /* ── CHAT ──────────────────────────────────────────────────────────────── */
-function saveKey(){apiKey=document.getElementById('ak').value.trim();localStorage.setItem('pt_ak',apiKey);document.getElementById('chat-status').textContent=apiKey?'Ready':'Add API key above';if(apiKey)alert('Key saved.');}
+// saveKey removed - use saveApiKey() in settings drawer
 
 async function sendMsg(){
   const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
