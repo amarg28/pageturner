@@ -115,6 +115,10 @@
             </div>
             <button class="icon-btn" onclick="showDuplicatesModal()" title="Find duplicates">⚠</button>
             <button class="icon-btn" onclick="exportLibrary()" title="Export library">↓</button>
+            <div class="size-slider-wrap" title="Adjust cover size">
+              <span class="size-slider-icon">⊞</span>
+              <input type="range" class="size-slider" id="cover-size" min="100" max="220" step="10" value="148" oninput="setCoverSize(this.value)">
+            </div>
           </div>
           <div class="sec-label">Finished books</div>
           <div class="shelf" id="shelf"></div>
