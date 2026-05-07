@@ -1121,6 +1121,12 @@ function gsearchClear() {
   closeGsearch();
 }
 
+function mobileSearchOpen() {
+  const wrap = document.getElementById('gsearch-wrap');
+  wrap.classList.add('mobile-open');
+  setTimeout(() => document.getElementById('gsearch-input').focus(), 50);
+}
+
 function closeGsearch() {
   document.getElementById('gsearch-results').classList.remove('open');
   gsearchResults=[]; gsearchIdx=-1;
