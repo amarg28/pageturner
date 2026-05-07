@@ -1465,8 +1465,12 @@ async function openBookPage(bookId) {
 }
 
 function openBookModal() {
-  document.getElementById('book-modal').classList.add('on');
+  const modal = document.getElementById('book-modal');
+  modal.classList.add('on');
   document.body.style.overflow = 'hidden';
+  // Reset scroll to top
+  const inner = document.getElementById('book-modal-inner');
+  if (inner) inner.scrollTop = 0;
   // Add swipe down to close on mobile
   addSwipeToClose('book-modal-inner', closeBookModal);
 }
@@ -1493,8 +1497,9 @@ function closeBookModal() {
 }
 
 function bookModalClick(e) {
-  // Close if clicking the overlay backdrop (not the inner content)
-  if (e.target.id === 'book-modal') closeBookModal();
+  // On mobile, don't close on backdrop tap - too easy to accidentally close
+  // Desktop only: close if clicking the overlay backdrop
+  if (e.target.id === 'book-modal' && window.innerWidth > 600) closeBookModal();
 }
 
 
@@ -1760,7 +1765,6 @@ async function callClaude(prompt, maxTokens=600) {
 }
 
 async function genAnalysis(bookId) {
-  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
   const b=books.find(x=>x.id===bookId);if(!b)return;
   const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
   document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your history…</div>`;
@@ -1775,7 +1779,6 @@ async function genAnalysis(bookId) {
 }
 
 async function genUnreadAnalysis(olKey, title, author) {
-  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
   const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
   document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing…</div>`;
   try {
@@ -1789,7 +1792,6 @@ async function genUnreadAnalysis(olKey, title, author) {
 }
 
 async function genSimilar(bookId) {
-  if (!apiKey){alert('Add your Anthropic API key in the Ask AI tab first.');return;}
   const b=books.find(x=>x.id===bookId);if(!b)return;
   const btn=document.getElementById('sim-btn');btn.disabled=true;btn.textContent='Finding…';
   document.getElementById('sim-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Finding recommendations…</div>`;
