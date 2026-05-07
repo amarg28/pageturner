@@ -1,7 +1,4 @@
 // Vercel serverless function - proxies Anthropic API calls
-// Deploy to Vercel alongside your GitHub Pages site
-// Set ANTHROPIC_API_KEY in Vercel environment variables
-
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,8 +7,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.claude;
-  if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+  const apiKey = process.env.claude || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE;
+  if (!apiKey) {
+    console.error('No API key found. Available env vars:', Object.keys(process.env).filter(k => !k.startsWith('npm_')));
+    return res.status(500).json({ error: 'API key not configured', hint: 'Set claude environment variable in Vercel' });
+  }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (e) {
+    console.error('Proxy error:', e);
     res.status(500).json({ error: e.message });
   }
 }
