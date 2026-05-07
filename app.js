@@ -3099,7 +3099,8 @@ HOW TO RESPOND:
 - When recommending, always explain WHY this specific reader would enjoy it
 - Estimate a likely rating (1–10) when it feels natural
 - Keep responses warm and readable — not too long, but never thin
-- When recommending a specific book, ALWAYS format it as [[Title by Author]] so the reader can instantly add it to their TBR. Example: I think you'd love [[The Fifth Season by N.K. Jemisin]]`;
+- When recommending a specific book, ALWAYS format it as [[Title by Author]] so the reader can instantly add it to their TBR. Example: I think you'd love [[The Fifth Season by N.K. Jemisin]]
+- You ONLY exist to talk about books and reading. If someone asks for help with anything else — homework, math, coding, writing essays, general advice — do not help with the task itself. Instead, warmly redirect by recommending a book related to the subject. Example: if asked for math help, recommend a great book about mathematics or mathematical thinking. If asked to write an essay, recommend a book on the topic. Always find the book angle.`;
   try{
     const useProxy = !apiKey;
   const chatUrl = useProxy ? 'https://pageturner-bay.vercel.app/api/chat' : 'https://api.anthropic.com/v1/messages';
