@@ -1682,8 +1682,19 @@ function booksCtxStr() {
 }
 
 async function callClaude(prompt, maxTokens=600) {
-  const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
-  const data = await r.json(); if (data.error) throw new Error(data.error.message);
+  // Use personal API key if set, otherwise fall back to server proxy
+  const useProxy = !apiKey;
+  const url = useProxy ? '/api/chat' : 'https://api.anthropic.com/v1/messages';
+  const headers = useProxy
+    ? { 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+  });
+  const data = await r.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.content?.map(c=>c.text||'').join('')||'';
 }
 
@@ -2012,13 +2023,26 @@ function parseCSV(text,platform){
       const grR=parseFloat(get(row,'my rating'))||0;const rating=grR>0?grR*2:0;
       const shelf=(get(row,'exclusive shelf')||get(row,'bookshelves')||'').toLowerCase();
       const status=shelf.includes('currently')||shelf.includes('reading')?'reading':shelf.includes('to-read')||shelf.includes('to read')?'tbr':'finished';
-      b={isbn:get(row,'isbn13')||get(row,'isbn')||null,ol_key:null,google_id:null,status,start_date:null,end_date:fmtDate(get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'my review')||'',retro_thoughts:'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||get(row,'author l-f')||null,import_source:'goodreads',_ratingConverted:grR>0};
+      // Extract genres from bookshelves - filter out shelf names, keep genre-like tags
+      const grShelves = get(row,'bookshelves')||get(row,'bookshelves with positions')||'';
+      const grGenres = grShelves.split(',').map(s=>s.trim())
+        .filter(s=>s && !['read','to-read','currently-reading','owned','favorites','did-not-finish','dnf'].includes(s.toLowerCase()))
+        .map(s=>canonicaliseGenre(s)).filter(Boolean);
+      const grGenreStr = [...new Set(grGenres)].join(', ');
+      b={isbn:get(row,'isbn13')||get(row,'isbn')||null,ol_key:null,google_id:null,status,start_date:null,end_date:fmtDate(get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'my review')||'',retro_thoughts:'',mood:'',themes:'',manual_title:title,manual_author:get(row,'author')||get(row,'author l-f')||null,import_source:'goodreads',_ratingConverted:grR>0,_importGenre:grGenreStr};
     }else if(platform==='storygraph'){
       const title=get(row,'title');if(!title)continue;
       const sgR=parseFloat(get(row,'star rating'))||parseFloat(get(row,'my rating'))||0;const rating=sgR>0?sgR*2:0;
       const rs=(get(row,'read status')||get(row,'shelf')||'').toLowerCase();
       const status=rs.includes('currently')||rs==='reading'?'reading':rs.includes('to-read')||rs==='want to read'?'tbr':'finished';
-      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'review')||'',retro_thoughts:'',mood:get(row,'moods')||'',themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0};
+      // StoryGraph has a 'genres' column with comma-separated genres
+      const sgGenreRaw = get(row,'genres')||get(row,'tags')||'';
+      const sgGenres = sgGenreRaw.split(',').map(s=>s.trim())
+        .map(s=>canonicaliseGenre(s)).filter(Boolean);
+      const sgGenreStr = [...new Set(sgGenres)].join(', ');
+      // StoryGraph moods column
+      const sgMoods = parseTags(get(row,'moods')||'').map(m=>m.trim()).filter(Boolean).join(', ');
+      b={isbn:null,ol_key:null,google_id:null,status,start_date:fmtDate(get(row,'date started')||''),end_date:fmtDate(get(row,'date finished')||get(row,'date read')||''),rating:rating||null,retro_rating:null,notes:get(row,'review')||'',retro_thoughts:'',mood:sgMoods,themes:'',manual_title:title,manual_author:get(row,'authors')||get(row,'author')||null,import_source:'storygraph',_ratingConverted:sgR>0,_importGenre:sgGenreStr};
     }else{
       const title=get(row,'title');if(!title)continue;
       const retro=parseFloat(get(row,'retrospective rating'))||null;
@@ -2035,6 +2059,21 @@ function showImportPreview(parsed,platform){
   const tbr=parsed.filter(b=>b.status==='tbr');
   const converted=parsed.filter(b=>b._ratingConverted);
   const platformName=platform==='goodreads'?'Goodreads':platform==='storygraph'?'StoryGraph':'PageTurner';
+
+  // Detect duplicates against existing library
+  const dupes = parsed.filter(b => books.find(x =>
+    bTitle(x).toLowerCase() === (b.manual_title||'').toLowerCase() ||
+    (b.isbn && x.isbn === b.isbn)
+  ));
+  // Mark duplicates on parsed books
+  parsed.forEach(b => {
+    b._isDupe = !!books.find(x =>
+      bTitle(x).toLowerCase() === (b.manual_title||'').toLowerCase() ||
+      (b.isbn && x.isbn === b.isbn)
+    );
+  });
+  const newBooks = parsed.filter(b => !b._isDupe);
+
   const preview=document.getElementById('import-preview');
   preview.style.display='block';
   preview.innerHTML=`<div class="import-preview">
@@ -2042,30 +2081,31 @@ function showImportPreview(parsed,platform){
     <div style="font-size:12px;color:var(--tx1);margin-bottom:14px">Review before importing.${converted.length?' '+converted.length+' ratings converted from 1–5 to 1–10.':''}</div>
     <div class="ip-stats">
       <div class="ip-stat"><strong>${parsed.length}</strong>Total</div>
+      <div class="ip-stat"><strong>${newBooks.length}</strong>New</div>
+      <div class="ip-stat" style="${dupes.length?'color:var(--amber)':''}"><strong>${dupes.length}</strong>Duplicates</div>
       <div class="ip-stat"><strong>${fin.length}</strong>Finished</div>
-      <div class="ip-stat"><strong>${reading.length}</strong>Reading</div>
-      <div class="ip-stat"><strong>${tbr.length}</strong>TBR</div>
     </div>
+    ${dupes.length?`<div class="ip-warn">⚠ ${dupes.length} book${dupes.length!==1?'s are':' is'} already in your library and will be skipped.</div>`:''}
     ${converted.length?`<div class="ip-warn">⚠ ${converted.length} ratings multiplied by 2 (5-star → 10-point). Edit after import if needed.</div>`:''}
     <div class="ip-legend">
-      <span><span class="ip-swatch" style="background:var(--bg0);border:0.5px solid var(--bd)"></span>Finished</span>
+      <span><span class="ip-swatch" style="background:var(--bg0);border:0.5px solid var(--bd)"></span>New</span>
       <span><span class="ip-swatch" style="background:var(--teal-l)"></span>Reading</span>
       <span><span class="ip-swatch" style="background:var(--purple-l)"></span>TBR</span>
-      ${converted.length?`<span><span class="ip-swatch" style="background:#fff8e6"></span>Rating converted</span>`:''}
+      <span><span class="ip-swatch" style="background:var(--bg2);border:0.5px solid var(--bd)"></span>Duplicate (skipped)</span>
     </div>
     <div class="ip-table-wrap">
       <table class="ip-table">
-        <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Status</th><th>Dates</th></tr></thead>
+        <thead><tr><th>Title</th><th>Author</th><th>Rating</th><th>Status</th><th>Dates</th><th>Note</th></tr></thead>
         <tbody>${parsed.slice(0,50).map(b=>{
-          const cls=b.status==='reading'?'ip-read':b.status==='tbr'?'ip-tbr':b._ratingConverted?'ip-conv':'ip-fin';
+          const cls=b._isDupe?'ip-dupe':b.status==='reading'?'ip-read':b.status==='tbr'?'ip-tbr':b._ratingConverted?'ip-conv':'ip-fin';
           const dates=[b.start_date,b.end_date].filter(Boolean).join(' → ');
-          return`<tr class="${cls}"><td>${b.manual_title||'—'}</td><td>${b.manual_author||'—'}</td><td>${b.rating?b.rating+'/10':'—'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td><td style="font-size:11px">${dates||'—'}</td></tr>`;
-        }).join('')}${parsed.length>50?`<tr><td colspan="5" style="text-align:center;color:var(--tx1);padding:10px">…and ${parsed.length-50} more</td></tr>`:''}</tbody>
+          return`<tr class="${cls}" style="${b._isDupe?'opacity:.5':''}"><td>${b.manual_title||'—'}</td><td>${b.manual_author||'—'}</td><td>${b.rating?b.rating+'/10':'—'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td><td style="font-size:11px">${dates||'—'}</td><td style="font-size:11px;color:var(--amber)">${b._isDupe?'Already in library':''}</td></tr>`;
+        }).join('')}${parsed.length>50?`<tr><td colspan="6" style="text-align:center;color:var(--tx1);padding:10px">…and ${parsed.length-50} more</td></tr>`:''}</tbody>
       </table>
     </div>
     <div class="form-acts">
       <button class="btn-ghost" onclick="cancelImport()">Cancel</button>
-      <button class="btn-primary" id="confirm-import-btn" onclick="confirmImport()">Import ${parsed.length} book${parsed.length!==1?'s':''}</button>
+      <button class="btn-primary" id="confirm-import-btn" onclick="confirmImport()">${newBooks.length?`Import ${newBooks.length} new book${newBooks.length!==1?'s':''}`:'Nothing new to import'}</button>
     </div>
   </div>`;
   preview.scrollIntoView({behavior:'smooth',block:'start'});
@@ -2077,7 +2117,8 @@ async function confirmImport(){
   if(!pendingImport)return;
   const btn=document.getElementById('confirm-import-btn');
   btn.disabled=true;btn.textContent='Importing…';
-  const toInsert=pendingImport.books.map(b=>({...bookToRow({...b,id:null})}));
+  const toInsert=pendingImport.books.filter(b=>!b._isDupe).map(b=>({...bookToRow({...b,id:null})}));
+  if(!toInsert.length){alert('No new books to import.');pendingImport=null;document.getElementById('import-preview').style.display='none';return;}
   const chunkSize=50;let inserted=0;
   for(let i=0;i<toInsert.length;i+=chunkSize){
     const chunk=toInsert.slice(i,i+chunkSize);
@@ -2092,10 +2133,17 @@ async function confirmImport(){
     }
   }
   pendingImport=null;document.getElementById('import-preview').style.display='none';
+  // Cache import genres immediately so they show before metadata fetch
+  books.forEach(b => {
+    if (b._importGenre) {
+      const ck = b.isbn || b.ol_key || b.manual_title;
+      if (ck) setMeta(ck, { genre: b._importGenre });
+    }
+  });
   // Fetch metadata for all imported books in background
   fetchMissingMeta(books);
   renderLibrary();go('library');
-  alert(`Imported ${inserted} book${inserted!==1?'s':''} successfully!`);
+  showToast(`Imported ${inserted} book${inserted!==1?'s':''} successfully ✓`);
 }
 
 /* ── SERIES ────────────────────────────────────────────────────────────── */
@@ -2235,7 +2283,18 @@ function saveApiKey() {
 
 function updateApiNotice() {
   const notice = document.getElementById('chat-api-notice');
-  if (notice) notice.style.display = apiKey ? 'none' : 'block';
+  if (!notice) return;
+  if (apiKey) {
+    notice.textContent = 'Using your personal API key.';
+    notice.style.display = 'block';
+    notice.style.color = 'var(--teal)';
+    notice.style.background = 'var(--teal-l)';
+  } else {
+    notice.innerHTML = 'Using shared AI access. For faster responses, <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:12px;font-family:\'DM Sans\',sans-serif;padding:0;text-decoration:underline">add your own API key in Settings →</button>';
+    notice.style.display = 'block';
+    notice.style.color = 'var(--tx2)';
+    notice.style.background = 'var(--bg2)';
+  }
 }
 
 function savePreferences() {
@@ -2969,7 +3028,7 @@ function saveKey(){apiKey=document.getElementById('ak').value.trim();localStorag
 
 async function sendMsg(){
   const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
-  if(!apiKey){alert('Add your Anthropic API key above first.');return;}
+  // API key optional - proxy handles requests if no personal key set
   addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
   const typing=addTyping();chatHistory.push({role:'user',content:msg});
   const sys=`You are a personal book advisor with deep knowledge of this reader's history, tastes, and reflections.
@@ -2986,7 +3045,12 @@ HOW TO USE THIS DATA:
 
 Be direct, specific, and personal. Reference actual books from their history. When recommending, explain exactly why this reader specifically would enjoy it, not just general praise. Estimate a likely rating (1–10) when relevant.`;
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
+    const useProxy = !apiKey;
+  const chatUrl = useProxy ? '/api/chat' : 'https://api.anthropic.com/v1/messages';
+  const chatHeaders = useProxy
+    ? { 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+  const r=await fetch(chatUrl,{method:'POST',headers:chatHeaders,body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
     chatHistory.push({role:'assistant',content:reply});typing.remove();addMsg(reply,'a');
