@@ -699,3 +699,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .library-layout.has-sidebar{grid-template-columns:1fr}
   .library-sidebar{position:static;display:none!important}
 }
+
+/* ── COVER SIZE SLIDER ─────────────────────────────────────────────────── */
+.size-slider-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.size-slider-icon{font-size:14px;color:var(--tx2)}
+.size-slider{-webkit-appearance:none;appearance:none;width:80px;height:4px;border-radius:2px;background:var(--bg2);outline:none;cursor:pointer}
+.size-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--amber);cursor:pointer;transition:background .15s}
+.size-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--amber);cursor:pointer;border:none}
+.size-slider:hover::-webkit-slider-thumb{background:var(--tx0)}
