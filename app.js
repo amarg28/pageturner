@@ -1084,6 +1084,9 @@ function setView(v) {
   document.getElementById('shelf').classList.toggle('list-mode', v==='list');
   window.libraryView=v;
   document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  // Hide size slider in list view — it only affects shelf view
+  const sliderWrap = document.querySelector('.size-slider-wrap');
+  if (sliderWrap) sliderWrap.style.display = v==='list' ? 'none' : '';
   renderBooks();
 }
 
@@ -3070,7 +3073,8 @@ HOW TO RESPOND:
 - NEVER mention retrospective ratings — only reference their star ratings
 - When recommending, always explain WHY this specific reader would enjoy it
 - Estimate a likely rating (1–10) when it feels natural
-- Keep responses warm and readable — not too long, but never thin`;
+- Keep responses warm and readable — not too long, but never thin
+- When recommending a specific book, ALWAYS format it as [[Title by Author]] so the reader can instantly add it to their TBR. Example: I think you'd love [[The Fifth Season by N.K. Jemisin]]`;
   try{
     const useProxy = !apiKey;
   const chatUrl = useProxy ? 'https://pageturner-bay.vercel.app/api/chat' : 'https://api.anthropic.com/v1/messages';
@@ -3085,7 +3089,41 @@ HOW TO RESPOND:
   document.getElementById('send-btn').disabled=false;
 }
 
-function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Bot'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function renderChatText(text) {
+  // Convert [[Title by Author]] to inline TBR buttons
+  return text
+    .replace(/\n/g,'<br>')
+    .replace(/\[\[([^\]]+) by ([^\]]+)\]\]/g, (match, title, author) => {
+      const inLib = books.find(b => bTitle(b).toLowerCase() === title.toLowerCase());
+      if (inLib) {
+        const statusLabel = inLib.status==='finished'?'✓ Read':inLib.status==='reading'?'Reading':'On TBR';
+        return `<span class="chat-book-tag">${title} <em>by ${author}</em> <span class="chat-book-in-lib">${statusLabel}</span></span>`;
+      }
+      const safeTitle = title.replace(/'/g,"\\'");
+      const safeAuthor = author.replace(/'/g,"\\'");
+      return `<span class="chat-book-tag">${title} <em>by ${author}</em> <button class="chat-tbr-btn" onclick="chatAddTBR('${safeTitle}','${safeAuthor}',this)">+ TBR</button></span>`;
+    });
+}
+
+async function chatAddTBR(title, author, btn) {
+  btn.disabled = true; btn.textContent = 'Adding…';
+  // Search OL for the book to get proper metadata
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1&fields=key,title,author_name,cover_i,isbn`);
+    const d = await r.json();
+    const doc = d.docs?.[0];
+    const isbn = doc?.isbn?.[0] || null;
+    const olKey = doc?.key || null;
+    await quickAddBook('tbr', isbn||'', olKey||'', title, author);
+    btn.textContent = '✓ Added';
+    btn.style.background = 'var(--teal)';
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '+ TBR';
+    showToast('Could not add: ' + e.message);
+  }
+}
+
+function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${renderChatText(text)}</div><div class="msg-lbl">${role==='u'?'You':'Book Bot'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
