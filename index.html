@@ -458,6 +458,16 @@
           <option value="ymd">YYYY-MM-DD (ISO)</option>
         </select>
       </div>
+      <div class="settings-row">
+        <label class="settings-label">Reflection wait period</label>
+        <select class="settings-input" id="s-reflect-wait">
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+          <option value="9">9 months</option>
+          <option value="12" selected>1 year (default)</option>
+        </select>
+        <div style="font-size:11px;color:var(--tx2);margin-top:4px">How long after finishing a book before it's due for reflection</div>
+      </div>
       <button class="settings-save-btn" onclick="savePreferences()">Save preferences</button>
     </div>
 
