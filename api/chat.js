@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.claude || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE;
+  const apiKey = process.env.ANTHROPIC_KEY;
   if (!apiKey) {
     console.error('No API key found. Available env vars:', Object.keys(process.env).filter(k => !k.startsWith('npm_')));
     return res.status(500).json({ error: 'API key not configured', hint: 'Set claude environment variable in Vercel' });
