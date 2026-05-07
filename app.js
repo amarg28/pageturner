@@ -967,7 +967,7 @@ function renderBooks() {
             <div class="onboard-step-icon">✦</div>
             <div class="onboard-step-title">Reflect on it</div>
             <div class="onboard-step-desc">A year after finishing, revisit how you feel about it. Your reflections make AI recommendations smarter</div>
-            <div class="onboard-step-cta">Available after one year</div>
+            <div class="onboard-step-cta">Available once you've had time to reflect</div>
           </div>
           <div class="onboard-step" onclick="go('discover')">
             <div class="onboard-step-num">3</div>
@@ -2506,7 +2506,7 @@ function renderReflectDue() {
       emptyEl.innerHTML = `<div class="reflect-empty">
         <div class="reflect-empty-icon">✦</div>
         <div style="font-weight:500;margin-bottom:8px">Your reflection journal is waiting</div>
-        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here for reflection after your chosen wait period.</div>
+        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here once enough time has passed — you can set your preferred wait period in Settings.</div>
         <button class="btn-primary" onclick="go('discover')">Add your first book →</button>
       </div>`;
     }
@@ -2516,7 +2516,7 @@ function renderReflectDue() {
   if (emptyEl) emptyEl.style.display = 'none';
 
   if (!due.length) {
-    sec.innerHTML = `<div class="reflect-empty"><div class="reflect-empty-icon">✦</div><div style="font-weight:500;margin-bottom:6px">No reflections due</div><div>Books become available for reflection one year after you finish them.</div></div>`;
+    sec.innerHTML = `<div class="reflect-empty"><div class="reflect-empty-icon">✦</div><div style="font-weight:500;margin-bottom:6px">No reflections due yet</div><div>Books appear here after your chosen wait period. You can adjust this in <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">Settings</button>.</div></div>`;
     return;
   }
   sec.innerHTML = `
