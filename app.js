@@ -1694,7 +1694,7 @@ function booksCtxStr() {
 async function callClaude(prompt, maxTokens=600) {
   // Use personal API key if set, otherwise fall back to server proxy
   const useProxy = !apiKey;
-  const url = useProxy ? '/api/chat' : 'https://api.anthropic.com/v1/messages';
+  const url = useProxy ? 'https://pageturner-bay.vercel.app/api/chat' : 'https://api.anthropic.com/v1/messages';
   const headers = useProxy
     ? { 'Content-Type': 'application/json' }
     : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
@@ -3059,7 +3059,7 @@ HOW TO RESPOND:
 - Keep responses warm and readable — not too long, but never thin`;
   try{
     const useProxy = !apiKey;
-  const chatUrl = useProxy ? '/api/chat' : 'https://api.anthropic.com/v1/messages';
+  const chatUrl = useProxy ? 'https://pageturner-bay.vercel.app/api/chat' : 'https://api.anthropic.com/v1/messages';
   const chatHeaders = useProxy
     ? { 'Content-Type': 'application/json' }
     : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
