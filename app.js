@@ -917,6 +917,14 @@ function openTBRModal() {
 }
 
 function renderBooks() {
+  // Restore saved cover size
+  const savedSize = localStorage.getItem('pt_cover_size');
+  const sizeSlider = document.getElementById('cover-size');
+  if (savedSize && sizeSlider) {
+    sizeSlider.value = savedSize;
+    const shelf = document.getElementById('shelf');
+    if (shelf) shelf.style.gridTemplateColumns = `repeat(auto-fill,minmax(${savedSize}px,1fr))`;
+  }
   const q  = ''; // search removed - use global topbar search
   const gf = document.getElementById('gf')?.value||'';
   const mf = document.getElementById('mf')?.value||'';
@@ -1066,6 +1074,12 @@ function renderBooks() {
 }
 
 function setSort(s) { sort=s; renderBooks(); }
+
+function setCoverSize(val) {
+  const shelf = document.getElementById('shelf');
+  if (shelf) shelf.style.gridTemplateColumns = `repeat(auto-fill,minmax(${val}px,1fr))`;
+  localStorage.setItem('pt_cover_size', val);
+}
 function setView(v) {
   document.getElementById('shelf').classList.toggle('list-mode', v==='list');
   window.libraryView=v;
