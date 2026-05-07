@@ -857,3 +857,10 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .mobile-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:6px 4px;font-family:'DM Sans',sans-serif;font-size:9px;color:var(--tx2);transition:color .15s}
 .mobile-nav-btn.on{color:var(--amber)}
 .mobile-nav-btn-icon{font-size:20px;line-height:1}
+
+/* ── GENRE AUTOCOMPLETE ────────────────────────────────────────────────── */
+.genre-input-wrap{position:relative}
+.genre-suggestions{position:absolute;top:100%;left:0;right:0;background:var(--bg0);border:0.5px solid var(--bd2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:50;max-height:200px;overflow-y:auto;margin-top:2px}
+.genre-suggestion-item{padding:8px 12px;font-size:13px;cursor:pointer;transition:background .1s}
+.genre-suggestion-item:hover{background:var(--bg2)}
+.tchip-genre{background:var(--purple-l);color:var(--purple);border-color:var(--purple)}
