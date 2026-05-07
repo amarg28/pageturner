@@ -1691,7 +1691,7 @@ async function callClaude(prompt, maxTokens=600) {
   const r = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await r.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
@@ -3050,7 +3050,7 @@ Be direct, specific, and personal. Reference actual books from their history. Wh
   const chatHeaders = useProxy
     ? { 'Content-Type': 'application/json' }
     : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
-  const r=await fetch(chatUrl,{method:'POST',headers:chatHeaders,body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHistory})});
+  const r=await fetch(chatUrl,{method:'POST',headers:chatHeaders,body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
     chatHistory.push({role:'assistant',content:reply});typing.remove();addMsg(reply,'a');
