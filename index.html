@@ -200,10 +200,11 @@
           <div class="chat-wrap">
             <div class="chat-head">
               <div class="chat-avatar">B</div>
-              <div>
+              <div style="flex:1">
                 <div style="font-size:13px;font-weight:500">Book Bot</div>
                 <div style="font-size:11px;color:var(--teal)" id="chat-status">Ready</div>
               </div>
+              <button onclick="clearChat()" style="font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif;flex-shrink:0" title="Clear conversation">Clear</button>
             </div>
             <div class="chat-msgs" id="chat-msgs">
               <div class="msg msg-a">
