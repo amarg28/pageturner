@@ -1280,10 +1280,11 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
       </div>
       <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('af-mood','','mood',MOODS)}</div>
       <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('af-themes','','theme',THEMES)}</div>
-      <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
-        ${INITIAL_PROMPTS.map(p=>`<div style="margin-bottom:8px">
+      <div class="fg full" style="margin-bottom:10px">
+        <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
+        ${INITIAL_PROMPTS.map(p=>`<div class="fg full" style="margin-bottom:10px">
           <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
-          <textarea class="fi fta" id="af-ip-${p.id}" placeholder="Optional…" style="min-height:50px"></textarea>
+          <textarea class="fi fta" id="af-ip-${p.id}" placeholder="Optional…" style="min-height:60px;width:100%"></textarea>
         </div>`).join('')}
       </div>
       <div class="form-acts">
@@ -1769,12 +1770,13 @@ function openEdit(bookId) {
     </div>
     <div style="margin-bottom:10px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('e-mood',b.mood||'','mood',MOODS)}</div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('e-themes',b.themes||'','theme',THEMES)}</div>
-    <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
+    <div class="fg full" style="margin-bottom:10px">
+      <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
       ${INITIAL_PROMPTS.map(p=>{
         const existing = parseInitialPrompt(b.notes||'', p.q);
-        return `<div style="margin-bottom:8px">
+        return `<div class="fg full" style="margin-bottom:10px">
           <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
-          <textarea class="fi fta" id="e-ip-${p.id}" placeholder="Optional…" style="min-height:50px">${existing}</textarea>
+          <textarea class="fi fta" id="e-ip-${p.id}" placeholder="Optional…" style="min-height:60px;width:100%">${existing}</textarea>
         </div>`;
       }).join('')}
     </div>
@@ -1932,10 +1934,11 @@ function buildForm(){
     </div>
     <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('f-mood','','mood',MOODS)}</div>
     <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('f-themes','','theme',THEMES)}</div>
-    <div class="fg full" style="margin-bottom:10px"><label class="fl" style="margin-bottom:6px">Initial thoughts</label>
-      ${INITIAL_PROMPTS.map(p=>`<div style="margin-bottom:8px">
+    <div class="fg full" style="margin-bottom:10px">
+      <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
+      ${INITIAL_PROMPTS.map(p=>`<div class="fg full" style="margin-bottom:10px">
         <div style="font-size:11px;color:var(--amber);font-weight:500;margin-bottom:4px">${p.q}</div>
-        <textarea class="fi fta" id="f-ip-${p.id}" placeholder="Optional…" style="min-height:50px"></textarea>
+        <textarea class="fi fta" id="f-ip-${p.id}" placeholder="Optional…" style="min-height:60px;width:100%"></textarea>
       </div>`).join('')}
     </div>
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="f-retro" placeholder="How do you feel about it now?"></textarea></div>
