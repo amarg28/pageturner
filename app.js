@@ -342,7 +342,7 @@ function onSignedIn() {
   document.getElementById('app').style.display = 'block';
   const displayName = localStorage.getItem('pt_display_name');
   document.getElementById('uavatar').textContent = (displayName || currentUser.email).slice(0,1).toUpperCase();
-  if (apiKey) { const akEl = document.getElementById('ak'); if(akEl) akEl.value = apiKey; }
+  updateApiNotice();
   go('library');
   loadBooks();
   // Show tour on first ever sign-in
@@ -2183,16 +2183,113 @@ function saveApiKey() {
   const key = document.getElementById('s-api-key').value.trim();
   apiKey = key;
   localStorage.setItem('pt_ak', key);
-  // Also update the discover tab key field if it exists
-  const akEl = document.getElementById('ak');
-  if (akEl) akEl.value = key;
+  updateApiNotice();
   showToast('API key saved ✓');
+}
+
+function updateApiNotice() {
+  const notice = document.getElementById('chat-api-notice');
+  if (notice) notice.style.display = apiKey ? 'none' : 'block';
 }
 
 function savePreferences() {
   const fmt = document.getElementById('s-date-format').value;
   localStorage.setItem('pt_date_format', fmt);
   showToast('Preferences saved ✓');
+}
+
+/* ── MANUAL BOOK ENTRY ─────────────────────────────────────────────────── */
+function openManualEntry() {
+  const el = document.getElementById('manual-entry-form');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<div class="fcard" style="margin-top:14px">
+    <div class="fcard-title">Add book manually</div>
+    <div class="fgrid">
+      <div class="fg full"><label class="fl">Title <span style="color:var(--coral)">*</span></label><input class="fi" id="m-title" type="text" placeholder="Book title"></div>
+      <div class="fg full"><label class="fl">Author <span style="color:var(--coral)">*</span></label><input class="fi" id="m-author" type="text" placeholder="Author name"></div>
+      <div class="fg"><label class="fl">Year published</label><input class="fi" id="m-year" type="number" placeholder="e.g. 2019"></div>
+      <div class="fg"><label class="fl">Page count</label><input class="fi" id="m-pages" type="number" placeholder="e.g. 320"></div>
+      <div class="fg"><label class="fl">Status</label>
+        <select class="fi" id="m-status">
+          <option value="finished">Finished</option>
+          <option value="reading">Currently Reading</option>
+          <option value="tbr">To Be Read</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" id="m-rating" type="number" min="1" max="10" placeholder="e.g. 8"></div>
+      <div class="fg"><label class="fl">Start date</label><input class="fi" id="m-start" type="date"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" id="m-end" type="date"></div>
+    </div>
+    <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildTagInput('m-genre','','genre',GENRES)}</div>
+    <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('m-mood','','mood',MOODS)}</div>
+    <div class="fg full" style="margin-bottom:14px"><label class="fl">Notes</label><textarea class="fi fta" id="m-notes" placeholder="Thoughts while reading…"></textarea></div>
+    <div class="form-acts">
+      <button class="btn-ghost" onclick="closeManualEntry()">Cancel</button>
+      <button class="btn-primary" onclick="submitManualEntry()">Add to library</button>
+    </div>
+  </div>`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeManualEntry() {
+  const el = document.getElementById('manual-entry-form');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+async function submitManualEntry() {
+  const title  = document.getElementById('m-title')?.value.trim();
+  const author = document.getElementById('m-author')?.value.trim();
+  if (!title || !author) { showToast('Title and author are required'); return; }
+
+  // Check for duplicates
+  const exists = books.find(b => bTitle(b).toLowerCase() === title.toLowerCase());
+  if (exists) { showToast(`"${title}" is already in your library`); return; }
+
+  const year  = parseInt(document.getElementById('m-year')?.value)  || null;
+  const pages = parseInt(document.getElementById('m-pages')?.value) || null;
+  const genre = getTagVal('m-genre');
+  const mood  = getTagVal('m-mood');
+
+  // Cache metadata manually since there's no API to fetch from
+  const cacheKey = title;
+  setMeta(cacheKey, {
+    title, author,
+    year,
+    pages,
+    genre: genre || '',
+    description: '',
+    coverId: null,
+    googleCover: null
+  });
+
+  const newBook = {
+    isbn: null, ol_key: null, google_id: null,
+    status: document.getElementById('m-status')?.value || 'finished',
+    start_date: document.getElementById('m-start')?.value || null,
+    end_date:   document.getElementById('m-end')?.value   || null,
+    rating:     parseFloat(document.getElementById('m-rating')?.value) || null,
+    retro_rating: null,
+    notes:      document.getElementById('m-notes')?.value.trim() || '',
+    retro_thoughts: '',
+    mood, themes: '',
+    manual_title:  title,
+    manual_author: author,
+    import_source: 'manual',
+    pages_read: null, series_name: null, series_number: null
+  };
+
+  try {
+    await saveBook(newBook);
+    books.unshift(newBook);
+    closeManualEntry();
+    document.getElementById('ol-q').value = '';
+    renderLibrary();
+    go('library');
+    showToast(`"${title}" added to your library ✓`);
+  } catch(e) {
+    showToast('Could not save: ' + e.message);
+  }
 }
 
 /* ── EXPORT ────────────────────────────────────────────────────────────── */
@@ -2223,6 +2320,7 @@ function exportLibrary() {
 function renderDiscover() {
   renderDiscoverTBR();
   renderDiscoverSeries();
+  updateApiNotice();
 }
 
 function renderDiscoverTBR() {
@@ -2341,6 +2439,24 @@ function renderReflect() {
 function renderReflectDue() {
   const due = books.filter(isRetroDue);
   const sec = document.getElementById('reflect-due-section');
+  const emptyEl = document.getElementById('reflect-empty');
+
+  if (!booksLoaded || books.length === 0) {
+    sec.innerHTML = '';
+    if (emptyEl) {
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML = `<div class="reflect-empty">
+        <div class="reflect-empty-icon">✦</div>
+        <div style="font-weight:500;margin-bottom:8px">Your reflection journal is waiting</div>
+        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here for reflection one year later.</div>
+        <button class="btn-primary" onclick="go('discover')">Add your first book →</button>
+      </div>`;
+    }
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+
   if (!due.length) {
     sec.innerHTML = `<div class="reflect-empty"><div class="reflect-empty-icon">✦</div><div style="font-weight:500;margin-bottom:6px">No reflections due</div><div>Books become available for reflection one year after you finish them.</div></div>`;
     return;
