@@ -2010,8 +2010,11 @@ async function saveEdit(bookId) {
   await saveBook(b);
   document.getElementById('edit-modal').classList.remove('on');
   chartsDrawn=false;renderLibrary();
-  // Brief save confirmation toast
   showToast('Changes saved ✓');
+  // If book modal is open, refresh it with updated data
+  if (document.getElementById('book-modal')?.classList.contains('on')) {
+    openBookPage(bookId);
+  }
 }
 
 function openDel(bookId) {
