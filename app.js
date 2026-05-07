@@ -56,7 +56,7 @@ function genreKey(e, id) {
 }
 
 // Fiction genres
-const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
+const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical','Horror','Literary','Magical Realism','Mystery','Psychological Fiction','LGBTQ+','Romance','Satire','Sci-Fi','Short Stories','Speculative Fiction','Thriller','Young Adult'];
 // Nonfiction genres
 const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
 // Combined for backwards compat
@@ -66,7 +66,7 @@ const THEMES = ['Found family','Identity','Grief','Power','Survival','Colonialis
 
 // Genre canonicalisation — maps messy OL/Google tags to our clean list
 const GENRE_MAP = {
-  'science fiction':'Science Fiction','sci-fi':'Science Fiction','sf':'Science Fiction',
+  'science fiction':'Sci-Fi','sci-fi':'Sci-Fi','sf':'Sci-Fi',
   'fantasy':'Fantasy','epic fantasy':'Fantasy','urban fantasy':'Fantasy','dark fantasy':'Fantasy',
   'horror':'Horror','ghost stories':'Horror','supernatural fiction':'Horror',
   'mystery':'Mystery','detective':'Mystery','whodunit':'Mystery',
@@ -75,7 +75,7 @@ const GENRE_MAP = {
   'historical fiction':'Historical','historical novel':'Historical',
   'historical fantasy':'Historical','historical mystery':'Historical',
   'history':'Historical','historical':'Historical',
-  'literary fiction':'Literary Fiction','literary':'Literary Fiction','contemporary fiction':'Literary Fiction',
+  'literary fiction':'Literary','literary':'Literary','contemporary fiction':'Literary',
   'magical realism':'Magical Realism','magic realism':'Magical Realism',
   'dystopian':'Dystopian','dystopia':'Dystopian','post-apocalyptic':'Dystopian',
   'young adult':'Young Adult','ya':'Young Adult','teen fiction':'Young Adult',
@@ -101,7 +101,7 @@ const GENRE_MAP = {
   'satire':'Satire','satirical':'Satire',
   'classics':'Classics','classic literature':'Classics',
   'adventure':'Adventure','action and adventure':'Adventure',
-  'queer':'Queer Fiction','lgbtq':'Queer Fiction','lgbt':'Queer Fiction','queer literature':'Queer Fiction',
+  'queer':'LGBTQ+','lgbtq':'LGBTQ+','lgbt':'LGBTQ+','queer literature':'LGBTQ+',
   'children':"Children's",'childrens':"Children's",'juvenile fiction':"Children's",
 };
 
@@ -1002,6 +1002,7 @@ function renderBooks() {
   }
   const q  = ''; // search removed - use global topbar search
   const gf = document.getElementById('gf')?.value||'';
+  const ff = document.getElementById('ff')?.value||''; // fiction/nonfiction filter
   const mf = ''; // mood filter removed
   const fin = books.filter(b => b.status==='finished');
 
@@ -1016,7 +1017,7 @@ function renderBooks() {
   let list = fin.filter(b =>
     (!q || bTitle(b).toLowerCase().includes(q) || bAuthor(b).toLowerCase().includes(q)) &&
     (!gf || bGenre(b).toLowerCase().includes(gf.toLowerCase())) &&
-    true // mood filter removed
+    (!ff || (b.fiction_nonfiction||'') === ff)
   );
 
   if (sort==='rating-hi') list.sort((a,b)=>b.rating-a.rating);
