@@ -97,7 +97,14 @@ function canonicaliseGenres(rawTags) {
 
 /* ── STATE ─────────────────────────────────────────────────────────────── */
 let books = [], currentUser = null, sessionToken = null;
-let sort = 'recent', chartsDrawn = false, chatHistory = [];
+let sort = 'recent', chartsDrawn = false;
+// Load persisted chat history
+let chatHistory = (() => {
+  try { return JSON.parse(localStorage.getItem('pt_chat_history') || '[]'); } catch(e) { return []; }
+})();
+function saveChatHistory() {
+  try { localStorage.setItem('pt_chat_history', JSON.stringify(chatHistory.slice(-40))); } catch(e) {} // keep last 40 messages
+}
 let apiKey = localStorage.getItem('pt_ak') || '';
 let olResults = [], selResult = null, editions = [], selEdition = null, edFilt = 'all';
 let authMode = 'signin', pendingImport = null;
@@ -363,6 +370,7 @@ function onSignedIn() {
   const displayName = localStorage.getItem('pt_display_name');
   document.getElementById('uavatar').textContent = (displayName || currentUser.email).slice(0,1).toUpperCase();
   updateApiNotice();
+  restoreChatHistory();
   go('library');
   loadBooks();
   // Show tour on first ever sign-in
@@ -1837,10 +1845,19 @@ async function genSimilar(bookId) {
     for(const rec of recs){
       const inLib=books.find(x=>bTitle(x).toLowerCase()===rec.title.toLowerCase());
       let coverUrl=inLib?bCover(inLib):null;
-      if(!coverUrl){try{const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=cover_i`);const sd=await sr.json();const cid=sd.docs?.[0]?.cover_i;if(cid)coverUrl=cUrl(cid,'S');}catch(e){}}
+      let doc=null;
+      if(!coverUrl){try{const sr=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=key,cover_i,first_publish_year,isbn`);const sd=await sr.json();doc=sd.docs?.[0]||null;const cid=doc?.cover_i;if(cid)coverUrl=cUrl(cid,'S');}catch(e){}}
       const card=document.createElement('div');card.className='sim-book';
-      if(inLib)card.onclick=()=>openBookPage(inLib.id);
-      card.innerHTML=`${coverUrl?`<img class="sim-cover" src="${coverUrl}" alt="" loading="lazy">`:`<div class="sim-cover-ph">📖</div>`}<div style="flex:1;min-width:0"><div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${rec.title}</div><div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${rec.author}</div><div style="font-size:11px;color:var(--tx2);line-height:1.4">${rec.reason}</div>${inLib?`<span class="sim-inlib">In library · ${inLib.rating}/10</span>`:''}</div>`;
+      card.style.cursor='pointer';
+      if(inLib){
+        card.onclick=()=>openBookPage(inLib.id);
+      } else if(doc) {
+        // Store OL data for click
+        const olData={key:doc.key,title:rec.title,author_name:[rec.author],cover_i:doc.cover_i,first_publish_year:doc.first_publish_year,isbn:doc.isbn};
+        card.onclick=()=>openUnreadBookPage(olData);
+      }
+      const clickHint = inLib ? `<span class="sim-inlib">In library · ${inLib.rating}/10</span>` : `<span style="font-size:10px;color:var(--amber)">Tap to explore →</span>`;
+      card.innerHTML=`${coverUrl?`<img class="sim-cover" src="${coverUrl}" alt="" loading="lazy">`:`<div class="sim-cover-ph">📖</div>`}<div style="flex:1;min-width:0"><div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${rec.title}</div><div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${rec.author}</div><div style="font-size:11px;color:var(--tx2);line-height:1.4">${rec.reason}</div>${clickHint}</div>`;
       document.getElementById('sim-list')?.appendChild(card);
     }
   }catch(e){document.getElementById('sim-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
@@ -2368,6 +2385,28 @@ async function saveAccountSettings() {
   } else {
     showToast('Account saved ✓');
   }
+}
+
+function restoreChatHistory() {
+  if (!chatHistory.length) return;
+  const c = document.getElementById('chat-msgs');
+  if (!c) return;
+  // Keep the welcome message, add history after
+  chatHistory.forEach(msg => {
+    const d = document.createElement('div');
+    d.className = `msg msg-${msg.role==='user'?'u':'a'}`;
+    d.innerHTML = `<div class="bubble">${renderChatText(msg.content)}</div><div class="msg-lbl">${msg.role==='user'?'You':'Book Bot'}</div>`;
+    c.appendChild(d);
+  });
+  c.scrollTop = c.scrollHeight;
+}
+
+function clearChat() {
+  if (!confirm('Clear your conversation with Book Bot? This cannot be undone.')) return;
+  chatHistory = [];
+  saveChatHistory();
+  const c = document.getElementById('chat-msgs');
+  if (c) c.innerHTML = `<div class="msg msg-a"><div class="bubble">Hi! I know your reading history well. Tell me what you're in the mood for — or ask me anything about books.</div><div class="msg-lbl">Book Bot</div></div>`;
 }
 
 function saveApiKey() {
@@ -3157,7 +3196,7 @@ HOW TO RESPOND:
   const r=await fetch(chatUrl,{method:'POST',headers:chatHeaders,body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
-    chatHistory.push({role:'assistant',content:reply});typing.remove();addMsg(reply,'a');
+    chatHistory.push({role:'assistant',content:reply});saveChatHistory();typing.remove();addMsg(reply,'a');
   }catch(e){typing.remove();addMsg(`Error: ${e.message}`,'a');}
   document.getElementById('send-btn').disabled=false;
 }
