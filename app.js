@@ -1661,17 +1661,22 @@ async function loadAlsoBy(b) {
 
 /* ── AI ────────────────────────────────────────────────────────────────── */
 function booksCtxStr() {
-  return books.filter(b=>b.status==='finished').map(b => {
+  const reading = books.filter(b=>b.status==='reading').map(b=>`"${bTitle(b)}" by ${bAuthor(b)}`);
+  const tbr = books.filter(b=>b.status==='tbr').map(b=>`"${bTitle(b)}" by ${bAuthor(b)}`);
+  const finished = books.filter(b=>b.status==='finished').map(b => {
     const parts = [];
     parts.push(`"${bTitle(b)}" by ${bAuthor(b)}`);
     parts.push(`Rating: ${b.rating||'?'}/10`);
-    if (b.retro_rating) parts.push(`Retrospective: ${b.retro_rating}/10`);
     if (bGenre(b)) parts.push(`Genre: ${bGenre(b)}`);
     if (b.mood) parts.push(`Mood: ${b.mood}`);
     if (bPPD(b) > 0) parts.push(`Read at ${bPPD(b)} pages/day`);
-    if (b.notes) parts.push(`Notes while reading: "${b.notes}"`);
+    if (b.notes) {
+      const answers = b.notes.split('\n')
+        .filter(l => l.trim() && !l.trim().endsWith('?'))
+        .join(' ');
+      if (answers) parts.push(`Initial thoughts: "${answers}"`);
+    }
     if (b.retro_thoughts) {
-      // Strip the Q&A format down to just the answers for context
       const answers = b.retro_thoughts.split('\n')
         .filter(l => l.trim() && !l.trim().endsWith('?'))
         .join(' ');
@@ -1679,6 +1684,11 @@ function booksCtxStr() {
     }
     return parts.join('. ');
   }).join('\n');
+
+  let ctx = `FINISHED BOOKS:\n${finished}`;
+  if (reading.length) ctx += `\n\nCURRENTLY READING (do NOT recommend these):\n${reading.join(', ')}`;
+  if (tbr.length) ctx += `\n\nON TBR LIST (already aware of these):\n${tbr.join(', ')}`;
+  return ctx;
 }
 
 async function callClaude(prompt, maxTokens=600) {
@@ -3031,19 +3041,22 @@ async function sendMsg(){
   // API key optional - proxy handles requests if no personal key set
   addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
   const typing=addTyping();chatHistory.push({role:'user',content:msg});
-  const sys=`You are a personal book advisor with deep knowledge of this reader's history, tastes, and reflections.
+  const sys=`You are Book Bot — a warm, enthusiastic reading companion who knows this reader's taste inside out. You're like that friend who always knows exactly what book to press into someone's hands next.
 
 READING HISTORY:
 ${booksCtxStr()}
 
-HOW TO USE THIS DATA:
-- Ratings and retrospective ratings show immediate vs lasting impressions — a book rated 7 initially but 9 retrospectively had a slow build that paid off
-- Pages/day shows engagement — fast pace means they were hooked, slow means they struggled
-- Notes while reading capture raw reactions
-- Reflections are their most considered thoughts, written a year later — weight these heavily
-- Mood and genre tags show patterns in what they enjoy
-
-Be direct, specific, and personal. Reference actual books from their history. When recommending, explain exactly why this reader specifically would enjoy it, not just general praise. Estimate a likely rating (1–10) when relevant.`;
+HOW TO RESPOND:
+- Be warm, conversational, and genuinely enthusiastic — you love books and love matching people with the right ones
+- Reference specific books from their history to show you really know them ("given how much you loved X...")
+- Use their ratings and reading pace as signals: high ratings and fast pace means they loved it, low ratings or slow pace means they struggled
+- Their notes and reflections reveal what really resonated — lean on these heavily
+- NEVER recommend books they are currently reading or have on their TBR list
+- NEVER recommend books already in their finished library
+- NEVER mention retrospective ratings — only reference their star ratings
+- When recommending, always explain WHY this specific reader would enjoy it
+- Estimate a likely rating (1–10) when it feels natural
+- Keep responses warm and readable — not too long, but never thin`;
   try{
     const useProxy = !apiKey;
   const chatUrl = useProxy ? '/api/chat' : 'https://api.anthropic.com/v1/messages';
@@ -3058,7 +3071,7 @@ Be direct, specific, and personal. Reference actual books from their history. Wh
   document.getElementById('send-btn').disabled=false;
 }
 
-function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Advisor'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-lbl">${role==='u'?'You':'Book Bot'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
