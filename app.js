@@ -1084,9 +1084,15 @@ function setView(v) {
   document.getElementById('shelf').classList.toggle('list-mode', v==='list');
   window.libraryView=v;
   document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
-  // Hide size slider in list view — it only affects shelf view
   const sliderWrap = document.querySelector('.size-slider-wrap');
   if (sliderWrap) sliderWrap.style.display = v==='list' ? 'none' : '';
+  // Mobile: if stats view selected, show stats overlay instead
+  if (v === 'stats' && window.innerWidth <= 600) {
+    openStatsOverlay();
+    window.libraryView = 'shelf';
+    document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('on', b.dataset.view==='shelf'));
+    return;
+  }
   renderBooks();
 }
 
@@ -1451,6 +1457,24 @@ async function openBookPage(bookId) {
 function openBookModal() {
   document.getElementById('book-modal').classList.add('on');
   document.body.style.overflow = 'hidden';
+  // Add swipe down to close on mobile
+  addSwipeToClose('book-modal-inner', closeBookModal);
+}
+
+function addSwipeToClose(elId, closeFn) {
+  const el = document.getElementById(elId);
+  if (!el || !('ontouchstart' in window)) return;
+  let startY = 0;
+  el.ontouchstart = e => { startY = e.touches[0].clientY; };
+  el.ontouchmove = e => {
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 0) el.style.transform = `translateY(${dy}px)`;
+  };
+  el.ontouchend = e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 80) { el.style.transform = ''; closeFn(); }
+    else { el.style.transform = ''; }
+  };
 }
 
 function closeBookModal() {
@@ -2256,6 +2280,7 @@ function renderDiscoverSeries() {
 
 /* ── SETTINGS ──────────────────────────────────────────────────────────── */
 function openSettings() {
+  addSwipeToClose('settings-drawer', closeSettings);
   // Populate fields
   document.getElementById('s-email').value = currentUser?.email || '';
   document.getElementById('s-api-key').value = apiKey || '';
