@@ -1471,8 +1471,7 @@ function openBookModal() {
   // Reset scroll to top
   const inner = document.getElementById('book-modal-inner');
   if (inner) inner.scrollTop = 0;
-  // Add swipe down to close on mobile
-  addSwipeToClose('book-modal-inner', closeBookModal);
+  // Note: no swipe-to-close on book modal - too easy to accidentally trigger
 }
 
 function addSwipeToClose(elId, closeFn) {
@@ -1747,6 +1746,16 @@ function booksCtxStr() {
   return ctx;
 }
 
+// Analysis cache - persists across sessions
+const analysisCache = (() => {
+  try { return JSON.parse(localStorage.getItem('pt_analysis_cache') || '{}'); } catch(e) { return {}; }
+})();
+function saveAnalysisCache() {
+  try { localStorage.setItem('pt_analysis_cache', JSON.stringify(analysisCache)); } catch(e) {}
+}
+function getCachedAnalysis(bookId) { return analysisCache[bookId] || null; }
+function setCachedAnalysis(bookId, html) { analysisCache[bookId] = html; saveAnalysisCache(); }
+
 async function callClaude(prompt, maxTokens=600) {
   // Use personal API key if set, otherwise fall back to server proxy
   const useProxy = !apiKey;
@@ -1766,29 +1775,53 @@ async function callClaude(prompt, maxTokens=600) {
 
 async function genAnalysis(bookId) {
   const b=books.find(x=>x.id===bookId);if(!b)return;
-  const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
-  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing your history…</div>`;
+  const btn=document.getElementById('ai-gen-btn');
+
+  // Check cache first
+  const cached = getCachedAnalysis(bookId);
+  if (cached) {
+    document.getElementById('ai-result').innerHTML = cached;
+    btn.disabled=false; btn.innerHTML='✦ Regenerate';
+    return;
+  }
+
+  btn.disabled=true; btn.textContent='Thinking…';
+  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Checking your reading history…</div>`;
   try {
-    const text = await callClaude(`Analyse whether this reader will enjoy "${bTitle(b)}" by ${bAuthor(b)}.\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)} Mood:${b.mood||''}\nDescription:${bDesc(b)||'N/A'}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`);
-    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);const anal=text.match(/ANALYSIS:\s*([\s\S]+)/i);
-    document.getElementById('ai-result').innerHTML=
-      `${pred?`<div class="ai-pred"><span>Predicted rating</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
-       <div style="font-size:14px;line-height:1.7">${(anal?anal[1].trim():text).replace(/\n/g,'<br>')}</div>`;
+    const text = await callClaude(`Based on this reader's history, will they enjoy "${bTitle(b)}" by ${bAuthor(b)}?\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)}\nDescription:${bDesc(b)||'N/A'}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
+    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
+    const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
+    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
+       <div style="font-size:14px;line-height:1.7;font-family:Georgia,serif">${analysis.replace(/\n/g,'<br>')}</div>`;
+    document.getElementById('ai-result').innerHTML = html;
+    setCachedAnalysis(bookId, html);
   }catch(e){document.getElementById('ai-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
-  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+  btn.disabled=false; btn.innerHTML='✦ Regenerate';
 }
 
 async function genUnreadAnalysis(olKey, title, author) {
-  const btn=document.getElementById('ai-gen-btn');btn.disabled=true;btn.textContent='Generating…';
-  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Analysing…</div>`;
+  const cacheKey = 'unread_' + (olKey||title);
+  const btn=document.getElementById('ai-gen-btn');
+
+  const cached = getCachedAnalysis(cacheKey);
+  if (cached) {
+    document.getElementById('ai-result').innerHTML = cached;
+    btn.disabled=false; btn.innerHTML='✦ Regenerate';
+    return;
+  }
+
+  btn.disabled=true; btn.textContent='Thinking…';
+  document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Checking your reading history…</div>`;
   try {
-    const text = await callClaude(`Would this reader enjoy "${title}" by ${author}?\nHistory:\n${booksCtxStr()}\nProvide:\nPREDICTED: [1-10]\nANALYSIS: [3-4 sentences referencing specific books from history]`);
-    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)/i);const anal=text.match(/ANALYSIS:\s*([\s\S]+)/i);
-    document.getElementById('ai-result').innerHTML=
-      `${pred?`<div class="ai-pred"><span>Predicted rating</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
-       <div style="font-size:14px;line-height:1.7">${(anal?anal[1].trim():text).replace(/\n/g,'<br>')}</div>`;
+    const text = await callClaude(`Based on this reader's history, will they enjoy "${title}" by ${author}?\nHistory:\n${booksCtxStr()}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
+    const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
+    const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
+    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
+       <div style="font-size:14px;line-height:1.7;font-family:Georgia,serif">${analysis.replace(/\n/g,'<br>')}</div>`;
+    document.getElementById('ai-result').innerHTML = html;
+    setCachedAnalysis(cacheKey, html);
   }catch(e){document.getElementById('ai-result').innerHTML=`<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;}
-  btn.disabled=false;btn.innerHTML='✦ Regenerate';
+  btn.disabled=false; btn.innerHTML='✦ Regenerate';
 }
 
 async function genSimilar(bookId) {
