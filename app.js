@@ -3090,14 +3090,18 @@ HOW TO RESPOND:
 }
 
 function renderChatText(text) {
-  // Convert [[Title by Author]] to inline TBR buttons
   return text
     .replace(/\n/g,'<br>')
     .replace(/\[\[([^\]]+) by ([^\]]+)\]\]/g, (match, title, author) => {
       const inLib = books.find(b => bTitle(b).toLowerCase() === title.toLowerCase());
-      if (inLib) {
-        const statusLabel = inLib.status==='finished'?'✓ Read':inLib.status==='reading'?'Reading':'On TBR';
-        return `<span class="chat-book-tag">${title} <em>by ${author}</em> <span class="chat-book-in-lib">${statusLabel}</span></span>`;
+      if (inLib && inLib.status === 'finished') {
+        return `<span class="chat-book-tag">${title} <em>by ${author}</em> <span class="chat-book-in-lib">✓ Already read</span></span>`;
+      }
+      if (inLib && inLib.status === 'reading') {
+        return `<span class="chat-book-tag">${title} <em>by ${author}</em> <span class="chat-book-in-lib">Currently reading</span></span>`;
+      }
+      if (inLib && inLib.status === 'tbr') {
+        return `<span class="chat-book-tag">${title} <em>by ${author}</em> <span class="chat-book-in-lib" style="color:var(--amber)">📚 On your TBR — now's a good time!</span></span>`;
       }
       const safeTitle = title.replace(/'/g,"\\'");
       const safeAuthor = author.replace(/'/g,"\\'");
@@ -3107,23 +3111,54 @@ function renderChatText(text) {
 
 async function chatAddTBR(title, author, btn) {
   btn.disabled = true; btn.textContent = 'Adding…';
-  // Search OL for the book to get proper metadata
   try {
     const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1&fields=key,title,author_name,cover_i,isbn`);
     const d = await r.json();
     const doc = d.docs?.[0];
     const isbn = doc?.isbn?.[0] || null;
     const olKey = doc?.key || null;
-    await quickAddBook('tbr', isbn||'', olKey||'', title, author);
-    btn.textContent = '✓ Added';
+    // Add without redirecting - stay in chat
+    const exists = books.find(b =>
+      (isbn && b.isbn === isbn) ||
+      (olKey && b.ol_key === olKey) ||
+      bTitle(b).toLowerCase() === title.toLowerCase()
+    );
+    if (exists) {
+      btn.textContent = exists.status==='tbr' ? '✓ On TBR' : '✓ Already read';
+      btn.style.background = 'var(--teal)';
+      return;
+    }
+    const newBook = { isbn: isbn||null, ol_key: olKey||null, google_id: null,
+      status: 'tbr', start_date: null, end_date: null, rating: null,
+      retro_rating: null, notes: '', retro_thoughts: '', mood: '', themes: '',
+      manual_title: title, manual_author: author, import_source: '' };
+    await saveBook(newBook);
+    books.unshift(newBook);
+    btn.textContent = '✓ Added to TBR';
     btn.style.background = 'var(--teal)';
+    // Silently update library in background without navigating
+    renderCRTBR();
   } catch(e) {
     btn.disabled = false; btn.textContent = '+ TBR';
     showToast('Could not add: ' + e.message);
   }
 }
 
-function addMsg(text,role){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className=`msg msg-${role}`;d.innerHTML=`<div class="bubble">${renderChatText(text)}</div><div class="msg-lbl">${role==='u'?'You':'Book Bot'}</div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function addMsg(text,role){
+  const c=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.className=`msg msg-${role}`;
+  d.innerHTML=`<div class="bubble">${renderChatText(text)}</div><div class="msg-lbl">${role==='u'?'You':'Book Bot'}</div>`;
+  c.appendChild(d);
+  if(role==='u'){
+    // User message: scroll to bottom so they see their message
+    c.scrollTop=c.scrollHeight;
+  } else {
+    // Bot message: scroll so the TOP of the response is visible
+    d.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  return d;
+}
 function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
