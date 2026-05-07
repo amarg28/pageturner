@@ -1937,6 +1937,8 @@ function openEdit(bookId) {
   document.getElementById('edit-body').innerHTML=`
     <button class="modal-x" onclick="document.getElementById('edit-modal').classList.remove('on')">×</button>
     <div class="modal-title">Edit — ${title}</div>
+    <!-- Prevent Chrome password save prompt -->
+    <input type="password" style="display:none" autocomplete="new-password">
     <div class="fgrid" style="margin-bottom:12px">
       <div class="fg"><label class="fl">Status</label>
         <select class="fi" id="e-status">
@@ -1958,11 +1960,11 @@ function openEdit(bookId) {
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}"></div>
       ${b.status==='reading'?`<div class="fg"><label class="fl">Pages read so far</label><input class="fi" type="number" id="e-pages-read" min="0" value="${b.pages_read||''}"></div>`:''}
-      <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="e-series-name" placeholder="e.g. The Broken Earth" value="${b.series_name||''}" list="series-datalist"><datalist id="series-datalist">${[...new Set(books.filter(x=>x.series_name).map(x=>x.series_name))].map(s=>`<option value="${s}">`).join('')}</datalist></div>
+      <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="e-series-name" placeholder="e.g. The Broken Earth" value="${b.series_name||''}" autocomplete="off" list="series-datalist"><datalist id="series-datalist">${[...new Set(books.filter(x=>x.series_name).map(x=>x.series_name))].map(s=>`<option value="${s}">`).join('')}</datalist></div>
       <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="e-series-num" min="1" step="0.5" placeholder="e.g. 1" value="${b.series_number||''}"></div>
     </div>
     <div class="fgrid" style="margin-bottom:12px">
-      <div class="fg full"><label class="fl">Series name</label><input class="fi" id="e-series-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth"></div>
+      <div class="fg full"><label class="fl">Series name</label><input class="fi" id="e-series-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth" autocomplete="off"></div>
       <div class="fg"><label class="fl">Book number in series</label><input class="fi" type="number" id="e-series-num" value="${b.series_number||''}" placeholder="e.g. 1"></div>
     </div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('e-genre', bGenre(b))}</div>
