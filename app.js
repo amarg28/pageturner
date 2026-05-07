@@ -847,13 +847,14 @@ function renderCRTBR() {
       <div class="crbox-books">
         ${tbr.slice(0, MAX_TBR).map((b, i) => {
           const cover = bCover(b);
+          const shortTitle = bTitle(b).length > 18 ? bTitle(b).slice(0,18)+'…' : bTitle(b);
+          const shortAuthor = bAuthor(b).length > 16 ? bAuthor(b).slice(0,16)+'…' : bAuthor(b);
           return `${i>0?'<div class="crbox-divider"></div>':''}
           <div class="crbox-book crbox-book-compact" style="position:relative" onclick="openBookPage('${b.id}')">
             ${cover?`<img class="crbox-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="crbox-cover-ph" style="font-size:14px">📚</div>`}
             <div class="crbox-info">
-              <div class="crbox-title">${bTitle(b)}</div>
-              <div class="crbox-author">${bAuthor(b)}</div>
-
+              <div class="crbox-title" title="${bTitle(b)}">${shortTitle}</div>
+              <div class="crbox-author" title="${bAuthor(b)}">${shortAuthor}</div>
             </div>
           </div>`;
         }).join('')}
@@ -1107,6 +1108,8 @@ function gsearchInput() {
 }
 
 function gsearchFocus() {
+  // On mobile, expand the search box
+  document.getElementById('gsearch-wrap').classList.add('mobile-open');
   const q = document.getElementById('gsearch-input').value.trim();
   if (q.length >= 2) document.getElementById('gsearch-results').classList.add('open');
 }
@@ -1114,6 +1117,7 @@ function gsearchFocus() {
 function gsearchClear() {
   document.getElementById('gsearch-input').value='';
   document.getElementById('gsearch-clear').classList.remove('visible');
+  document.getElementById('gsearch-wrap').classList.remove('mobile-open');
   closeGsearch();
 }
 
@@ -3063,8 +3067,10 @@ function resetLibrary() {
 function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.mobile-nav-btn[data-tab]').forEach(b=>b.classList.remove('on'));
   document.getElementById('p-'+name)?.classList.add('on');
   document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('on');
+  document.querySelector(`.mobile-nav-btn[data-tab="${name}"]`)?.classList.add('on');
   if(name==='library'){renderLibrary();}
   if(name==='discover'){renderDiscoverTBR();renderDiscoverSeries();}
   if(name==='reflect'){renderReflect();}
