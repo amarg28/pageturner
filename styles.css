@@ -709,8 +709,8 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .size-slider:hover::-webkit-slider-thumb{background:var(--tx0)}
 
 /* ── CHAT BOOK TAGS ────────────────────────────────────────────────────── */
-.chat-book-tag{display:inline-flex;align-items:center;gap:6px;background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:100px;padding:3px 10px 3px 8px;margin:2px 1px;font-size:13px;flex-wrap:wrap}
-.chat-book-tag em{font-style:normal;color:var(--tx1);font-size:12px}
+.chat-book-tag{display:inline-flex;align-items:center;gap:6px;background:#e8eef4;border:0.5px solid #a0b4c8;border-radius:100px;padding:3px 10px 3px 8px;margin:2px 1px;font-size:13px;flex-wrap:wrap;color:#2c3e50}
+.chat-book-tag em{font-style:normal;color:#4a6fa5;font-size:12px}
 .chat-tbr-btn{padding:3px 8px;background:var(--amber);color:#fff;border:none;border-radius:100px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s;white-space:nowrap}
 .chat-tbr-btn:hover{opacity:.85}
 .chat-tbr-btn:disabled{opacity:.6;cursor:default}
