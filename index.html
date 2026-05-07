@@ -70,6 +70,22 @@
       </div>
     </div>
 
+    <!-- Mobile bottom navigation -->
+    <nav class="mobile-nav" id="mobile-nav">
+      <button class="mobile-nav-btn on" data-tab="library" onclick="go('library')">
+        <span class="mobile-nav-btn-icon">📚</span>Library
+      </button>
+      <button class="mobile-nav-btn" data-tab="discover" onclick="go('discover')">
+        <span class="mobile-nav-btn-icon">🔭</span>Discover
+      </button>
+      <button class="mobile-nav-btn" data-tab="reflect" onclick="go('reflect')">
+        <span class="mobile-nav-btn-icon">✦</span>Reflect
+      </button>
+      <button class="mobile-nav-btn" onclick="openSettings()">
+        <span class="mobile-nav-btn-icon">👤</span>Settings
+      </button>
+    </nav>
+
     <!-- ── LIBRARY TAB ──────────────────────────────────────────────── -->
     <div id="p-library" class="panel on">
 
