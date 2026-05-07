@@ -727,10 +727,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   /* ── TOPBAR MOBILE ──────────────────────────────────────────────────── */
   .topbar{padding:10px 14px;gap:0;justify-content:space-between}
   .logo{font-size:17px;flex-shrink:0;flex:0}
-  .gsearch-wrap{flex:0;min-width:0;max-width:none;order:2}
-  .gsearch-input{width:0;padding:0;border:none;background:none;transition:all .25s}
-  .gsearch-wrap.mobile-open .gsearch-input{width:160px;padding:8px 30px 8px 32px;background:var(--bg1);border:0.5px solid var(--bd2)}
-  .gsearch-icon{cursor:pointer;font-size:18px;padding:4px}
+  .gsearch-wrap{flex:0;min-width:0;position:relative;order:2}
+  .gsearch-input{width:0;padding:0;border:none;background:none;transition:all .25s;font-size:14px}
+  .gsearch-wrap.mobile-open{flex:1;position:absolute;left:50px;right:50px;top:50%;transform:translateY(-50%);z-index:200;background:var(--bg0);border-radius:100px}
+  .gsearch-wrap.mobile-open .gsearch-input{width:100%;padding:10px 30px 10px 36px;background:var(--bg1);border:0.5px solid var(--amber)}
+  .gsearch-icon{cursor:pointer;font-size:18px;padding:6px;display:block}
   .topbar-r{flex:0;order:3;gap:4px}
   .tabs{display:none}
   .uavatar{width:32px;height:32px;font-size:13px}
@@ -745,7 +746,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .stat-v{font-size:18px}
 
   /* ── CR + TBR ROW ───────────────────────────────────────────────────── */
-  .crtbr-row{flex-direction:column;gap:10px}
+  /* crtbr-row handled in 600px block */
   .crbox{width:100%}
   /* CR stacks vertically, TBR stays horizontal */
   .crbox:not(.crbox-tbr) .crbox-books{flex-direction:column;gap:0}
