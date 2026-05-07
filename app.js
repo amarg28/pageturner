@@ -58,9 +58,9 @@ function genreKey(e, id) {
 // Fiction genres
 const FICTION_GENRES = ['Adventure',"Children's",'Classics','Crime','Dystopian','Fantasy','Gothic','Graphic Novel','Historical','Horror','Literary Fiction','Magical Realism','Mystery','Psychological Fiction','Queer Fiction','Romance','Satire','Science Fiction','Short Stories','Speculative Fiction','Thriller','Young Adult'];
 // Nonfiction genres
-const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','Historical','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
+const NONFICTION_GENRES = ['Art & Design','Biography','Essay Collection','Food & Cooking','Memoir','Nature','Philosophy','Politics','Science','Self-Help','Travel','True Crime'];
 // Combined for backwards compat
-const GENRES = [...FICTION_GENRES, ...NONFICTION_GENRES];
+const GENRES = [...new Set([...FICTION_GENRES, ...NONFICTION_GENRES])];
 const MOODS  = ['Dark','Cozy','Tense','Melancholic','Funny','Hopeful','Unsettling','Dreamy','Gritty','Propulsive','Atmospheric','Whimsical','Intense','Slow-burn','Heartwarming'];
 const THEMES = ['Found family','Identity','Grief','Power','Survival','Colonialism','Queerness','Religion','Class','Nature','Memory','Trauma','Redemption','Coming of age','Love','War','Technology','Death','Friendship'];
 
