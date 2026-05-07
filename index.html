@@ -129,7 +129,6 @@
               <button class="view-btn" data-view="list" onclick="setView('list')" title="Spreadsheet">☰</button>
               <button class="view-btn mobile-stats-btn" data-view="stats" onclick="setView('stats')" title="Stats">📊</button>
             </div>
-            <button class="icon-btn" onclick="showDuplicatesModal()" title="Find duplicates">⚠</button>
             <button class="icon-btn" onclick="exportLibrary()" title="Export library">↓</button>
             <div class="size-slider-wrap" title="Adjust cover size">
               <span class="size-slider-icon">⊞</span>
@@ -503,6 +502,13 @@
         <p><strong>Your rights</strong><br>You can export your data at any time using the export button in your library. You can delete your account and all associated data by contacting us.</p>
         <p><strong>Third-party services</strong><br>Book metadata is sourced from <a href="https://openlibrary.org" target="_blank" style="color:var(--amber)">Open Library</a> (Internet Archive) and <a href="https://books.google.com" target="_blank" style="color:var(--amber)">Google Books</a>, used under their respective terms of service.</p>
       </div>
+    </div>
+
+    <!-- Library management -->
+    <div class="settings-section">
+      <div class="settings-section-label">Library management</div>
+      <div style="font-size:12px;color:var(--tx1);margin-bottom:10px;line-height:1.5">Find and remove duplicate books that may have been created by multiple imports.</div>
+      <button class="settings-save-btn" style="background:var(--coral)" onclick="closeSettings();showDuplicatesModal()">Find &amp; remove duplicates</button>
     </div>
 
     <!-- Sign out -->
