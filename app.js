@@ -1262,52 +1262,73 @@ document.addEventListener('click', e => {
 /* ── UNREAD BOOK PAGE ──────────────────────────────────────────────────── */
 async function openUnreadBookPage(olBook) {
   openBookModal();
-  const author = (olBook.author_name||[]).slice(0,2).join(', ')||'Unknown author';
-  const isbn = olBook.isbn?.[0]||null;
+  const author = (olBook.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
+  const authorLast = author.split(' ').slice(-1)[0];
+  const isbn = olBook.isbn?.[0] || null;
+  const title = olBook.title || 'Unknown title';
+  const year = olBook.first_publish_year || null;
   const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : null;
 
-  // Pre-cache metadata for this book
-  const ck = isbn || olBook.key || olBook.title;
-  if (!bMeta({isbn, ol_key: olBook.key, manual_title: olBook.title})?.title) {
-    const fakeBook = { isbn, ol_key: olBook.key, manual_title: olBook.title, manual_author: author };
+  // Pre-cache metadata
+  if (!bMeta({isbn, ol_key: olBook.key, manual_title: title})?.title) {
+    const fakeBook = { isbn, ol_key: olBook.key, manual_title: title, manual_author: author };
     await fetchMetaForBook(fakeBook);
   }
-  const fakeB = {isbn, ol_key: olBook.key, manual_title: olBook.title};
+  const fakeB = { isbn, ol_key: olBook.key, manual_title: title };
   const desc = bDesc(fakeB) || '';
+
+  // Add buttons in hero
+  const addBtns = `<div class="bp-add-btns" style="margin-top:14px">
+    <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(title)}','${esc(author)}')">+ Add to TBR</button>
+    <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(title)}','${esc(author)}')">+ Currently reading</button>
+    <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(title)}','${esc(author)}',${olBook.cover_i||'null'},${year||'null'})">+ Add as finished</button>
+  </div>`;
+
+  // Fake book object for bpHero
+  const fakeBookFull = { isbn, ol_key: olBook.key, manual_title: title, manual_author: author,
+    status: 'tbr', rating: null, start_date: null, end_date: null,
+    fiction_nonfiction: null, series_name: null };
+
+  // AI section with unread-specific handler
+  const aiSection = `<div class="bpsec ai-sec">
+    <div class="bp-sidebar-head">
+      <div class="bpsec-t" style="margin:0">Would you like this book?</div>
+      <button class="ai-btn" id="ai-gen-btn" onclick="genUnreadAnalysis('${esc(olBook.key||'')}','${esc(title)}','${esc(author)}')">✦ Analyse for me</button>
+    </div>
+    <div id="ai-result" style="margin-top:10px"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click to get a personalised take based on your reading history.</div></div>
+  </div>`;
 
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav"><div class="bp-back" onclick="closeBookModal()">← Back</div></div>
-    <div class="bp-unread-banner">
-      <div class="bp-unread-text">This book isn't in your library yet.</div>
-      <div class="bp-add-btns">
-        <button class="bp-add-btn bp-add-btn-tbr" onclick="quickAddBook('tbr','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Add to TBR</button>
-        <button class="bp-add-btn bp-add-btn-reading" onclick="quickAddBook('reading','${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">+ Currently reading</button>
-        <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${esc(isbn||'')}','${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}',${olBook.cover_i||'null'},${olBook.first_publish_year||'null'})">+ Add as finished</button>
-      </div>
-    </div>
     <div class="bp-hero">
-      <div class="bp-img">${coverSrc?`<img src="${coverSrc}" alt="${esc(olBook.title)}" loading="lazy">`:`<div class="bp-img-ph"><span>${esc(olBook.title)}</span></div>`}</div>
-      <div>
-        <div class="bp-title">${esc(olBook.title)}</div>
-        <div class="bp-author">${esc(author)}${olBook.first_publish_year?' · '+olBook.first_publish_year:''}</div>
-        ${desc?`<div style="font-size:14px;line-height:1.7;color:var(--tx1);margin-top:10px">${desc}</div>`:'<div id="unread-desc-loading" style="font-size:13px;color:var(--tx1);margin-top:10px">Loading description…</div>'}
+      <div class="bp-img">${coverSrc ? `<img src="${coverSrc}" alt="${esc(title)}" loading="lazy">` : `<div class="bp-img-ph"><span>${esc(title)}</span></div>`}</div>
+      <div class="bp-hero-info">
+        <div class="bp-title">${esc(title)}</div>
+        <div class="bp-author">${esc(author)}${year ? ' · ' + year : ''}</div>
+        ${addBtns}
       </div>
     </div>
     <div class="bp-body">
-      <div>
-        <div class="ai-sec">
-          <div class="ai-head"><div class="ai-t">Would you like this book?</div>
-            <button class="ai-btn" id="ai-gen-btn" onclick="genUnreadAnalysis('${esc(olBook.key||'')}','${esc(olBook.title)}','${esc(author)}')">✦ Analyse for me</button>
-          </div>
-          <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click to get a personalised take based on your reading history.</div></div>
-        </div>
+      <div class="bp-left">
+        ${bpDesc(desc, olBook.key || title)}
+        ${aiSection}
       </div>
-      <div>
-        <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-      </div>
+      ${bpSidebar(olBook.key || title, false, authorLast)}
     </div>
   </div>`;
-  loadUnreadOLData(olBook);
+
+  // Load also-by for unread book
+  const fakeForAlsoBy = { isbn, ol_key: olBook.key, manual_title: title, manual_author: author };
+  loadAlsoBy(fakeForAlsoBy);
+
+  // Restore cached analysis
+  const cacheKey = 'unread_' + (olBook.key || title);
+  const cached = getCachedAnalysis(cacheKey);
+  if (cached) {
+    document.getElementById('ai-result').innerHTML = cached;
+    const btn = document.getElementById('ai-gen-btn');
+    if (btn) { btn.disabled = false; btn.innerHTML = '✦ Regenerate'; }
+  }
 }
 
 async function loadUnreadOLData(olBook) {
@@ -1321,6 +1342,16 @@ async function loadUnreadOLData(olBook) {
       `${ra?`<div style="margin-bottom:10px"><div style="font-size:30px;font-family:'Lora',serif;font-weight:500;color:var(--amber)">${ra}<span style="font-size:14px;opacity:.5">/5</span></div><div style="font-size:12px;color:var(--tx1)">On Open Library${rc?' · '+rc+' ratings':''}</div></div>`:''}
        ${work.first_publish_date?`<div class="ol-row"><span style="color:var(--tx2)">First published</span><span style="font-weight:500">${work.first_publish_date}</span></div>`:''}`;
   } catch(e) { document.getElementById('ol-data').innerHTML='<div style="font-size:12px;color:var(--tx1)">Could not load.</div>'; }
+}
+
+async function quickStatusChange(bookId, newStatus) {
+  const b = books.find(x => x.id === bookId); if (!b) return;
+  b.status = newStatus;
+  if (newStatus === 'reading' && !b.start_date) b.start_date = new Date().toISOString().slice(0,10);
+  await saveBook(b);
+  renderLibrary();
+  openBookPage(bookId);
+  showToast('Status updated ✓');
 }
 
 async function quickAddBook(status, isbn, olKey, title, author) {
@@ -1449,21 +1480,130 @@ async function submitAddFinished(isbn, olKey, title, author, coverId) {
 }
 
 /* ── BOOK PAGE ─────────────────────────────────────────────────────────── */
+// ── SHARED: build the right sidebar ─────────────────────────────────────
+function bpSidebar(bookId, showSeries, authorLast) {
+  return `<div class="bp-sidebar">
+    ${showSeries ? `<div class="scard" id="series-card"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>` : ''}
+    <div class="scard">
+      <div class="bp-sidebar-head"><div class="scard-t" style="margin:0">Similar books</div><button class="ai-btn" id="sim-btn" onclick="genSimilar('${bookId}')" style="background:var(--purple);padding:4px 10px;font-size:11px">✦ Find</button></div>
+      <div id="sim-result"><div style="font-size:12px;color:var(--tx1);font-style:italic">Click for AI recommendations.</div></div>
+    </div>
+    <div class="scard"><div class="scard-t">Books by ${authorLast}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+  </div>`;
+}
+
+// ── SHARED: build the hero section ───────────────────────────────────────
+function bpHero(b, extraBtns) {
+  const cover = bCover(b);
+  const coverLg = getMeta(b.isbn)?.coverId ? cUrl(getMeta(b.isbn).coverId,'L') : (getMeta(b.isbn)?.googleCover || cover);
+  const title = bTitle(b), author = bAuthor(b), year = bYear(b);
+  const genre = bGenre(b), pages = bPages(b), days = bDays(b), ppd = bPPD(b);
+  const fntag = bFN(b) ? `<span class="bptag bptag-fn">${bFN(b)}</span>` : '';
+  const gtags = parseTags(genre).map(g => `<span class="bptag bptag-g">${g}</span>`).join('');
+  return `<div class="bp-hero">
+    <div class="bp-img">${coverLg ? `<img src="${coverLg}" alt="${title}" loading="lazy">` : `<div class="bp-img-ph"><span>${title}</span></div>`}</div>
+    <div class="bp-hero-info">
+      <div class="bp-title">${title}</div>
+      <div class="bp-author">${author}${year ? ' · ' + year : ''}</div>
+      <div class="bp-tags">${fntag}${gtags}</div>
+      ${b.status !== 'tbr' ? `<div class="bp-scores">
+        <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
+        <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages || '—'}</div></div>
+        <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${ppd || '—'}<span style="font-size:10px;opacity:.6">${ppd ? ' p/d' : ''}</span></div></div>
+      </div>
+      <div class="bp-ri">
+        ${b.start_date ? `<div class="bp-ri-item"><div class="bp-ri-l">Started</div><div>${new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>` : ''}
+        ${b.end_date ? `<div class="bp-ri-item"><div class="bp-ri-l">Finished</div><div>${new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>` : ''}
+        ${days ? `<div class="bp-ri-item"><div class="bp-ri-l">Duration</div><div>${days} days</div></div>` : ''}
+      </div>` : ''}
+      ${extraBtns || ''}
+    </div>
+  </div>`;
+}
+
+// ── SHARED: render description with read more ────────────────────────────
+function bpDesc(desc, bookId) {
+  if (!desc) return '';
+  return `<div class="bpsec">
+    <div class="bpsec-t">About this book</div>
+    <div id="desc-text-${bookId}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
+    ${desc.length > 300 ? `<button onclick="var el=document.getElementById('desc-text-${bookId}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>` : ''}
+  </div>`;
+}
+
+// ── SHARED: render initial thoughts (three Q&A prompts) ──────────────────
+function bpInitialThoughts(notes) {
+  if (!notes) return '';
+  const formatted = formatRetroThoughts(notes);
+  if (!formatted) return '';
+  return `<div class="bpsec">
+    <div class="bpsec-t">Initial thoughts</div>
+    <div style="margin-top:6px">${formatted}</div>
+  </div>`;
+}
+
+// ── SHARED: render retrospective section ─────────────────────────────────
+function bpRetro(b) {
+  if (!b.retro_rating && !b.retro_thoughts) return '';
+  return `<div class="bpsec">
+    <div class="retro-pill">Retrospective${b.retro_rating ? ' · ' + toStars(b.retro_rating) : ''}</div>
+    ${b.retro_thoughts ? `<div style="margin-top:10px">${formatRetroThoughts(b.retro_thoughts)}</div>` : ''}
+  </div>`;
+}
+
+// ── SHARED: AI analysis section ──────────────────────────────────────────
+function bpAI(bookId, isInLib) {
+  const label = isInLib ? 'AI analysis for you' : 'Would you like this book?';
+  const btnLabel = isInLib ? '✦ Generate analysis' : '✦ Analyse for me';
+  const btnFn = isInLib ? `genAnalysis('${bookId}')` : '';
+  const placeholder = isInLib
+    ? 'Click for a personalised take based on your reading history.'
+    : 'Click to get a personalised take based on your reading history.';
+  return `<div class="bpsec ai-sec">
+    <div class="bp-sidebar-head">
+      <div class="bpsec-t" style="margin:0">${label}</div>
+      <button class="ai-btn" id="ai-gen-btn" onclick="${btnFn}">${btnLabel}</button>
+    </div>
+    <div id="ai-result" style="margin-top:10px"><div style="font-size:13px;color:var(--tx1);font-style:italic">${placeholder}</div></div>
+  </div>`;
+}
+
+// ── IN-LIBRARY BOOK PAGE ─────────────────────────────────────────────────
 async function openBookPage(bookId) {
-  const b = books.find(x=>x.id===bookId); if (!b) return;
+  const b = books.find(x => x.id === bookId); if (!b) return;
   openBookModal();
 
-  const cover = bCover(b);
-  const coverLg = b.isbn && getMeta(b.isbn)?.coverId ? cUrl(getMeta(b.isbn).coverId,'L') : (getMeta(b.isbn)?.googleCover || cover);
-  const title = bTitle(b), author = bAuthor(b), year = bYear(b);
-  const desc = bDesc(b), genre = bGenre(b);
-  const pages = bPages(b), days = bDays(b), ppd = bPPD(b);
+  const title = bTitle(b), author = bAuthor(b);
+  const authorLast = author.split(' ').slice(-1)[0];
+  const desc = bDesc(b);
   const due = isRetroDue(b);
-  const fntag = bFN(b) ? `<span class="bptag bptag-fn">${bFN(b)}</span>` : '';
-  const gtags = parseTags(genre).map(g=>`<span class="bptag bptag-g">${g}</span>`).join('');
-  const mtags = ''; // mood removed
-  const ttags = parseTags(b.themes||'').map(t=>`<span class="bptag bptag-t">${t}</span>`).join('');
-  const ibadge = b.import_source==='goodreads'?'<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from Goodreads — rating converted from 5-star scale</span>':b.import_source==='storygraph'?'<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:2px 8px;border-radius:100px;display:inline-block;margin-bottom:10px">Imported from StoryGraph</span>':'';
+  const isReadingLayout = b.status === 'finished' || b.status === 'reading';
+
+  // Retro prompt (due for reflection)
+  const retroPrompt = due ? `<div class="retro-prompt" id="retro-prompt-box">
+    <div class="retro-prompt-head"><span class="retro-prompt-icon">✦</span><div class="retro-prompt-title">Time for a retrospective</div></div>
+    <div class="retro-prompt-sub">It's been ${getReflectWaitMonths() < 12 ? getReflectWaitMonths() + ' months' : 'a year'} since you finished <em>${title}</em>. How do you feel about it now?</div>
+    <div class="retro-form">
+      <div class="retro-rating-row">
+        <span class="retro-rating-label">Retrospective rating</span>
+        <input class="retro-rating-input" type="number" id="retro-rating-inp" min="1" max="10" placeholder="1–10" value="${b.rating||''}">
+        <span style="font-size:12px;color:var(--tx1)">out of 10</span>
+      </div>
+      <textarea class="retro-textarea" id="retro-thoughts-inp" placeholder="What do you remember? Has your opinion changed?">${b.retro_thoughts||''}</textarea>
+      <button class="retro-save-btn" onclick="saveRetro('${b.id}')">Save reflection</button>
+    </div>
+  </div>` : '';
+
+  // TBR extra buttons
+  const tbrBtns = b.status === 'tbr' ? `<div class="bp-add-btns" style="margin-top:12px">
+    <button class="bp-add-btn bp-add-btn-reading" onclick="quickStatusChange('${b.id}','reading')">Currently reading</button>
+    <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${b.isbn||''}','${b.ol_key||''}','${title.replace(/'/g,"\'")}','${author.replace(/'/g,"\'")}',null,null,'${b.id}')">Mark as finished</button>
+  </div>` : '';
+
+  // Left column content depends on status
+  const leftCol = isReadingLayout
+    ? `${bpDesc(desc, b.id)}${bpInitialThoughts(b.notes)}${bpRetro(b)}${bpAI(b.id, true)}`
+    : `${bpDesc(desc, b.id)}${bpAI(b.id, true)}`;
 
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
@@ -1472,71 +1612,24 @@ async function openBookPage(bookId) {
       <button class="bp-remove-btn" onclick="openDel('${b.id}')">Remove</button>
       <button class="bp-refresh-btn" onclick="refreshBookMeta('${b.id}')" title="Refresh cover and metadata">↻</button>
     </div>
-    ${ibadge}
-    ${due?`<div class="retro-prompt" id="retro-prompt-box">
-      <div class="retro-prompt-head"><span class="retro-prompt-icon">✦</span><div class="retro-prompt-title">Time for a retrospective</div></div>
-      <div class="retro-prompt-sub">It's been a year since you finished <em>${title}</em>. How do you feel about it now?</div>
-      <div class="retro-form">
-        <div class="retro-rating-row">
-          <span class="retro-rating-label">Retrospective rating</span>
-          <input class="retro-rating-input" type="number" id="retro-rating-inp" min="1" max="10" placeholder="1–10" value="${b.rating||''}">
-          <span style="font-size:12px;color:var(--tx1)">out of 10</span>
-        </div>
-        <textarea class="retro-textarea" id="retro-thoughts-inp" placeholder="What do you remember? Has your opinion changed?">${b.retro_thoughts||''}</textarea>
-        <button class="retro-save-btn" onclick="saveRetro('${b.id}')">Save reflection</button>
-      </div>
-    </div>`:''}
-    <div class="bp-hero">
-      <div class="bp-img">${coverLg?`<img src="${coverLg}" alt="${title}" loading="lazy">`:`<div class="bp-img-ph"><span>${title}</span></div>`}</div>
-      <div>
-        <div class="bp-title">${title}</div>
-        <div class="bp-author">${author}${year?' · '+year:''}</div>
-        <div class="bp-tags">${fntag}${gtags}</div>
-        <div class="bp-scores">
-          <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
-          <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages||'—'}</div></div>
-          <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${ppd||'—'}<span style="font-size:10px;opacity:.6">${ppd?' p/d':''}</span></div></div>
-        </div>
-        <div class="bp-ri">
-          ${b.start_date?`<div class="bp-ri-item"><div class="bp-ri-l">Started</div><div>${new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
-          ${b.end_date?`<div class="bp-ri-item"><div class="bp-ri-l">Finished</div><div>${new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>`:''}
-          ${days?`<div class="bp-ri-item"><div class="bp-ri-l">Duration</div><div>${days} days</div></div>`:''}
-        </div>
-      </div>
-    </div>
+    ${retroPrompt}
+    ${bpHero(b, tbrBtns)}
     <div class="bp-body">
-      <!-- LEFT: reading content -->
-      <div>
-        ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div>
-          <div id="desc-text-${b.id}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
-          ${desc.length>300?`<button onclick="var el=document.getElementById('desc-text-${b.id}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}
-        </div></div>`:''}
-        ${b.notes?`<div class="bpsec"><div class="bpsec-t">Initial thoughts</div><div style="margin-top:6px">${formatRetroThoughts(b.notes)}</div></div>`:''}
-        ${(b.retro_rating||b.retro_thoughts)?`<div class="bpsec">
-          <div class="retro-pill">Retrospective${b.retro_rating?' · '+b.retro_rating+'/10':''}</div>
-          ${b.retro_thoughts?`<div style="margin-top:10px">${formatRetroThoughts(b.retro_thoughts)}</div>`:''}
-        </div>`:''}
-        <div class="ai-sec">
-          <div class="ai-head"><div class="ai-t">AI analysis for you</div><button class="ai-btn" id="ai-gen-btn" onclick="genAnalysis('${b.id}')">✦ Generate analysis</button></div>
-          <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for a personalised take based on your reading history.</div></div>
-        </div>
-      </div>
-      <!-- RIGHT: always fixed sidebar -->
-      <div class="bp-sidebar">
-        <div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-        <div class="scard sim-sec">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div class="scard-t" style="margin:0">Similar books</div>
-            <button class="ai-btn" id="sim-btn" onclick="genSimilar('${b.id}')" style="background:var(--purple);padding:4px 10px;font-size:11px">✦ Find</button>
-          </div>
-          <div id="sim-result"><div style="font-size:12px;color:var(--tx1);font-style:italic">Click for AI recommendations.</div></div>
-        </div>
-        <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-        <div class="scard"><div class="scard-t">Books by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
-      </div>
+      <div class="bp-left">${leftCol}</div>
+      ${bpSidebar(b.id, !!b.series_name, authorLast)}
     </div>
   </div>`;
-  loadOLData(b); loadAlsoBy(b); loadSeriesSection(b);
+
+  // Load async data
+  loadAlsoBy(b);
+  if (b.series_name) loadSeriesSection(b);
+  // Restore cached AI analysis
+  const cached = getCachedAnalysis(b.id);
+  if (cached) {
+    document.getElementById('ai-result').innerHTML = cached;
+    const btn = document.getElementById('ai-gen-btn');
+    if (btn) { btn.disabled = false; btn.innerHTML = '✦ Regenerate'; }
+  }
 }
 
 function openBookModal() {
