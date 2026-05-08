@@ -1505,6 +1505,7 @@ async function openBookPage(bookId) {
       </div>
     </div>
     <div class="bp-body">
+      <!-- LEFT: reading content -->
       <div>
         ${desc?`<div class="bpsec"><div class="bpsec-t">About this book</div>
           <div id="desc-text-${b.id}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
@@ -1519,16 +1520,17 @@ async function openBookPage(bookId) {
           <div class="ai-head"><div class="ai-t">AI analysis for you</div><button class="ai-btn" id="ai-gen-btn" onclick="genAnalysis('${b.id}')">✦ Generate analysis</button></div>
           <div id="ai-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for a personalised take based on your reading history.</div></div>
         </div>
-        <div class="sim-sec">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div class="ai-t">Similar books you might enjoy</div>
-            <button class="ai-btn" id="sim-btn" onclick="genSimilar('${b.id}')" style="background:var(--purple)">✦ Find similar</button>
-          </div>
-          <div id="sim-result"><div style="font-size:13px;color:var(--tx1);font-style:italic">Click for AI-curated recommendations.</div></div>
-        </div>
       </div>
-      <div>
+      <!-- RIGHT: always fixed sidebar -->
+      <div class="bp-sidebar">
         <div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+        <div class="scard sim-sec">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="scard-t" style="margin:0">Similar books</div>
+            <button class="ai-btn" id="sim-btn" onclick="genSimilar('${b.id}')" style="background:var(--purple);padding:4px 10px;font-size:11px">✦ Find</button>
+          </div>
+          <div id="sim-result"><div style="font-size:12px;color:var(--tx1);font-style:italic">Click for AI recommendations.</div></div>
+        </div>
         <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
         <div class="scard"><div class="scard-t">Books by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
       </div>
