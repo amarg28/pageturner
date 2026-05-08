@@ -1528,7 +1528,6 @@ async function openBookPage(bookId) {
         </div>
       </div>
       <div>
-        ${b.series_name||b.ol_key?`<div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>`:''}
         <div class="scard"><div class="scard-t">Series</div><div id="series-section"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
         <div class="scard"><div class="scard-t">Open Library data</div><div id="ol-data"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
         <div class="scard"><div class="scard-t">Books by ${author.split(' ').slice(-1)[0]}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
@@ -1536,7 +1535,6 @@ async function openBookPage(bookId) {
     </div>
   </div>`;
   loadOLData(b); loadAlsoBy(b); loadSeriesSection(b);
-  if (b.series_name || b.ol_key) loadSeriesSection(b, 'series-section');
 }
 
 function openBookModal() {
@@ -1629,14 +1627,14 @@ async function loadSeriesSection(b) {
         ? `<img src="${cover}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`
         : `<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--tx2)">${lb.series_number||'?'}</div>`;
       const ratingHtml = lb.rating ? toStars(lb.rating) : 'In library';
-      const thisLabel = isCurrent ? '<div style="font-size:10px;color:var(--amber);flex-shrink:0;align-self:center">← this</div>' : '';
-      const bg = isCurrent ? 'var(--amber-l)' : '';
+      const thisLabel = isCurrent ? '<div style="font-size:10px;color:#fff;flex-shrink:0;align-self:center;font-weight:500">← you are here</div>' : '';
+      const bg = isCurrent ? 'var(--amber)' : '';
       const click = isCurrent ? '' : `closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),50)`;
       return `<div style="display:flex;gap:9px;padding:7px 6px;border-bottom:0.5px solid var(--bd);cursor:${isCurrent?'default':'pointer'};border-radius:var(--r);background:${bg}" onclick="${click}">
         ${coverHtml}
         <div style="flex:1;min-width:0">
-          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3;color:var(--tx0)">${lb.series_number?'#'+lb.series_number+' ':''}${bTitle(lb)}</div>
-          <div style="font-size:10px;margin-top:2px;color:${lb.rating?'var(--amber)':'var(--tx2)'}">${ratingHtml}</div>
+          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3;color:${isCurrent?'#fff':'var(--tx0)'}">${lb.series_number?'#'+lb.series_number+' ':''}${bTitle(lb)}</div>
+          <div style="font-size:10px;margin-top:2px;color:${isCurrent?'rgba(255,255,255,.8)':lb.rating?'var(--amber)':'var(--tx2)'}">${ratingHtml}</div>
         </div>
         ${thisLabel}
       </div>`;
@@ -1666,7 +1664,7 @@ async function saveSeriesEdit(bookId) {
   await saveBook(b);
   document.getElementById('del-modal').classList.remove('on');
   // Reload the series section
-  loadSeriesSection(b, 'series-section');
+  loadSeriesSection(b);
 }
 
 async function refreshBookMeta(bookId) {
