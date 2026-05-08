@@ -853,7 +853,7 @@ function renderRetroDue() {
           <div>
             <div class="retro-due-title">${bTitle(b)}</div>
             <div class="retro-due-author">${bAuthor(b)}</div>
-            <div class="retro-due-info">Rated ${b.rating}/10 · ${txt}</div>
+            <div class="retro-due-info">${toStars(b.rating)} · ${txt}</div>
           </div>
         </div>`;
       }).join('')}
@@ -1584,7 +1584,7 @@ async function saveRetro(bookId) {
   b.retro_thoughts = document.getElementById('retro-thoughts-inp').value.trim();
   await saveBook(b);
   document.getElementById('retro-prompt-box').innerHTML =
-    `<div style="padding:14px;font-size:13px;color:var(--teal);background:var(--teal-l);border-radius:var(--rl)">✓ Reflection saved. Retrospective rating: ${b.retro_rating}/10</div>`;
+    `<div style="padding:14px;font-size:13px;color:var(--teal);background:var(--bg2);border:0.5px solid var(--teal);border-radius:var(--rl)">✓ Reflection saved. Retrospective rating: ${b.retro_rating}/10</div>`;
   chartsDrawn=false; renderRetroDue(); renderBooks();
 }
 
@@ -1827,7 +1827,7 @@ async function genAnalysis(bookId) {
     const text = await callClaude(`Based on this reader's history, will they enjoy "${bTitle(b)}" by ${bAuthor(b)}?\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)}\nDescription:${bDesc(b)||'N/A'}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
     const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
     const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
-    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
+    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span style="color:var(--amber)">${toStars(parseFloat(pred[1]))}</span></div>`:''}
        <div style="font-size:14px;line-height:1.7;font-family:Georgia,serif">${analysis.replace(/\n/g,'<br>')}</div>`;
     document.getElementById('ai-result').innerHTML = html;
     setCachedAnalysis(bookId, html);
@@ -1852,7 +1852,7 @@ async function genUnreadAnalysis(olKey, title, author) {
     const text = await callClaude(`Based on this reader's history, will they enjoy "${title}" by ${author}?\nHistory:\n${booksCtxStr()}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
     const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
     const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
-    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span class="ai-pred-n">${parseFloat(pred[1])}</span><span style="opacity:.6">/10</span><span style="color:var(--amber);margin-left:4px">${toStars(parseFloat(pred[1]))}</span></div>`:''}
+    const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span style="color:var(--amber)">${toStars(parseFloat(pred[1]))}</span></div>`:''}
        <div style="font-size:14px;line-height:1.7;font-family:Georgia,serif">${analysis.replace(/\n/g,'<br>')}</div>`;
     document.getElementById('ai-result').innerHTML = html;
     setCachedAnalysis(cacheKey, html);
@@ -3204,7 +3204,7 @@ function showToast(msg, duration=2000) {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'pt-toast';
-    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--tx0);color:#fff;padding:9px 18px;border-radius:100px;font-size:13px;font-family:"DM Sans",sans-serif;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#ffffff;padding:9px 18px;border-radius:100px;font-size:13px;font-family:"DM Sans",sans-serif;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)';
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
