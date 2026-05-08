@@ -1101,8 +1101,8 @@ function renderBooks() {
         const due = isRetroDue(b);
         const startDate = b.start_date ? new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
         const endDate   = b.end_date   ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
-        const ratingCol = b.rating ? `<span style="color:${b.rating>=8?'var(--teal)':b.rating>=6?'var(--amber)':'var(--coral)'};font-weight:500">${b.rating}/10</span><div style="font-size:10px;color:var(--amber)">${toStars(b.rating)}</div>` : '—';
-        const retroCol  = b.retro_rating ? `<span style="font-weight:500">${b.retro_rating}/10</span><div style="font-size:10px;color:var(--amber)">${toStars(b.retro_rating)}</div>` : '—';
+        const ratingCol = b.rating ? `<span style="color:var(--amber)">${toStars(b.rating)}</span>` : '—';
+        const retroCol  = b.retro_rating ? `<span style="color:var(--amber)">${toStars(b.retro_rating)}</span>` : '—';
         const genreList = bGenre(b).split(',').slice(0,3).map(g=>g.trim()).filter(Boolean).map(g=>`<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:1px 6px;border-radius:100px;display:inline-block;margin:1px">${g}</span>`).join('');
         return `<tr onclick="openBookPage('${b.id}')" class="list-row">
           <td><span class="list-title">${bTitle(b)}${due?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:6px;vertical-align:middle" title="Due for reflection"></span>':''}</span></td>
@@ -1123,24 +1123,23 @@ function renderBooks() {
     shelf.innerHTML = list.map(b => {
       const cover = bCover(b);
       const due = isRetroDue(b);
-      const iflag = b.import_source==='goodreads'?`<span class="import-flag" style="background:var(--amber-l);color:var(--amber)">GR</span>`:b.import_source==='storygraph'?`<span class="import-flag" style="background:var(--purple-l);color:var(--purple)">SG</span>`:'';
+      const iflag = ''; // import source labels removed
       const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
       return `<div class="book-card">
         ${due?'<div class="retro-due-dot" title="Due for reflection"></div>':''}
         <div class="card-acts">
           <button class="cact cact-edit" onclick="event.stopPropagation();openEdit('${b.id}')" title="Edit">✎</button>
-          <button class="cact cact-del" onclick="event.stopPropagation();openDel('${b.id}')" title="Delete">✕</button>
         </div>
         <div class="cover-wrap" onclick="openBookPage('${b.id}')">
           ${cover?`<img src="${cover}" style="width:100%;height:100%;object-fit:cover;display:block" alt="${bTitle(b)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}<div class="cover-ph"${cover?' style="display:none"':''}><span>${bTitle(b)}</span></div>
-          <div class="rpip ${pipC(b.rating)}">${b.rating||'—'}</div>
+          <div class="rpip ${pipC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div>
         </div>
         <div onclick="openBookPage('${b.id}')">
           <div class="card-title">${bTitle(b)}${iflag}</div>
           <div class="card-author">${bAuthor(b)}</div>
           ${bFN(b)?`<span class="card-fn-tag">${bFN(b)}</span>`:''}
           ${b.series_name?`<div style="font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.series_name}${b.series_number?' #'+b.series_number:''}</div>`:''}
-          ${b.rating?`<div class="card-stars">${toStars(b.rating)}</div>`:''}
+
           ${date?`<div class="card-date">${date}</div>`:''}
         </div>
       </div>`;
@@ -1377,16 +1376,15 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
       </div>
       <div class="fgrid">
         <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="af-rating" min="1" max="10" placeholder="e.g. 8"></div>
-        <div class="fg"><label class="fl">Format</label>
-          <select class="fi" id="af-format">
-            <option>Print</option><option>Paperback</option><option>Hardcover</option><option>EBook</option><option>Audiobook</option>
-          </select>
+        <div class="fg"><label class="fl">Fiction / Nonfiction</label>
+          <select class="fi" id="af-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
         </div>
         <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="af-start"></div>
         <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="af-end"></div>
+        <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="af-series-name" placeholder="e.g. The Broken Earth" autocomplete="off"></div>
+        <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="af-series-num" min="1" step="0.5" placeholder="e.g. 1"></div>
       </div>
-      <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Mood</div>${buildTagInput('af-mood','','mood',MOODS)}</div>
-      <div style="margin-bottom:14px"><div class="fl" style="margin-bottom:5px">Themes</div>${buildTagInput('af-themes','','theme',THEMES)}</div>
+      <div style="margin:12px 0 8px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('af-genre','')}</div>
       <div class="fg full" style="margin-bottom:10px">
         <label class="fl" style="margin-bottom:10px">Initial thoughts</label>
         ${INITIAL_PROMPTS.map(p=>`<div class="fg full" style="margin-bottom:10px">
@@ -1421,9 +1419,11 @@ async function submitAddFinished(isbn, olKey, title, author, coverId) {
       const v = document.getElementById('af-ip-'+p.id)?.value.trim();
       return v ? p.q+'\n'+v : '';
     }).filter(Boolean).join('\n\n'),
+    fiction_nonfiction: document.getElementById('af-fn')?.value||null,
+    series_name: document.getElementById('af-series-name')?.value.trim()||null,
+    series_number: parseFloat(document.getElementById('af-series-num')?.value)||null,
     retro_thoughts: '',
-    mood: getTagVal('af-mood'),
-    themes: getTagVal('af-themes'),
+    mood: '', themes: '',
     manual_title: title||null, manual_author: author||null,
     import_source: ''
   };
@@ -1493,7 +1493,7 @@ async function openBookPage(bookId) {
         <div class="bp-author">${author}${year?' · '+year:''}</div>
         <div class="bp-tags">${fntag}${gtags}</div>
         <div class="bp-scores">
-          <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating||'—'}<span style="font-size:12px;opacity:.6">${b.rating?'/10':''}</span></div>${b.rating?`<div class="bps-stars">${toStars(b.rating)}</div>`:''}</div>
+          <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
           <div class="bps"><div class="bps-l">Pages</div><div class="bps-v">${pages||'—'}</div></div>
           <div class="bps"><div class="bps-l">Pace</div><div class="bps-v">${ppd||'—'}<span style="font-size:10px;opacity:.6">${ppd?' p/d':''}</span></div></div>
         </div>
@@ -1604,81 +1604,43 @@ async function fetchSeriesFromOL(olKey) {
   } catch(e) { return null; }
 }
 
-async function loadSeriesSection(b, containerId) {
-  const el = document.getElementById(containerId);
+async function loadSeriesSection(b) {
+  const el = document.getElementById('series-section');
   if (!el) return;
 
-  const olKey = b.ol_key;
-  const seriesName = bSeriesName(b);
+  const seriesName = b.series_name;
 
-  // Try to get series from OL if we don't have it stored
-  let series = null;
-  if (seriesName) {
-    series = { name: seriesName, number: bSeriesNumber(b) };
-  } else if (olKey) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Loading series info…</div>';
-    series = await fetchSeriesFromOL(olKey);
-    if (series && !b.series_name) {
-      // Auto-save the series data
-      b.series_name = series.name;
-      b.series_number = series.number;
-      await saveBook(b);
-    }
-  }
-
-  if (!series) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Not part of a series, or series data unavailable.</div>';
+  if (!seriesName) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--tx1)">Not part of a series.<br><span style="font-size:11px;color:var(--tx2)">Add series info via Edit.</span></div>`;
     return;
   }
 
-  // Find all books in same series in library
-  const inLib = books.filter(x => x.series_name && x.series_name.toLowerCase() === series.name.toLowerCase())
-    .sort((a,b) => (a.series_number||999) - (b.series_number||999));
+  // Only show books the user has explicitly connected — no OL suggestions
+  const seriesBooks = books
+    .filter(x => x.series_name && x.series_name.toLowerCase() === seriesName.toLowerCase())
+    .sort((a, b) => (a.series_number||999) - (b.series_number||999));
 
-  // Search OL for all books in this series
-  el.innerHTML = '<div style="font-size:12px;color:var(--tx1)">Loading series books…</div>';
-  let seriesBooks = [];
-  try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(series.name)}&fields=key,title,author_name,cover_i,first_publish_year&limit=12`);
-    const d = await r.json();
-    // Filter to likely series books
-    seriesBooks = (d.docs||[]).filter(x =>
-      x.title.toLowerCase().includes(series.name.toLowerCase().split(' ')[0]) ||
-      series.name.toLowerCase().includes(x.title.toLowerCase().split(' ')[0])
-    ).slice(0, 8);
-  } catch(e) {}
-
-  // Render series header + book list
   el.innerHTML = `
-    <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:4px">${series.name}</div>
-    ${series.number ? `<div style="font-size:11px;color:var(--tx2);margin-bottom:12px">This is book ${series.number} in the series</div>` : '<div style="margin-bottom:12px"></div>'}
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${inLib.map(sb => `
-        <div style="display:flex;gap:10px;align-items:center;padding:8px;border:0.5px solid var(--teal-l);border-radius:var(--r);background:var(--teal-l);cursor:pointer" onclick="closeBookModal();setTimeout(()=>openBookPage('${sb.id}'),50)">
-          ${bCover(sb) ? `<img src="${bCover(sb)}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0">` : `<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11px;color:var(--tx2)">${sb.series_number ? 'Book '+sb.series_number : ''}</div>
-            <div style="font-family:'Lora',serif;font-size:12px;font-weight:500">${bTitle(sb)}</div>
-            ${sb.rating ? `<div style="font-size:10px;color:var(--teal)">${toStars(sb.rating)} ${sb.rating}/10</div>` : ''}
-          </div>
-          <div style="font-size:10px;color:var(--teal);flex-shrink:0">In library</div>
-        </div>`).join('')}
-      ${seriesBooks.filter(sb => !inLib.find(x => bTitle(x).toLowerCase() === sb.title.toLowerCase())).map(sb => {
-        const olData = {key:sb.key,title:sb.title,author_name:sb.author_name,cover_i:sb.cover_i,first_publish_year:sb.first_publish_year};
-        const idx = window._seriesBooks ? window._seriesBooks.length : 0;
-        if (!window._seriesBooks) window._seriesBooks = [];
-        window._seriesBooks.push(olData);
-        return `<div style="display:flex;gap:10px;align-items:center;padding:8px;border:0.5px solid var(--bd);border-radius:var(--r);cursor:pointer" onclick="openUnreadBookPage(window._seriesBooks[${idx}])" onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
-          ${sb.cover_i ? `<img src="${cUrl(sb.cover_i,'S')}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy">` : `<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Lora',serif;font-size:12px;font-weight:500">${sb.title}</div>
-            <div style="font-size:10px;color:var(--tx2)">${sb.first_publish_year||''}</div>
-          </div>
-          <button onclick="event.stopPropagation();quickAddBook('tbr','','${sb.key||''}','${sb.title.replace(/'/g,"\'")}','${(sb.author_name||[])[0]?.replace(/'/g,"\'")||''}')" style="font-size:10px;padding:3px 8px;background:var(--purple-l);color:var(--purple);border:none;border-radius:100px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0">+ TBR</button>
-        </div>`;
-      }).join('')}
-    </div>
-    <button onclick="openEditSeriesModal('${b.id}')" style="margin-top:10px;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif">Edit series info</button>`;
+    <div style="font-size:11px;font-weight:500;color:var(--amber);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${seriesName}</div>
+    ${seriesBooks.map(lb => {
+      const isCurrent = lb.id === b.id;
+      const cover = bCover(lb);
+      const coverHtml = cover
+        ? `<img src="${cover}" style="width:26px;height:39px;object-fit:cover;border-radius:3px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`
+        : `<div style="width:26px;height:39px;background:var(--bg2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--tx2)">${lb.series_number||'?'}</div>`;
+      const ratingHtml = lb.rating ? toStars(lb.rating) : 'In library';
+      const thisLabel = isCurrent ? '<div style="font-size:10px;color:var(--amber);flex-shrink:0;align-self:center">← this</div>' : '';
+      const bg = isCurrent ? 'var(--amber-l)' : '';
+      const click = isCurrent ? '' : `closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),50)`;
+      return `<div style="display:flex;gap:9px;padding:7px 6px;border-bottom:0.5px solid var(--bd);cursor:${isCurrent?'default':'pointer'};border-radius:var(--r);background:${bg}" onclick="${click}">
+        ${coverHtml}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3;color:var(--tx0)">${lb.series_number?'#'+lb.series_number+' ':''}${bTitle(lb)}</div>
+          <div style="font-size:10px;margin-top:2px;color:${lb.rating?'var(--amber)':'var(--tx2)'}">${ratingHtml}</div>
+        </div>
+        ${thisLabel}
+      </div>`;
+    }).join('')}`;
 }
 
 function openEditSeriesModal(bookId) {
@@ -1964,8 +1926,7 @@ function openEdit(bookId) {
       <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="e-series-num" min="1" step="0.5" placeholder="e.g. 1" value="${b.series_number||''}"></div>
     </div>
     <div class="fgrid" style="margin-bottom:12px">
-      <div class="fg full"><label class="fl">Series name</label><input class="fi" id="e-series-name" value="${b.series_name||''}" placeholder="e.g. The Broken Earth" autocomplete="off"></div>
-      <div class="fg"><label class="fl">Book number in series</label><input class="fi" type="number" id="e-series-num" value="${b.series_number||''}" placeholder="e.g. 1"></div>
+
     </div>
     <div style="margin-bottom:12px"><div class="fl" style="margin-bottom:5px">Genre</div>${buildGenreInput('e-genre', bGenre(b))}</div>
     <div class="fg full" style="margin-bottom:10px">
