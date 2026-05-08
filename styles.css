@@ -336,6 +336,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .bp-ri-item{display:flex;flex-direction:column;gap:2px}
 .bp-ri-l{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2)}
 .bp-body{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start}
+.bp-sidebar{display:flex;flex-direction:column;gap:0;position:sticky;top:0}
 .bpsec{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:18px;margin-bottom:13px}
 .bpsec-t{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:9px}
 .retro-pill{font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 9px;border-radius:100px;display:inline-block;margin-bottom:7px;font-weight:500}
