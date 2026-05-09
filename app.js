@@ -913,10 +913,16 @@ function renderCRTBR() {
   // ── TBR box ──────────────────────────────────────────────────────────────
   const tbrHtml = tbr.length ? `
     <div class="crbox crbox-tbr" style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <div class="crbox-label">To be read</div>
         <span style="font-size:10px;color:var(--amber);opacity:.7">${tbr.length} books</span>
         ${tbr.length > MAX_TBR ? `<button onclick="openTBRModal()" class="crbox-viewall">View all →</button>` : ''}
+        <select class="tbr-sort-sel" onchange="setTbrSort(this.value);renderCRTBR()" style="margin-left:auto">
+          <option value="added" ${tbrSort==='added'?'selected':''}>Recent</option>
+          <option value="title" ${tbrSort==='title'?'selected':''}>A–Z</option>
+          <option value="author" ${tbrSort==='author'?'selected':''}>Author</option>
+          <option value="random" ${tbrSort==='random'?'selected':''}>🎲</option>
+        </select>
       </div>
       <div class="crbox-books">
         ${tbr.slice(0, MAX_TBR).map((b, i) => {
@@ -966,7 +972,10 @@ function openCRModal() {
 }
 
 function openTBRModal() {
-  const tbr = books.filter(b => b.status === 'tbr');
+  let tbr = books.filter(b => b.status === 'tbr');
+  if (tbrSort === 'title') tbr.sort((a,b) => bTitle(a).localeCompare(bTitle(b)));
+  else if (tbrSort === 'author') tbr.sort((a,b) => bAuthor(a).localeCompare(bAuthor(b)));
+  else if (tbrSort === 'random') tbr = [...tbr].sort(() => Math.random() - 0.5);
   document.getElementById('del-body').innerHTML = `
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
     <div class="modal-title">To be read (${tbr.length})</div>
@@ -1523,11 +1532,13 @@ function bpHero(b, extraBtns) {
 
 // ── SHARED: render description with read more ────────────────────────────
 function bpDesc(desc, bookId) {
-  if (!desc) return '';
+  const body = desc
+    ? `<div id="desc-text-${bookId}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
+       ${desc.length > 300 ? `<button onclick="var el=document.getElementById('desc-text-${bookId}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>` : ''}`
+    : `<div style="font-size:13px;color:var(--tx2);font-style:italic">No description available.</div>`;
   return `<div class="bpsec">
     <div class="bpsec-t">About this book</div>
-    <div id="desc-text-${bookId}" style="font-size:14px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${desc}</div>
-    ${desc.length > 300 ? `<button onclick="var el=document.getElementById('desc-text-${bookId}');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>` : ''}
+    ${body}
   </div>`;
 }
 
