@@ -913,16 +913,10 @@ function renderCRTBR() {
   // ── TBR box ──────────────────────────────────────────────────────────────
   const tbrHtml = tbr.length ? `
     <div class="crbox crbox-tbr" style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
         <div class="crbox-label">To be read</div>
         <span style="font-size:10px;color:var(--amber);opacity:.7">${tbr.length} books</span>
         ${tbr.length > MAX_TBR ? `<button onclick="openTBRModal()" class="crbox-viewall">View all →</button>` : ''}
-        <select class="tbr-sort-sel" onchange="setTbrSort(this.value);renderCRTBR()" style="margin-left:auto">
-          <option value="added" ${tbrSort==='added'?'selected':''}>Recent</option>
-          <option value="title" ${tbrSort==='title'?'selected':''}>A–Z</option>
-          <option value="author" ${tbrSort==='author'?'selected':''}>Author</option>
-          <option value="random" ${tbrSort==='random'?'selected':''}>🎲</option>
-        </select>
       </div>
       <div class="crbox-books">
         ${tbr.slice(0, MAX_TBR).map((b, i) => {
@@ -978,7 +972,15 @@ function openTBRModal() {
   else if (tbrSort === 'random') tbr = [...tbr].sort(() => Math.random() - 0.5);
   document.getElementById('del-body').innerHTML = `
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
-    <div class="modal-title">To be read (${tbr.length})</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" style="margin:0">To be read (${tbr.length})</div>
+      <select class="tbr-sort-sel" onchange="setTbrSort(this.value);openTBRModal()">
+        <option value="added" ${tbrSort==='added'?'selected':''}>Recently added</option>
+        <option value="title" ${tbrSort==='title'?'selected':''}>Title A–Z</option>
+        <option value="author" ${tbrSort==='author'?'selected':''}>Author A–Z</option>
+        <option value="random" ${tbrSort==='random'?'selected':''}>Surprise me 🎲</option>
+      </select>
+    </div>
     <div style="max-height:60vh;overflow-y:auto">
       ${tbr.map(b => {
         const cover = bCover(b);
