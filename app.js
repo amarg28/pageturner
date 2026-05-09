@@ -1233,7 +1233,7 @@ async function doGsearch(q) {
           <div class="gsearch-result-title">${res.title}</div>
           <div class="gsearch-result-author">${author}</div>
           <div class="gsearch-result-meta">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
-          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+inLib.rating+'/10':''}</div>`:''}
+          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
         </div>
       </div>`;
     }).join('');
@@ -1849,7 +1849,7 @@ async function loadAlsoBy(b) {
         <div style="flex:1;min-width:0">
           <div style="font-family:'Lora',serif;font-size:12px;font-weight:500;line-height:1.3">${w.title}</div>
           ${w.first_publish_year?`<div style="font-size:10px;color:var(--tx2);margin-top:1px">${w.first_publish_year}</div>`:''}
-          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">In library · ${inLib.rating}/10</div>`:`<div style="font-size:10px;color:var(--amber);margin-top:2px">Tap to view →</div>`}
+          ${inLib?`<div style="font-size:10px;background:var(--teal-l);color:var(--teal);padding:1px 5px;border-radius:100px;display:inline-block;margin-top:2px">${inLib.rating ? 'In library · '+toStars(inLib.rating) : 'In library'}</div>`:`<div style="font-size:10px;color:var(--amber);margin-top:2px">Tap to view →</div>`}
         </div>
       </div>`;
     }).join('');
@@ -1992,7 +1992,7 @@ async function genSimilar(bookId) {
         const olData={key:doc.key,title:rec.title,author_name:[rec.author],cover_i:doc.cover_i,first_publish_year:doc.first_publish_year,isbn:doc.isbn};
         card.onclick=()=>openUnreadBookPage(olData);
       }
-      const clickHint = inLib ? `<span class="sim-inlib">In library · ${inLib.rating}/10</span>` : `<span style="font-size:10px;color:var(--amber)">Tap to explore →</span>`;
+      const clickHint = inLib ? `<span class="sim-inlib">In library · ${toStars(inLib.rating)}</span>` : `<span style="font-size:10px;color:var(--amber)">Tap to explore →</span>`;
       card.innerHTML=`${coverUrl?`<img class="sim-cover" src="${coverUrl}" alt="" loading="lazy">`:`<div class="sim-cover-ph">📖</div>`}<div style="flex:1;min-width:0"><div style="font-family:'Lora',serif;font-size:13px;font-weight:500;margin-bottom:2px">${rec.title}</div><div style="font-size:11px;color:var(--tx1);margin-bottom:3px">${rec.author}</div><div style="font-size:11px;color:var(--tx2);line-height:1.4">${rec.reason}</div>${clickHint}</div>`;
       document.getElementById('sim-list')?.appendChild(card);
     }
@@ -2403,7 +2403,7 @@ function showImportPreview(parsed,platform){
         <tbody>${parsed.slice(0,50).map(b=>{
           const cls=b._isDupe?'ip-dupe':b.status==='reading'?'ip-read':b.status==='tbr'?'ip-tbr':b._ratingConverted?'ip-conv':'ip-fin';
           const dates=[b.start_date,b.end_date].filter(Boolean).join(' → ');
-          return`<tr class="${cls}" style="${b._isDupe?'opacity:.5':''}"><td>${b.manual_title||'—'}</td><td>${b.manual_author||'—'}</td><td>${b.rating?b.rating+'/10':'—'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td><td style="font-size:11px">${dates||'—'}</td><td style="font-size:11px;color:var(--amber)">${b._isDupe?'Already in library':''}</td></tr>`;
+          return`<tr class="${cls}" style="${b._isDupe?'opacity:.5':''}"><td>${b.manual_title||'—'}</td><td>${b.manual_author||'—'}</td><td>${b.rating?toStars(b.rating):'—'}</td><td>${b.status==='reading'?'Reading':b.status==='tbr'?'TBR':'Finished'}</td><td style="font-size:11px">${dates||'—'}</td><td style="font-size:11px;color:var(--amber)">${b._isDupe?'Already in library':''}</td></tr>`;
         }).join('')}${parsed.length>50?`<tr><td colspan="6" style="text-align:center;color:var(--tx1);padding:10px">…and ${parsed.length-50} more</td></tr>`:''}</tbody>
       </table>
     </div>
@@ -2544,7 +2544,7 @@ function renderDiscoverSeries() {
         <div class="series-card-header">
           <div>
             <div class="series-card-name">${name}</div>
-            <div class="series-card-meta">${finished} book${finished!==1?'s':''} read${sBooks.filter(b=>b.rating>0).length?` · avg ${avgRating.toFixed(1)}/10`:''}</div>
+            <div class="series-card-meta">${finished} book${finished!==1?'s':''} read${sBooks.filter(b=>b.rating>0).length?` · avg ${toStars(Math.round(avgRating*2)/2)}`:''}</div>
           </div>
         </div>
         <div class="series-books-row">
@@ -2556,7 +2556,7 @@ function renderDiscoverSeries() {
                 ${cover?`<img src="${cover}" style="width:52px;height:78px;object-fit:cover;border-radius:5px;display:block;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:52px;height:78px;border-radius:5px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--tx2);text-align:center;padding:4px">📖</div>`}
                 ${b.series_number?`<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);background:var(--bg0);border:0.5px solid var(--bd);border-radius:100px;font-size:9px;font-weight:500;padding:1px 5px;white-space:nowrap">#${b.series_number}</div>`:''}
               </div>
-              <div style="margin-top:10px;font-size:10px;color:${statusColor};text-align:center">${b.status==='finished'?b.rating?b.rating+'/10':'✓':b.status==='reading'?'Reading':'TBR'}</div>
+              <div style="margin-top:10px;font-size:10px;color:${statusColor};text-align:center">${b.status==='finished'?b.rating?toStars(b.rating):'✓':b.status==='reading'?'Reading':'TBR'}</div>
             </div>`;
           }).join('')}
         </div>
@@ -2868,7 +2868,7 @@ async function doDiscoverSearch(q) {
           <div class="gsearch-result-title">${res.title}</div>
           <div class="gsearch-result-author">${author}</div>
           <div class="gsearch-result-meta">${res.first_publish_year||''}</div>
-          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+inLib.rating+'/10':''}</div>`:''}
+          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
         </div>
       </div>`;
     }).join('');
@@ -3100,7 +3100,7 @@ async function saveReflection(bookId) {
     card.innerHTML=`<div style="display:flex;align-items:center;gap:12px;padding:4px 0">
       <div style="font-size:24px">✓</div>
       <div><div style="font-family:'Lora',serif;font-size:15px;font-weight:500;margin-bottom:3px">${bTitle(b)}</div>
-      <div style="font-size:13px;color:var(--teal)">Reflection saved${rating?' · '+rating+'/10':''}</div></div>
+      <div style="font-size:13px;color:var(--teal)">Reflection saved${rating?' · '+toStars(parseFloat(rating)):''}</div></div>
     </div>`;
   }
   chartsDrawn=false;
