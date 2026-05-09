@@ -877,3 +877,6 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* ── FICTION/NONFICTION TAG ────────────────────────────────────────────── */
 .bptag-fn{background:var(--purple);color:#fff;border-color:var(--purple)}
 .card-fn-tag{display:inline-block;font-size:9px;font-weight:500;background:var(--purple);color:#fff;padding:1px 6px;border-radius:100px;margin-top:3px;margin-right:3px;vertical-align:middle}
+
+/* ── TBR SORT ──────────────────────────────────────────────────────────── */
+.tbr-sort-sel{font-size:10px;padding:2px 6px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg1);color:var(--tx1);font-family:'DM Sans',sans-serif;cursor:pointer}
