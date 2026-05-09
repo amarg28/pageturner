@@ -44,7 +44,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .panel{display:none}.panel.on{display:block}
 
 /* ── TOPBAR ────────────────────────────────────────────────────────────── */
-.topbar{display:flex;align-items:center;gap:12px;padding:14px 0 12px;border-bottom:0.5px solid var(--bd);margin-bottom:24px;flex-wrap:wrap}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 28px 12px;border-bottom:0.5px solid var(--bd);margin-bottom:24px;flex-wrap:wrap;position:sticky;top:0;z-index:90;background:var(--bg0);margin-left:-28px;margin-right:-28px}
 .logo{font-family:'Lora',serif;font-size:20px;font-weight:400;letter-spacing:-.02em;cursor:pointer;flex-shrink:0}
 .logo em{font-style:italic;color:var(--amber)}
 
@@ -796,6 +796,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   /* ── BOOK MODAL ─────────────────────────────────────────────────────── */
   .book-modal-ov{padding:0;align-items:flex-end}
   .book-modal-inner{border-radius:20px 20px 0 0;max-width:100%;width:100%;margin:0;max-height:92vh;overflow-y:auto}
+  .bp-nav{padding-top:8px;margin-bottom:16px}
   .book-modal-close{width:44px;height:44px;font-size:22px;top:10px;right:10px}
   .book-modal-body{padding:20px 16px 32px}
   .bp-hero{flex-direction:column;gap:16px}
@@ -838,9 +839,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .import-grid{grid-template-columns:repeat(3,1fr)}
 
   /* ── CHAT ───────────────────────────────────────────────────────────── */
-  .chat-wrap{border-radius:var(--r)}
-  .bubble{font-size:14px}
-  .chat-book-tag{font-size:12px}
+  .chat-wrap{border-radius:var(--r);height:65vh}
+  .bubble{font-size:15px;line-height:1.7}
+  .chat-book-tag{font-size:13px}
+  .chat-msgs{flex:1;overflow-y:auto}
+  .chat-in-row{padding:10px 12px}
 
   /* ── ONBOARDING ─────────────────────────────────────────────────────── */
   .onboard-steps{grid-template-columns:1fr}
