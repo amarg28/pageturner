@@ -937,3 +937,8 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 #series-section{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
 #series-section::-webkit-scrollbar{width:3px}
 #series-section::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* ── DNF BOOKS ─────────────────────────────────────────────────────────── */
+.card-dnf-badge{display:inline-block;font-size:9px;font-weight:600;background:var(--coral);color:#fff;padding:1px 6px;border-radius:100px;margin-top:3px;letter-spacing:.03em}
+.book-card.dnf-card{opacity:.75}
+.book-card.dnf-card .cover-wrap{filter:grayscale(30%)}
