@@ -1721,7 +1721,7 @@ async function loadSeriesSection(b) {
 
   // Only show books the user has explicitly connected — no OL suggestions
   const seriesBooks = books
-    .filter(x => x.series_name && x.series_name.toLowerCase() === seriesName.toLowerCase())
+    .filter(x => x.series_name && x.series_name.trim().toLowerCase() === seriesName.trim().toLowerCase())
     .sort((a, b) => (a.series_number||999) - (b.series_number||999));
 
   el.innerHTML = `
@@ -2505,9 +2505,10 @@ function renderDiscoverSeries() {
   // Group library books by series
   const seriesMap = {};
   books.filter(b => b.series_name).forEach(b => {
-    const s = b.series_name;
-    if (!seriesMap[s]) seriesMap[s] = [];
-    seriesMap[s].push(b);
+    // Normalise key to lowercase for grouping, display original capitalisation
+    const key = b.series_name.trim().toLowerCase();
+    if (!seriesMap[key]) seriesMap[key] = { display: b.series_name.trim(), books: [] };
+    seriesMap[key].books.push(b);
   });
 
   if (!Object.keys(seriesMap).length) {
@@ -2516,8 +2517,8 @@ function renderDiscoverSeries() {
   }
 
   el.innerHTML = Object.entries(seriesMap)
-    .sort((a,b) => b[1].length - a[1].length)
-    .map(([name, sBooks]) => {
+    .sort((a,b) => b[1].books.length - a[1].books.length)
+    .map(([key, {display: name, books: sBooks}]) => {
       const sorted = sBooks.sort((a,b) => (a.series_number||0)-(b.series_number||0));
       const finished = sBooks.filter(b=>b.status==='finished').length;
       const avgRating = sBooks.filter(b=>b.rating>0).reduce((s,b)=>s+b.rating,0) / (sBooks.filter(b=>b.rating>0).length||1);
