@@ -3006,7 +3006,10 @@ function renderReflectJournal(done, el) {
         ${bks.map(b => {
           const cover = bCover(b);
           const ratingChange = b.retro_rating && b.rating ? b.retro_rating - b.rating : 0;
-          const changeStr = ratingChange > 0 ? `↑${ratingChange}` : ratingChange < 0 ? `↓${Math.abs(ratingChange)}` : '';
+          // Convert 10-point change to star display (divide by 2, show as fraction if needed)
+          const starChange = ratingChange / 2;
+          const starStr = Number.isInteger(starChange) ? String(starChange) : starChange.toFixed(1);
+          const changeStr = ratingChange > 0 ? `↑${starStr}★` : ratingChange < 0 ? `↓${starStr.replace('-','')}★` : '';
           const changeCol = ratingChange > 0 ? 'var(--teal)' : ratingChange < 0 ? 'var(--coral)' : 'var(--tx2)';
           const snippet = b.retro_thoughts
             ? b.retro_thoughts.split('\n').filter(l=>l.trim()&&!l.trim().endsWith('?'))[0]?.slice(0,120)
