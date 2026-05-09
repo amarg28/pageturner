@@ -1113,13 +1113,11 @@ function renderBooks() {
         const startDate = b.start_date ? new Date(b.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
         const endDate   = b.end_date   ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
         const ratingCol = b.rating ? `<span style="color:var(--amber)">${toStars(b.rating)}</span>` : '—';
-        const retroCol  = b.retro_rating ? `<span style="color:var(--amber)">${toStars(b.retro_rating)}</span>` : '—';
         const genreList = bGenre(b).split(',').slice(0,3).map(g=>g.trim()).filter(Boolean).map(g=>`<span style="font-size:10px;background:var(--purple-l);color:var(--purple);padding:1px 6px;border-radius:100px;display:inline-block;margin:1px">${g}</span>`).join('');
         return `<tr onclick="openBookPage('${b.id}')" class="list-row">
           <td><span class="list-title">${bTitle(b)}${due?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:6px;vertical-align:middle" title="Due for reflection"></span>':''}</span></td>
           <td style="color:var(--tx1)">${bAuthor(b)}</td>
           <td>${ratingCol}</td>
-          <td>${retroCol}</td>
           <td style="color:var(--tx1)">${bYear(b)||'—'}</td>
           <td style="color:var(--tx1)">${bPages(b)||'—'}</td>
           <td style="white-space:nowrap;color:var(--tx1)">${startDate}</td>
@@ -3089,7 +3087,6 @@ async function saveReflection(bookId) {
   chartsDrawn=false;
   renderRetroDue();
   renderBooks();
-  renderReflectTimeline();
 }
 
 function skipReflection(bookId) {
@@ -3420,7 +3417,7 @@ function showToast(msg, duration=2000) {
 function resetLibrary() {
   // Reset all filters and sort to defaults
   const gf = document.getElementById('gf');
-  const mf = document.getElementById('mf');
+  // mf (mood filter) removed
   const sortSel = document.getElementById('sort-sel');
   if (gf) gf.value = '';
   if (mf) mf.value = '';
