@@ -972,7 +972,7 @@ function openTBRModal() {
   else if (tbrSort === 'random') tbr = [...tbr].sort(() => Math.random() - 0.5);
   document.getElementById('del-body').innerHTML = `
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:32px">
       <div class="modal-title" style="margin:0">To be read (${tbr.length})</div>
       <select class="tbr-sort-sel" onchange="setTbrSort(this.value);openTBRModal()">
         <option value="added" ${tbrSort==='added'?'selected':''}>Recently added</option>
@@ -2901,72 +2901,165 @@ function openReflectFromLibrary(bookId) {
 }
 
 function renderReflect() {
-  renderReflectDue();
-  renderReflectTimeline();
+  renderReflectPage();
 }
 
-function renderReflectDue() {
-  const due = books.filter(isRetroDue);
+function renderReflectPage() {
   const sec = document.getElementById('reflect-due-section');
   const emptyEl = document.getElementById('reflect-empty');
+  const timelineSec = document.getElementById('reflect-timeline-section');
 
   if (!booksLoaded || books.length === 0) {
-    sec.innerHTML = '';
     if (emptyEl) {
       emptyEl.style.display = 'block';
       emptyEl.innerHTML = `<div class="reflect-empty">
         <div class="reflect-empty-icon">✦</div>
         <div style="font-weight:500;margin-bottom:8px">Your reflection journal is waiting</div>
-        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here once enough time has passed — you can set your preferred wait period in Settings.</div>
+        <div style="margin-bottom:16px">Once you've read and logged books, they'll appear here once enough time has passed.</div>
         <button class="btn-primary" onclick="go('discover')">Add your first book →</button>
       </div>`;
     }
+    sec.innerHTML = '';
+    if (timelineSec) timelineSec.innerHTML = '';
     return;
   }
-
   if (emptyEl) emptyEl.style.display = 'none';
 
+  const due = books.filter(isRetroDue);
+  const done = books.filter(b => b.status==='finished' && (b.retro_rating||b.retro_thoughts))
+    .sort((a,b) => new Date(b.end_date)-new Date(a.end_date));
+
+  // ── Due section ────────────────────────────────────────────────────────
   if (!due.length) {
-    sec.innerHTML = `<div class="reflect-empty"><div class="reflect-empty-icon">✦</div><div style="font-weight:500;margin-bottom:6px">No reflections due yet</div><div>Books appear here after your chosen wait period. You can adjust this in <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">Settings</button>.</div></div>`;
-    return;
+    sec.innerHTML = `<div class="reflect-none-due">
+      <span class="reflect-none-icon">✦</span>
+      <div>
+        <div style="font-weight:500;margin-bottom:3px">No reflections due</div>
+        <div style="font-size:13px;color:var(--tx2)">Books appear here after your chosen wait period — <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">adjust in Settings</button>.</div>
+      </div>
+    </div>`;
+  } else {
+    sec.innerHTML = `
+      <div class="reflect-due-label">Ready for reflection <span class="reflect-due-badge">${due.length}</span></div>
+      ${due.map(b => renderReflectCard(b)).join('')}`;
   }
-  sec.innerHTML = `
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:14px">Due for reflection <span style="background:var(--amber);color:#fff;padding:2px 8px;border-radius:100px;font-size:10px;margin-left:6px">${due.length}</span></div>
-    ${due.map(b => renderReflectCard(b)).join('')}`;
+
+  // ── Timeline / journal section ─────────────────────────────────────────
+  if (timelineSec) renderReflectJournal(done, timelineSec);
 }
 
 function renderReflectCard(b) {
   const cover = bCover(b);
   const yearAgo = new Date(b.end_date); yearAgo.setMonth(yearAgo.getMonth() + getReflectWaitMonths());
   const daysOver = Math.floor((new Date()-yearAgo)/86400000);
-  const when = daysOver<=7?'Just hit one year':`${Math.floor(daysOver/30)||1} month${Math.floor(daysOver/30)!==1?'s':''} ago`;
+  const months = Math.floor(daysOver/30);
+  const when = daysOver<=7 ? 'Just became due' : months < 1 ? 'This week' : `${months} month${months!==1?'s':''} ago`;
   return `<div class="reflect-due-card" id="reflect-card-${b.id}">
-    <div class="reflect-due-header">
-      ${cover?`<img class="reflect-due-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="reflect-due-cover-ph">📖</div>`}
-      <div style="flex:1">
-        <div class="reflect-due-title">${bTitle(b)}</div>
-        <div class="reflect-due-author">${bAuthor(b)}</div>
-        <div class="reflect-due-meta">Rated ${b.rating||'—'}/10 · Finished ${when}</div>
+    <div class="reflect-card-hero">
+      ${cover?`<img class="reflect-card-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="reflect-card-cover-ph">📖</div>`}
+      <div class="reflect-card-info">
+        <div class="reflect-card-title">${bTitle(b)}</div>
+        <div class="reflect-card-author">${bAuthor(b)}</div>
+        <div class="reflect-card-meta">${b.rating ? toStars(b.rating) : ''} · Finished ${when}</div>
       </div>
     </div>
     <div class="reflect-prompts">
       ${REFLECT_PROMPTS.map(p=>`
         <div class="reflect-prompt">
           <div class="reflect-prompt-q">${p.q}</div>
-          <textarea class="reflect-prompt-ta" id="rp-${b.id}-${p.id}" placeholder="Optional — answer as much or as little as you like…"></textarea>
+          <textarea class="reflect-prompt-ta" id="rp-${b.id}-${p.id}" placeholder="Take your time…"></textarea>
         </div>`).join('')}
     </div>
     <div class="reflect-rating-row">
       <span class="reflect-rating-label">Retrospective rating</span>
       <input class="reflect-rating-in" type="number" id="rr-${b.id}" min="1" max="10" placeholder="1–10" value="${b.rating||''}">
-      <span style="font-size:12px;color:var(--tx1)">/ 10</span>
-      <span style="font-size:11px;color:var(--tx2)">How do you feel about it now?</span>
+      <span style="font-size:12px;color:var(--tx2)">/ 10</span>
     </div>
-    <div class="form-acts" style="justify-content:flex-start;gap:8px">
+    <div class="reflect-card-acts">
       <button class="reflect-save-btn" onclick="saveReflection('${b.id}')">Save reflection</button>
       <button class="reflect-skip-btn" onclick="skipReflection('${b.id}')">Skip for now</button>
     </div>
   </div>`;
+}
+
+function renderReflectJournal(done, el) {
+  if (!done.length) { el.innerHTML = ''; return; }
+
+  // Group by year finished
+  const byYear = {};
+  done.forEach(b => {
+    const yr = b.end_date ? new Date(b.end_date).getFullYear() : 'Unknown';
+    if (!byYear[yr]) byYear[yr] = [];
+    byYear[yr].push(b);
+  });
+
+  el.innerHTML = `
+    <div class="reflect-journal-header">
+      <div class="reflect-journal-title">Your reflection journal</div>
+      <div class="reflect-journal-sub">${done.length} reflection${done.length!==1?'s':''} written</div>
+      <button class="reflect-insights-btn" id="reflect-insights-btn" onclick="genReflectInsights()">✦ Generate insights</button>
+    </div>
+    <div id="reflect-insights-result"></div>
+    ${Object.entries(byYear).sort((a,b)=>b[0]-a[0]).map(([yr,bks]) => `
+      <div class="reflect-year-group">
+        <div class="reflect-year-label">${yr}</div>
+        ${bks.map(b => {
+          const cover = bCover(b);
+          const ratingChange = b.retro_rating && b.rating ? b.retro_rating - b.rating : 0;
+          const changeStr = ratingChange > 0 ? `↑${ratingChange}` : ratingChange < 0 ? `↓${Math.abs(ratingChange)}` : '';
+          const changeCol = ratingChange > 0 ? 'var(--teal)' : ratingChange < 0 ? 'var(--coral)' : 'var(--tx2)';
+          const snippet = b.retro_thoughts
+            ? b.retro_thoughts.split('\n').filter(l=>l.trim()&&!l.trim().endsWith('?'))[0]?.slice(0,120)
+            : '';
+          return `<div class="reflect-journal-entry" onclick="openBookPage('${b.id}')">
+            <div class="reflect-journal-entry-left">
+              ${cover?`<img class="reflect-journal-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="reflect-journal-cover-ph">📖</div>`}
+            </div>
+            <div class="reflect-journal-entry-body">
+              <div class="reflect-journal-book">${bTitle(b)}</div>
+              <div class="reflect-journal-author">${bAuthor(b)}</div>
+              <div class="reflect-journal-ratings">
+                ${b.rating?`<span>${toStars(b.rating)}</span>`:''}
+                ${b.retro_rating?`<span class="reflect-journal-retro">${toStars(b.retro_rating)} retrospective</span>`:''}
+                ${changeStr?`<span style="font-size:11px;color:${changeCol};font-weight:500">${changeStr}</span>`:''}
+              </div>
+              ${snippet?`<div class="reflect-journal-snippet">"${snippet}${snippet.length>=120?'…':''}"</div>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`).join('')}`;
+}
+
+let insightsGenerated = false;
+async function genReflectInsights() {
+  const btn = document.getElementById('reflect-insights-btn');
+  const result = document.getElementById('reflect-insights-result');
+  if (!btn || !result) return;
+
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  result.innerHTML = `<div style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--tx1);padding:12px 0"><div class="spinner"></div>Analysing your reflections…</div>`;
+
+  const done = books.filter(b => b.retro_rating || b.retro_thoughts);
+  const context = done.map(b => {
+    const answers = (b.retro_thoughts||'').split('\n').filter(l=>l.trim()&&!l.trim().endsWith('?')).join(' ');
+    return `"${bTitle(b)}" — Initial: ${b.rating||'?'}/10, Retrospective: ${b.retro_rating||'?'}/10${answers?' — '+answers.slice(0,100):''}`;
+  }).join('\n');
+
+  try {
+    const text = await callClaude(`You are analysing ${done.length} book reflections for a reader. Here is their reflection data:
+
+${context}
+
+Write 3-4 warm, insightful observations about their reading patterns. Look for: how their opinions change over time, genres or themes they return to, books that surprised them, emotional patterns in their writing. Write in second person ("You tend to…"). Keep it personal, specific, and under 200 words total. Use their actual book titles.`, 400);
+    result.innerHTML = `<div class="reflect-insights-box">${text.replace(/\n/g,'<br>')}</div>`;
+    btn.textContent = '✦ Regenerate insights';
+    btn.disabled = false;
+    insightsGenerated = true;
+  } catch(e) {
+    result.innerHTML = `<div style="font-size:13px;color:var(--coral);padding:8px 0">Could not generate insights: ${e.message}</div>`;
+    btn.textContent = '✦ Generate insights';
+    btn.disabled = false;
+  }
 }
 
 async function saveReflection(bookId) {
@@ -3001,28 +3094,7 @@ function skipReflection(bookId) {
   if (card) card.style.display='none';
 }
 
-function renderReflectTimeline() {
-  const withRetro = books.filter(b => b.status==='finished' && (b.retro_rating||b.retro_thoughts))
-    .sort((a,b) => new Date(b.end_date)-new Date(a.end_date));
-  const sec = document.getElementById('reflect-timeline-section');
-  if (!withRetro.length) { sec.innerHTML=''; return; }
-  sec.innerHTML = `
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin:28px 0 14px">Your reflections <span style="font-weight:400">(${withRetro.length})</span></div>
-    ${withRetro.map(b => {
-      const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
-      const thoughts = b.retro_thoughts?.slice(0,200)+(b.retro_thoughts?.length>200?'…':'') || '';
-      return `<div class="reflect-timeline-entry" onclick="openBookPage('${b.id}')">
-        <div class="reflect-timeline-date">Finished ${date}</div>
-        <div class="reflect-timeline-book">${bTitle(b)}</div>
-        <div class="reflect-timeline-author">${bAuthor(b)}</div>
-        <div class="reflect-timeline-ratings">
-          ${b.rating?`<span class="reflect-timeline-rating">Initial: <strong>${b.rating}/10</strong></span>`:''}
-          ${b.retro_rating?`<span class="reflect-timeline-rating">Retrospective: <strong>${b.retro_rating}/10</strong></span>`:''}
-        </div>
-        ${thoughts?`<div class="reflect-timeline-thoughts">"${thoughts}"</div>`:''}
-      </div>`;
-    }).join('')}`;
-}
+// renderReflectTimeline replaced by renderReflectJournal
 
 /* ── STATS ─────────────────────────────────────────────────────────────── */
 function drawGenreTreemap(data) {
