@@ -1015,7 +1015,7 @@ function renderBooks() {
   const gf = document.getElementById('gf')?.value||'';
   const ff = document.getElementById('ff')?.value||''; // fiction/nonfiction filter
   const mf = ''; // mood filter removed
-  const fin = books.filter(b => b.status==='finished');
+  const fin = books.filter(b => b.status==='finished' || b.status==='dnf');
 
   // Rebuild dropdowns from cached metadata
   const genres = new Set(); fin.forEach(b => parseTags(bGenre(b)).forEach(g=>genres.add(g)));
@@ -1134,7 +1134,7 @@ function renderBooks() {
       const due = isRetroDue(b);
       const iflag = ''; // import source labels removed
       const date = b.end_date ? new Date(b.end_date).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : '';
-      return `<div class="book-card">
+      return `<div class="book-card${b.status==='dnf'?' dnf-card':''}">
         ${due?'<div class="retro-due-dot" title="Due for reflection"></div>':''}
         <div class="card-acts">
           <button class="cact cact-edit" onclick="event.stopPropagation();openEdit('${b.id}')" title="Edit">✎</button>
@@ -1146,6 +1146,7 @@ function renderBooks() {
         <div onclick="openBookPage('${b.id}')">
           <div class="card-title">${bTitle(b)}${iflag}</div>
           <div class="card-author">${bAuthor(b)}</div>
+          ${b.status==='dnf'?'<span class="card-dnf-badge">DNF</span>':''}
           ${bFN(b)?`<span class="card-fn-tag">${bFN(b)}</span>`:''}
           ${b.series_name?`<div style="font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.series_name}${b.series_number?' #'+b.series_number:''}</div>`:''}
 
@@ -1859,6 +1860,7 @@ async function loadAlsoBy(b) {
 function booksCtxStr() {
   const reading = books.filter(b=>b.status==='reading').map(b=>`"${bTitle(b)}" by ${bAuthor(b)}`);
   const tbr = books.filter(b=>b.status==='tbr').map(b=>`"${bTitle(b)}" by ${bAuthor(b)}`);
+  const dnf = books.filter(b=>b.status==='dnf').map(b=>`"${bTitle(b)}" by ${bAuthor(b)}${b.rating?' (rated '+b.rating+'/10 before stopping)':''}`);
   const finished = books.filter(b=>b.status==='finished').map(b => {
     const parts = [];
     parts.push(`"${bTitle(b)}" by ${bAuthor(b)}`);
@@ -1883,6 +1885,7 @@ function booksCtxStr() {
   let ctx = `FINISHED BOOKS:\n${finished}`;
   if (reading.length) ctx += `\n\nCURRENTLY READING (do NOT recommend these):\n${reading.join(', ')}`;
   if (tbr.length) ctx += `\n\nON TBR LIST (already aware of these):\n${tbr.join(', ')}`;
+  if (dnf.length) ctx += `\n\nDID NOT FINISH (avoid recommending similar):\n${dnf.join(', ')}`;
   return ctx;
 }
 
@@ -1998,6 +2001,21 @@ async function genSimilar(bookId) {
 }
 
 /* ── EDIT / DELETE MODALS ──────────────────────────────────────────────── */
+function editStatusChanged(sel) {
+  if (sel.value === 'finished' || sel.value === 'dnf') {
+    const endInp = document.getElementById('e-end');
+    if (endInp && !endInp.value) endInp.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function editEndDateChanged() {
+  const endInp = document.getElementById('e-end');
+  const statusSel = document.getElementById('e-status');
+  if (endInp?.value && statusSel?.value === 'tbr') {
+    statusSel.value = 'finished';
+  }
+}
+
 function openEdit(bookId) {
   const b=books.find(x=>x.id===bookId);if(!b)return;
   const title=bTitle(b);
@@ -2008,7 +2026,7 @@ function openEdit(bookId) {
     <input type="password" style="display:none" autocomplete="new-password">
     <div class="fgrid" style="margin-bottom:12px">
       <div class="fg"><label class="fl">Status</label>
-        <select class="fi" id="e-status">
+        <select class="fi" id="e-status" onchange="editStatusChanged(this)">
           <option value="finished"${b.status==='finished'?' selected':''}>Finished</option>
           <option value="reading"${b.status==='reading'?' selected':''}>Currently Reading</option>
           <option value="tbr"${b.status==='tbr'?' selected':''}>To Be Read</option>
@@ -2025,7 +2043,7 @@ function openEdit(bookId) {
       <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="e-rating" min="1" max="10" value="${b.rating||''}"></div>
       <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro_rating||''}"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
-      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}" onchange="editEndDateChanged()"></div>
       ${b.status==='reading'?`<div class="fg"><label class="fl">Pages read so far</label><input class="fi" type="number" id="e-pages-read" min="0" value="${b.pages_read||''}"></div>`:''}
       <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="e-series-name" placeholder="e.g. The Broken Earth" value="${b.series_name||''}" autocomplete="off" list="series-datalist"><datalist id="series-datalist">${[...new Set(books.filter(x=>x.series_name).map(x=>x.series_name))].map(s=>`<option value="${s}">`).join('')}</datalist></div>
       <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="e-series-num" min="1" step="0.5" placeholder="e.g. 1" value="${b.series_number||''}"></div>
@@ -3142,14 +3160,34 @@ function drawGenreTreemap(data) {
     }
   });
 
-  // Tooltip on hover
-  canvas.onmousemove = e => {
+  // Tooltip on hover (desktop) and tap (mobile)
+  let tipTimeout;
+  function showTreemapTip(e) {
     const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (W/rect.width);
-    const my = (e.clientY - rect.top) * (H/rect.height);
+    const isTouch = e.touches;
+    const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+    const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+    const mx = (clientX - rect.left) * (W/rect.width);
+    const my = (clientY - rect.top) * (H/rect.height);
     const hit = rects.find(r => mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h);
-    canvas.title = hit ? `${hit.label}: ${hit.count} books · avg ${hit.avg}/10` : '';
-  };
+    // Remove old tooltip
+    const old = document.getElementById('treemap-tip');
+    if (old) old.remove();
+    if (!hit) return;
+    const tip = document.createElement('div');
+    tip.id = 'treemap-tip';
+    tip.style.cssText = `position:fixed;background:#1a1a2e;color:#fff;padding:7px 12px;border-radius:8px;font-size:12px;font-family:"DM Sans",sans-serif;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+    tip.textContent = `${hit.label}: ${hit.count} book${hit.count!==1?'s':''} · avg ${hit.avg}`;
+    tip.style.left = Math.min(clientX + 10, window.innerWidth - 200) + 'px';
+    tip.style.top = (clientY - 40) + 'px';
+    document.body.appendChild(tip);
+    clearTimeout(tipTimeout);
+    tipTimeout = setTimeout(() => tip.remove(), isTouch ? 2000 : 3000);
+    if (isTouch) e.preventDefault();
+  }
+  canvas.onmousemove = showTreemapTip;
+  canvas.ontouchstart = showTreemapTip;
+  canvas.onmouseleave = () => { const t = document.getElementById('treemap-tip'); if(t) t.remove(); };
 }
 
 function squarify(items, x, y, w, h) {
