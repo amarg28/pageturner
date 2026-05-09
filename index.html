@@ -243,32 +243,30 @@
             <div id="book-form" style="display:none"></div>
 
             <div class="import-sec">
-              <div style="font-size:12px;font-weight:500;margin-bottom:3px">Import from another platform</div>
-              <div style="font-size:11px;color:var(--tx1);margin-bottom:10px">Upload a CSV — format detected automatically.</div>
-              <div class="import-grid">
-                <div class="import-card" onclick="document.getElementById('csv-pt').click()">
-                  <div class="import-card-icon">📋</div>
-                  <div class="import-card-name">PageTurner</div>
-                  <input type="file" id="csv-pt" style="display:none" accept=".csv" onchange="handleImport(event,'pageturner')">
-                </div>
-                <div class="import-card" onclick="document.getElementById('csv-sg').click()">
-                  <div class="import-card-icon">📊</div>
-                  <div class="import-card-name">StoryGraph</div>
-                  <input type="file" id="csv-sg" style="display:none" accept=".csv" onchange="handleImport(event,'storygraph')">
-                </div>
-                <div class="import-card" onclick="document.getElementById('csv-gr').click()">
-                  <div class="import-card-icon">📚</div>
-                  <div class="import-card-name">Goodreads</div>
-                  <input type="file" id="csv-gr" style="display:none" accept=".csv" onchange="handleImport(event,'goodreads')">
-                </div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:6px">Import your library</div>
+              <div style="font-size:12px;color:var(--tx1);margin-bottom:4px;line-height:1.6">Upload a CSV export from <strong>Goodreads</strong>, <strong>StoryGraph</strong>, or a previous <strong>PageTurner</strong> export. The format is detected automatically.</div>
+              <div style="font-size:11px;color:var(--tx2);margin-bottom:14px;line-height:1.7">
+                <strong>Goodreads:</strong> My Books → Import/Export → Export Library<br>
+                <strong>StoryGraph:</strong> Profile → Import/Export → Export your data<br>
+                <strong>PageTurner:</strong> Settings → Download library
               </div>
+              <button class="btn-primary" onclick="document.getElementById('csv-any').click()" style="width:100%;padding:10px">📂 Choose CSV file to import</button>
+              <input type="file" id="csv-any" style="display:none" accept=".csv" onchange="handleImport(event,'auto')">
               <div id="import-preview" style="display:none"></div>
             </div>
           </div>
 
           <!-- TBR with AI help -->
           <div style="margin-top:28px">
-            <div class="discover-section-label">Your TBR <span id="tbr-count" style="font-weight:400;color:var(--tx2)"></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div class="discover-section-label" style="margin:0">Your TBR <span id="tbr-count" style="font-weight:400;color:var(--tx2)"></span></div>
+              <select class="fsel" onchange="setTbrSort(this.value)" style="font-size:11px;padding:4px 8px">
+                <option value="added">Recently added</option>
+                <option value="title">Title A–Z</option>
+                <option value="author">Author A–Z</option>
+                <option value="random">Surprise me 🎲</option>
+              </select>
+            </div>
             <div id="discover-tbr-list"></div>
           </div>
 
