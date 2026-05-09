@@ -1898,6 +1898,7 @@ async function callClaude(prompt, maxTokens=600) {
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await r.json();
+  if (response.status === 429) throw new Error('You\'ve reached the hourly limit for Book Bot. Please try again in an hour, or add your own API key in Settings.');
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.content?.map(c=>c.text||'').join('')||'';
 }
@@ -2243,11 +2244,27 @@ function resetAdd(){
 }
 
 /* ── CSV IMPORT ────────────────────────────────────────────────────────── */
-function handleImport(event,platform){
-  const file=event.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{try{const parsed=parseCSV(e.target.result,platform);pendingImport={books:parsed,platform};showImportPreview(parsed,platform);}catch(err){alert('Could not parse: '+err.message);}};
-  reader.readAsText(file);event.target.value='';
+function handleImport(event, platform){
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let p = platform;
+      // Auto-detect if not specified
+      if (!p || p === 'auto') {
+        const firstLine = e.target.result.split('\n')[0].toLowerCase();
+        if (firstLine.includes('exclusive shelf') || firstLine.includes('bookshelves')) p = 'goodreads';
+        else if (firstLine.includes('read status') && firstLine.includes('star rating')) p = 'storygraph';
+        else if (firstLine.includes('manual_title') || firstLine.includes('import_source')) p = 'pageturner';
+        else { alert('Could not detect the format of this CSV.\n\nMake sure it is exported directly from Goodreads, StoryGraph, or PageTurner.'); return; }
+      }
+      const parsed = parseCSV(e.target.result, p);
+      pendingImport = {books: parsed, platform: p};
+      showImportPreview(parsed, p);
+    } catch(err) { alert('Could not parse: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 function parseFullCSV(text){
@@ -2740,6 +2757,9 @@ function exportLibrary() {
 }
 
 /* ── DISCOVER TBR ──────────────────────────────────────────────────────── */
+let tbrSort = 'added';
+function setTbrSort(s) { tbrSort = s; renderDiscoverTBR(); }
+
 function renderDiscover() {
   renderDiscoverTBR();
   renderDiscoverSeries();
@@ -2747,7 +2767,10 @@ function renderDiscover() {
 }
 
 function renderDiscoverTBR() {
-  const tbr = books.filter(b => b.status === 'tbr');
+  let tbr = books.filter(b => b.status === 'tbr');
+  if (tbrSort === 'title') tbr.sort((a,b) => bTitle(a).localeCompare(bTitle(b)));
+  else if (tbrSort === 'author') tbr.sort((a,b) => bAuthor(a).localeCompare(bAuthor(b)));
+  else if (tbrSort === 'random') tbr = [...tbr].sort(() => Math.random() - 0.5);
   document.getElementById('tbr-count').textContent = `(${tbr.length})`;
   const el = document.getElementById('discover-tbr-list');
   if (!tbr.length) {
