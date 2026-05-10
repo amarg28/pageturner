@@ -2803,14 +2803,13 @@ async function openAuthorPage(authorName, olAuthorKey) {
     }
 
     // 2. Fetch author data
-    let bio = '', photo = null, born = '', died = '', nationality = '';
+    let bio = '', born = '', died = '', nationality = '';
     if (authorKey) {
       const ar = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
       const ad = await ar.json();
       bio = typeof ad.bio === 'string' ? ad.bio : ad.bio?.value || '';
       bio = bio.replace(/\[\[([^\]]+)\]\]/g, '$1'); // strip OL markup
-      const photoId = ad.photos?.[0];
-      if (photoId && photoId > 0) photo = `https://covers.openlibrary.org/a/id/${photoId}-L.jpg`;
+
       born = ad.birth_date || '';
       died = ad.death_date || '';
       nationality = ad.nationality || '';
@@ -2862,9 +2861,9 @@ function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allW
     myBooks.length ? `${myBooks.length} in your library` : null,
   ].filter(Boolean);
 
-  const coverHtml = photo
-    ? `<img src="${photo}" alt="${name}" style="max-width:160px;max-height:220px;width:auto;height:auto;object-fit:contain;border-radius:var(--rl);border:0.5px solid var(--bd);display:block" onerror="this.outerHTML='<div style=\'width:80px;height:80px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:36px\'>✍️</div>'">`
-    : `<div style="width:80px;height:80px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:36px">✍️</div>`;
+  // Author initials avatar
+  const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const coverHtml = `<div style="width:80px;height:80px;background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:28px;font-weight:500;color:var(--amber);flex-shrink:0">${initials}</div>`;
 
   const myBooksHtml = myBooks.length ? `
     <div class="bpsec">
