@@ -1145,7 +1145,7 @@ function renderBooks() {
         </div>
         <div onclick="openBookPage('${b.id}')">
           <div class="card-title">${bTitle(b)}${iflag}</div>
-          <div class="card-author">${bAuthor(b)}</div>
+          <div class="card-author" onclick="event.stopPropagation();openAuthorPage('${esc(bAuthor(b))}')" style="cursor:pointer">${bAuthor(b)}</div>
           ${b.status==='dnf'?'<span class="card-dnf-badge">DNF</span>':''}
           ${bFN(b)?`<span class="card-fn-tag">${bFN(b)}</span>`:''}
           ${b.series_name?`<div style="font-size:9px;color:var(--tx2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.series_name}${b.series_number?' #'+b.series_number:''}</div>`:''}
@@ -1219,12 +1219,28 @@ async function doGsearch(q) {
   const box = document.getElementById('gsearch-results');
   box.innerHTML=`<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
   box.classList.add('open');
+
+  // Find matching authors from library
+  const authorNames = [...new Set(books.map(b => bAuthor(b)))]
+    .filter(a => a.toLowerCase().includes(q.toLowerCase())).slice(0,2);
+  const authorHtml = authorNames.map(a => {
+    const cnt = books.filter(b=>bAuthor(b)===a).length;
+    const safeA = a.replace(/'/g,"\\'");
+    return `<div class="gsearch-result" onclick="closeGsearch();openAuthorPage('${safeA}')">
+      <div class="gsearch-result-cover-ph" style="font-size:20px">✍️</div>
+      <div style="flex:1;min-width:0">
+        <div class="gsearch-result-title">${a}</div>
+        <div class="gsearch-result-author">Author · ${cnt} book${cnt!==1?'s':''} in your library</div>
+      </div>
+    </div>`;
+  }).join('');
+
   try {
     const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
     const d = await r.json();
     gsearchResults = d.docs||[];
-    if (!gsearchResults.length) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
-    box.innerHTML = gsearchResults.map((res,i) => {
+    if (!gsearchResults.length && !authorHtml) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
+    box.innerHTML = authorHtml + gsearchResults.map((res,i) => {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
       const author = (res.author_name||[]).slice(0,2).join(', ')||'Unknown author';
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
@@ -1498,7 +1514,7 @@ function bpSidebar(bookId, showSeries, authorLast) {
       <div class="bp-sidebar-head"><div class="scard-t" style="margin:0">Similar books</div><button class="ai-btn" id="sim-btn" onclick="genSimilar('${bookId}')" style="background:var(--purple);padding:4px 10px;font-size:11px">✦ Find</button></div>
       <div id="sim-result"><div style="font-size:12px;color:var(--tx1);font-style:italic">Click for AI recommendations.</div></div>
     </div>
-    <div class="scard"><div class="scard-t">Books by ${authorLast}</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+    <div class="scard"><div class="scard-t" style="cursor:pointer" onclick="openAuthorPage('${esc(authorLast)}')">Books by ${authorLast} ↗</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
   </div>`;
 }
 
@@ -1514,7 +1530,7 @@ function bpHero(b, extraBtns) {
     <div class="bp-img">${coverLg ? `<img src="${coverLg}" alt="${title}" loading="lazy">` : `<div class="bp-img-ph"><span>${title}</span></div>`}</div>
     <div class="bp-hero-info">
       <div class="bp-title">${title}</div>
-      <div class="bp-author">${author}${year ? ' · ' + year : ''}</div>
+      <div class="bp-author"><span class="author-link" onclick="openAuthorPage('${esc(author)}')">${author}</span>${year ? ' · ' + year : ''}</div>
       <div class="bp-tags">${fntag}${gtags}</div>
       ${b.status !== 'tbr' ? `<div class="bp-scores">
         <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
@@ -2759,6 +2775,249 @@ async function submitManualEntry() {
     showToast(`"${title}" added to your library ✓`);
   } catch(e) {
     showToast('Could not save: ' + e.message);
+  }
+}
+
+/* ── AUTHOR PAGE ───────────────────────────────────────────────────────── */
+
+async function openAuthorPage(authorName, olAuthorKey) {
+  openBookModal();
+  const modal = document.getElementById('book-modal-body');
+  modal.innerHTML = `<div class="bp">
+    <div class="bp-nav">
+      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:20px 0">
+      <div class="spinner"></div>
+      <div style="font-size:14px;color:var(--tx1)">Loading author data…</div>
+    </div>
+  </div>`;
+
+  try {
+    // 1. Find author key if not provided
+    let authorKey = olAuthorKey;
+    if (!authorKey) {
+      const sr = await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`);
+      const sd = await sr.json();
+      authorKey = sd.docs?.[0]?.key || null;
+    }
+
+    // 2. Fetch author data
+    let bio = '', photo = null, born = '', died = '', nationality = '';
+    if (authorKey) {
+      const ar = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
+      const ad = await ar.json();
+      bio = typeof ad.bio === 'string' ? ad.bio : ad.bio?.value || '';
+      bio = bio.replace(/\[\[([^\]]+)\]\]/g, '$1'); // strip OL markup
+      const photoId = ad.photos?.[0];
+      if (photoId && photoId > 0) photo = `https://covers.openlibrary.org/a/id/${photoId}-L.jpg`;
+      born = ad.birth_date || '';
+      died = ad.death_date || '';
+      nationality = ad.nationality || '';
+    }
+
+    // 3. Fetch works
+    let works = [];
+    if (authorKey) {
+      const wr = await fetch(`https://openlibrary.org/authors/${authorKey}/works.json?limit=200`);
+      const wd = await wr.json();
+      works = (wd.entries || []).map(w => ({
+        key: w.key,
+        title: w.title,
+        year: w.first_publish_date ? parseInt(w.first_publish_date) : null,
+        covers: w.covers || [],
+        editions: w.edition_count || 0,
+        description: typeof w.description === 'string' ? w.description : w.description?.value || ''
+      })).sort((a,b) => (a.year||9999) - (b.year||9999));
+    }
+
+    // 4. Books you've read by this author
+    const myBooks = books.filter(b =>
+      bAuthor(b).toLowerCase().includes(authorName.split(' ').slice(-1)[0].toLowerCase())
+    ).sort((a,b) => (b.rating||0) - (a.rating||0));
+
+    // 5. Notable vs all works
+    const notableThreshold = 3;
+    const notable = works.filter(w => w.editions >= notableThreshold);
+    const showNotable = notable.length > 0 && notable.length < works.length;
+    const displayWorks = showNotable ? notable : works;
+
+    // Render
+    renderAuthorPage(authorName, authorKey, bio, photo, born, died, nationality, works, displayWorks, showNotable, myBooks);
+
+  } catch(e) {
+    document.getElementById('book-modal-body').innerHTML = `<div class="bp">
+      <div class="bp-nav"><div class="bp-back" onclick="closeBookModal()">← Back</div></div>
+      <div style="padding:20px;color:var(--coral)">Could not load author data: ${e.message}</div>
+    </div>`;
+  }
+}
+
+function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allWorks, displayWorks, hasMore, myBooks) {
+  const stats = [
+    born ? `Born ${born}` : null,
+    died ? `Died ${died}` : null,
+    nationality || null,
+    allWorks.length ? `${allWorks.length} works` : null,
+    myBooks.length ? `${myBooks.length} in your library` : null,
+  ].filter(Boolean);
+
+  const coverHtml = photo
+    ? `<img src="${photo}" alt="${name}" style="width:130px;height:180px;object-fit:cover;border-radius:var(--rl);border:0.5px solid var(--bd)" onerror="this.style.display='none'">`
+    : `<div style="width:130px;height:180px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:40px">✍️</div>`;
+
+  const myBooksHtml = myBooks.length ? `
+    <div class="bpsec">
+      <div class="bpsec-t">In your library</div>
+      ${myBooks.map(b => {
+        const cover = bCover(b);
+        return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),50)">
+          ${cover?`<img src="${cover}" style="width:32px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:32px;height:48px;background:var(--bg2);border-radius:4px;flex-shrink:0"></div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Lora',serif;font-size:13px;font-weight:500">${bTitle(b)}</div>
+            ${b.rating?`<div style="font-size:11px;color:var(--amber);margin-top:2px">${toStars(b.rating)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const aiHtml = `<div class="bpsec ai-sec">
+    <div class="bp-sidebar-head">
+      <div class="bpsec-t" style="margin:0">${myBooks.length ? 'What to read next' : 'Where to start'}</div>
+      <button class="ai-btn" id="author-ai-btn" onclick="genAuthorRec('${esc(name)}','${esc(olKey||'')}')">✦ ${myBooks.length ? 'Get recommendation' : 'Where to start'}</button>
+    </div>
+    <div id="author-ai-result" style="margin-top:10px">
+      <div style="font-size:13px;color:var(--tx1);font-style:italic">${myBooks.length
+        ? `You've read ${myBooks.length} book${myBooks.length!==1?'s':''} by ${name}. Click for a personalised next read.`
+        : `New to ${name}? Click for a personalised starting point based on your reading history.`
+      }</div>
+    </div>
+  </div>`;
+
+  // Bibliography
+  const worksHtml = displayWorks.map(w => {
+    const inLib = books.find(b => bTitle(b).toLowerCase() === w.title.toLowerCase());
+    const coverUrl = w.covers?.[0] && w.covers[0] > 0 ? `https://covers.openlibrary.org/b/id/${w.covers[0]}-S.jpg` : null;
+    return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);align-items:center">
+      ${coverUrl?`<img src="${coverUrl}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3">${w.title}</div>
+        ${w.year?`<div style="font-size:11px;color:var(--tx2);margin-top:1px">${w.year}</div>`:''}
+      </div>
+      ${inLib
+        ? `<div style="font-size:10px;color:var(--teal);flex-shrink:0">${inLib.rating?toStars(inLib.rating):'✓ Read'}</div>`
+        : `<button onclick="quickAddBook('tbr','','${w.key}','${esc(w.title)}','${esc(name)}')" style="font-size:10px;padding:3px 8px;border:0.5px solid var(--amber);border-radius:100px;background:none;cursor:pointer;color:var(--amber);font-family:'DM Sans',sans-serif;flex-shrink:0;white-space:nowrap">+ TBR</button>`
+      }
+    </div>`;
+  }).join('');
+
+  document.getElementById('book-modal-body').innerHTML = `<div class="bp">
+    <div class="bp-nav">
+      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+    </div>
+
+    <!-- Hero -->
+    <div class="bp-hero">
+      <div class="bp-img" style="flex-shrink:0">${coverHtml}</div>
+      <div class="bp-hero-info">
+        <div class="bp-title">${name}</div>
+        <div style="font-size:13px;color:var(--tx1);margin-top:4px;line-height:1.8">${stats.join(' · ')}</div>
+      </div>
+    </div>
+
+    <!-- Body: two columns -->
+    <div class="bp-body">
+      <div class="bp-left">
+        ${bio ? `<div class="bpsec">
+          <div class="bpsec-t">About</div>
+          <div id="author-bio-text" style="font-size:14px;line-height:1.75;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical">${bio}</div>
+          ${bio.length>400?`<button onclick="var el=document.getElementById('author-bio-text');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}
+        </div>` : ''}
+
+        <div class="bpsec">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="bpsec-t" style="margin:0">Bibliography</div>
+            ${hasMore?`<button id="author-show-all-btn" onclick="showAllAuthorWorks('${esc(name)}','${esc(olKey||'')}',this)" style="font-size:11px;padding:3px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx1);font-family:'DM Sans',sans-serif">Show all ${allWorks.length} works</button>`:''}
+          </div>
+          <div id="author-works-list">${worksHtml}</div>
+        </div>
+      </div>
+
+      <div class="bp-sidebar">
+        ${myBooksHtml}
+        ${aiHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+async function showAllAuthorWorks(name, olKey, btn) {
+  // Re-fetch all works and re-render the works list
+  btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const wr = await fetch(`https://openlibrary.org/authors/${olKey}/works.json?limit=200`);
+    const wd = await wr.json();
+    const allWorks = (wd.entries || []).map(w => ({
+      key: w.key, title: w.title,
+      year: w.first_publish_date ? parseInt(w.first_publish_date) : null,
+      covers: w.covers || [], editions: w.edition_count || 0
+    })).sort((a,b) => (a.year||9999) - (b.year||9999));
+
+    document.getElementById('author-works-list').innerHTML = allWorks.map(w => {
+      const inLib = books.find(b => bTitle(b).toLowerCase() === w.title.toLowerCase());
+      const coverUrl = w.covers?.[0] && w.covers[0] > 0 ? `https://covers.openlibrary.org/b/id/${w.covers[0]}-S.jpg` : null;
+      return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);align-items:center">
+        ${coverUrl?`<img src="${coverUrl}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:28px;height:42px;background:var(--bg2);border-radius:3px;flex-shrink:0"></div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:13px;font-weight:500;line-height:1.3">${w.title}</div>
+          ${w.year?`<div style="font-size:11px;color:var(--tx2);margin-top:1px">${w.year}</div>`:''}
+        </div>
+        ${inLib
+          ? `<div style="font-size:10px;color:var(--teal);flex-shrink:0">${inLib.rating?toStars(inLib.rating):'✓ Read'}</div>`
+          : `<button onclick="quickAddBook('tbr','','${w.key}','${esc(w.title)}','${esc(name)}')" style="font-size:10px;padding:3px 8px;border:0.5px solid var(--amber);border-radius:100px;background:none;cursor:pointer;color:var(--amber);font-family:'DM Sans',sans-serif;flex-shrink:0;white-space:nowrap">+ TBR</button>`
+        }
+      </div>`;
+    }).join('');
+    btn.style.display = 'none';
+  } catch(e) { btn.disabled = false; btn.textContent = 'Show all'; }
+}
+
+async function genAuthorRec(authorName, olKey) {
+  const btn = document.getElementById('author-ai-btn');
+  const result = document.getElementById('author-ai-result');
+  if (!btn || !result) return;
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  result.innerHTML = `<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Checking your reading history…</div>`;
+
+  const myByAuthor = books.filter(b =>
+    bAuthor(b).toLowerCase().includes(authorName.split(' ').slice(-1)[0].toLowerCase())
+  );
+  const alreadyRead = myByAuthor.map(b => `"${bTitle(b)}" (${b.rating?toStars(b.rating):'unrated'})`).join(', ');
+  const isNew = myByAuthor.length === 0;
+
+  const prompt = isNew
+    ? `A reader wants to start reading ${authorName}. Based on their reading history, recommend the single best starting point.
+
+Reading history: ${booksCtxStr()}
+
+Respond warmly in 3-4 sentences. Name the specific book you recommend, give a one-sentence description of it, and explain why it's right for this reader based on their history. Format: start with the book title in bold markdown.`
+    : `A reader has read ${alreadyRead} by ${authorName}. Based on their reading history and what they've already read, what should they read next by this author?
+
+Reading history: ${booksCtxStr()}
+
+Respond warmly in 3-4 sentences. Name the specific next book, give a one-sentence description, and explain why based on their history and what they thought of the books they've already read. Format: start with the book title in bold markdown.`;
+
+  try {
+    const text = await callClaude(prompt, 350);
+    // Convert **bold** to HTML
+    const html = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g,'<br>');
+    result.innerHTML = `<div style="font-size:14px;line-height:1.75;font-family:Georgia,serif;margin-top:8px">${html}</div>`;
+    btn.textContent = '✦ Regenerate';
+    btn.disabled = false;
+  } catch(e) {
+    result.innerHTML = `<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
+    btn.textContent = '✦ Try again';
+    btn.disabled = false;
   }
 }
 
