@@ -946,3 +946,12 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* ── AUTHOR PAGE ───────────────────────────────────────────────────────── */
 .author-link{cursor:pointer;text-decoration:underline;text-decoration-color:var(--bd2);text-underline-offset:3px;transition:text-decoration-color .15s}
 .author-link:hover{text-decoration-color:var(--amber);color:var(--amber)}
+
+/* Author page mobile layout */
+@media(min-width:601px){
+  .author-mobile-library{display:none}
+  .author-mobile-ai{display:none}
+}
+@media(max-width:600px){
+  .author-desktop-sidebar{display:none}
+}
