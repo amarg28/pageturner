@@ -699,6 +699,25 @@ function closeStatsOverlay() {
   document.body.style.overflow = '';
 }
 
+// Tap topbar to scroll to top on mobile
+document.addEventListener('DOMContentLoaded', () => {
+  const topbar = document.querySelector('.topbar');
+  if (topbar) {
+    topbar.addEventListener('click', e => {
+      // Only trigger if clicking the topbar itself, not its buttons
+      if (e.target === topbar || e.target.classList.contains('logo')) {
+        const modal = document.getElementById('book-modal');
+        if (modal?.classList.contains('on')) {
+          const inner = document.getElementById('book-modal-inner');
+          if (inner) inner.scrollTo({top:0, behavior:'smooth'});
+        } else {
+          window.scrollTo({top:0, behavior:'smooth'});
+        }
+      }
+    });
+  }
+});
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('book-modal')?.classList.contains('on')) closeBookModal();
@@ -707,13 +726,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Show/hide back-to-top on window scroll (desktop/main page)
-window.addEventListener('scroll', () => {
-  const btn = document.getElementById('back-to-top');
-  if (btn && !document.getElementById('book-modal')?.classList.contains('on')) {
-    btn.style.opacity = window.scrollY > 400 ? '1' : '0';
-  }
-}, {passive: true});
+
 
 function renderSidebar() {
   const fin = books.filter(b => b.status === 'finished');
@@ -1678,11 +1691,7 @@ function openBookModal() {
   const inner = document.getElementById('book-modal-inner');
   if (inner) {
     inner.scrollTop = 0;
-    // Listen for scroll to show back-to-top
-    inner.onscroll = () => {
-      const btn = document.getElementById('back-to-top');
-      if (btn) btn.style.opacity = inner.scrollTop > 300 ? '1' : '0';
-    };
+
   }
 }
 
@@ -2957,7 +2966,6 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
       <div class="bp-back" onclick="modalBack()">← Back</div>
-      <button onclick="var m=document.getElementById('book-modal-inner');if(m)m.scrollTop=0;" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">↑ Top</button>
     </div>
 
     <!-- Hero: centered text only -->
