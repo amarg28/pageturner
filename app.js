@@ -707,6 +707,12 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Show/hide back-to-top button on mobile
+window.addEventListener('scroll', () => {
+  const btn = document.getElementById('back-to-top');
+  if (btn) btn.style.opacity = window.scrollY > 400 ? '1' : '0';
+}, {passive: true});
+
 function renderSidebar() {
   const fin = books.filter(b => b.status === 'finished');
   if (!fin.length) return;
@@ -2861,9 +2867,7 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
     myBooks.length ? `${myBooks.length} in your library` : null,
   ].filter(Boolean);
 
-  // Author initials avatar
-  const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-  const coverHtml = `<div style="width:80px;height:80px;background:var(--amber-l);border:0.5px solid var(--amber-m);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:28px;font-weight:500;color:var(--amber);flex-shrink:0">${initials}</div>`;
+  // No avatar — hero is text only
 
   const myBooksHtml = myBooks.length ? `
     <div class="bpsec">
@@ -2915,13 +2919,10 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
       <div class="bp-back" onclick="closeBookModal()">← Back</div>
     </div>
 
-    <!-- Hero -->
-    <div class="bp-hero">
-      <div class="bp-img" style="flex-shrink:0">${coverHtml}</div>
-      <div class="bp-hero-info">
-        <div class="bp-title">${name}</div>
-        <div style="font-size:13px;color:var(--tx1);margin-top:4px;line-height:1.8">${stats.join(' · ')}</div>
-      </div>
+    <!-- Hero: centered text only -->
+    <div class="author-hero">
+      <div class="bp-title" style="margin-bottom:6px">${name}</div>
+      <div style="font-size:13px;color:var(--tx1);line-height:1.8">${stats.join(' · ')}</div>
     </div>
 
     <!-- Body: two columns -->
