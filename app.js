@@ -1330,7 +1330,7 @@ async function openUnreadBookPage(olBook) {
       <div class="bp-img">${coverSrc ? `<img src="${coverSrc}" alt="${esc(title)}" loading="lazy">` : `<div class="bp-img-ph"><span>${esc(title)}</span></div>`}</div>
       <div class="bp-hero-info">
         <div class="bp-title">${esc(title)}</div>
-        <div class="bp-author">${esc(author)}${year ? ' · ' + year : ''}</div>
+        <div class="bp-author"><span class="author-link" onclick="openAuthorPage('${esc(author)}')">${esc(author)}</span>${year ? ' · ' + year : ''}</div>
         ${addBtns}
       </div>
     </div>
@@ -2863,8 +2863,8 @@ function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allW
   ].filter(Boolean);
 
   const coverHtml = photo
-    ? `<img src="${photo}" alt="${name}" style="width:130px;height:180px;object-fit:cover;border-radius:var(--rl);border:0.5px solid var(--bd)" onerror="this.style.display='none'">`
-    : `<div style="width:130px;height:180px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:40px">✍️</div>`;
+    ? `<img src="${photo}" alt="${name}" style="max-width:160px;max-height:220px;width:auto;height:auto;object-fit:contain;border-radius:var(--rl);border:0.5px solid var(--bd);display:block" onerror="this.outerHTML='<div style=\'width:80px;height:80px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:36px\'>✍️</div>'">`
+    : `<div style="width:80px;height:80px;background:var(--bg2);border-radius:var(--rl);display:flex;align-items:center;justify-content:center;font-size:36px">✍️</div>`;
 
   const myBooksHtml = myBooks.length ? `
     <div class="bpsec">
@@ -2933,6 +2933,20 @@ function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allW
           <div id="author-bio-text" style="font-size:14px;line-height:1.75;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical">${bio}</div>
           ${bio.length>400?`<button onclick="var el=document.getElementById('author-bio-text');el.style.webkitLineClamp='unset';el.style.display='block';this.style.display='none'" style="margin-top:6px;background:none;border:none;font-size:12px;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Read more ↓</button>`:''}
         </div>` : ''}
+        <div class="author-mobile-ai">${aiHtml}</div>
+        ${myBooks.length ? `<div class="bpsec author-mobile-library">
+          <div class="bpsec-t">In your library</div>
+          ${myBooks.map(b => {
+            const cover = bCover(b);
+            return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),50)">
+              ${cover?`<img src="${cover}" style="width:32px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:32px;height:48px;background:var(--bg2);border-radius:4px;flex-shrink:0"></div>`}
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Lora',serif;font-size:13px;font-weight:500">${bTitle(b)}</div>
+                ${b.rating?`<div style="font-size:11px;color:var(--amber);margin-top:2px">${toStars(b.rating)}</div>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
 
         <div class="bpsec">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2943,7 +2957,7 @@ function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allW
         </div>
       </div>
 
-      <div class="bp-sidebar">
+      <div class="bp-sidebar author-desktop-sidebar">
         ${myBooksHtml}
         ${aiHtml}
       </div>
