@@ -955,3 +955,11 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 @media(max-width:600px){
   .author-desktop-sidebar{display:none}
 }
+
+/* ── AUTHOR HERO ───────────────────────────────────────────────────────── */
+.author-hero{text-align:center;padding:8px 0 20px;border-bottom:0.5px solid var(--bd);margin-bottom:20px}
+
+/* ── BACK TO TOP (mobile) ──────────────────────────────────────────────── */
+.back-to-top{display:none;position:fixed;bottom:80px;right:16px;width:40px;height:40px;border-radius:50%;background:var(--amber);color:#fff;border:none;font-size:18px;cursor:pointer;z-index:150;box-shadow:0 2px 10px rgba(0,0,0,.2);align-items:center;justify-content:center;transition:opacity .2s}
+@media(max-width:600px){.back-to-top{display:flex}}
+.back-to-top:hover{opacity:.85}
