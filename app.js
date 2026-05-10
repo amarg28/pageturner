@@ -1912,7 +1912,7 @@ async function callClaude(prompt, maxTokens=600) {
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await r.json();
-  if (response.status === 429) throw new Error('You\'ve reached the hourly limit for Book Bot. Please try again in an hour, or add your own API key in Settings.');
+  if (r.status === 429) throw new Error('You\'ve reached the hourly limit for Book Bot. Please try again in an hour, or add your own API key in Settings.');
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.content?.map(c=>c.text||'').join('')||'';
 }
