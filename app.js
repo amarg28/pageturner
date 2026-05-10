@@ -707,10 +707,12 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Show/hide back-to-top button on mobile
+// Show/hide back-to-top on window scroll (desktop/main page)
 window.addEventListener('scroll', () => {
   const btn = document.getElementById('back-to-top');
-  if (btn) btn.style.opacity = window.scrollY > 400 ? '1' : '0';
+  if (btn && !document.getElementById('book-modal')?.classList.contains('on')) {
+    btn.style.opacity = window.scrollY > 400 ? '1' : '0';
+  }
 }, {passive: true});
 
 function renderSidebar() {
@@ -1336,7 +1338,7 @@ async function openUnreadBookPage(olBook) {
       <div class="bp-img">${coverSrc ? `<img src="${coverSrc}" alt="${esc(title)}" loading="lazy">` : `<div class="bp-img-ph"><span>${esc(title)}</span></div>`}</div>
       <div class="bp-hero-info">
         <div class="bp-title">${esc(title)}</div>
-        <div class="bp-author"><span class="author-link" onclick="openAuthorPage('${esc(author)}')">${esc(author)}</span>${year ? ' · ' + year : ''}</div>
+        <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${esc(author)}</span>${year ? ' · ' + year : ''}</div>
         ${addBtns}
       </div>
     </div>
@@ -1425,7 +1427,7 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
   const coverSrc = coverId ? cUrl(coverId,'M') : null;
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
-      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+      <div class="bp-back" onclick="modalBack()">← Back</div>
     </div>
     <div class="fcard">
       <div class="fcard-title">Add to your library — ${title}</div>
@@ -1520,7 +1522,7 @@ function bpSidebar(bookId, showSeries, authorLast) {
       <div class="bp-sidebar-head"><div class="scard-t" style="margin:0">Similar books</div><button class="ai-btn" id="sim-btn" onclick="genSimilar('${bookId}')" style="background:var(--purple);padding:4px 10px;font-size:11px">✦ Find</button></div>
       <div id="sim-result"><div style="font-size:12px;color:var(--tx1);font-style:italic">Click for AI recommendations.</div></div>
     </div>
-    <div class="scard"><div class="scard-t" style="cursor:pointer" onclick="openAuthorPage('${esc(authorLast)}')">Books by ${authorLast} ↗</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
+    <div class="scard"><div class="scard-t" style="cursor:pointer" onclick="pushModal(()=>openAuthorPage('${esc(authorLast)}'))">Books by ${authorLast} ↗</div><div id="also-by"><div style="font-size:12px;color:var(--tx1)">Loading…</div></div></div>
   </div>`;
 }
 
@@ -1536,7 +1538,7 @@ function bpHero(b, extraBtns) {
     <div class="bp-img">${coverLg ? `<img src="${coverLg}" alt="${title}" loading="lazy">` : `<div class="bp-img-ph"><span>${title}</span></div>`}</div>
     <div class="bp-hero-info">
       <div class="bp-title">${title}</div>
-      <div class="bp-author"><span class="author-link" onclick="openAuthorPage('${esc(author)}')">${author}</span>${year ? ' · ' + year : ''}</div>
+      <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${author}</span>${year ? ' · ' + year : ''}</div>
       <div class="bp-tags">${fntag}${gtags}</div>
       ${b.status !== 'tbr' ? `<div class="bp-scores">
         <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
@@ -1641,7 +1643,7 @@ async function openBookPage(bookId) {
 
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
-      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+      <div class="bp-back" onclick="modalBack()">← Back</div>
       <button class="bp-edit-btn" onclick="openEdit('${b.id}')">Edit</button>
       <button class="bp-remove-btn" onclick="openDel('${b.id}')">Remove</button>
       <button class="bp-refresh-btn" onclick="refreshBookMeta('${b.id}')" title="Refresh cover and metadata">↻</button>
@@ -1666,14 +1668,52 @@ async function openBookPage(bookId) {
   }
 }
 
+// Modal navigation stack
+const modalStack = [];
+
 function openBookModal() {
   const modal = document.getElementById('book-modal');
   modal.classList.add('on');
   document.body.style.overflow = 'hidden';
-  // Reset scroll to top
   const inner = document.getElementById('book-modal-inner');
-  if (inner) inner.scrollTop = 0;
-  // Note: no swipe-to-close on book modal - too easy to accidentally trigger
+  if (inner) {
+    inner.scrollTop = 0;
+    // Listen for scroll to show back-to-top
+    inner.onscroll = () => {
+      const btn = document.getElementById('back-to-top');
+      if (btn) btn.style.opacity = inner.scrollTop > 300 ? '1' : '0';
+    };
+  }
+}
+
+function pushModal(fn) {
+  // Save current modal content before navigating
+  const inner = document.getElementById('book-modal-inner');
+  const body = document.getElementById('book-modal-body');
+  if (body) modalStack.push(body.innerHTML);
+  fn();
+}
+
+function modalBack() {
+  if (modalStack.length > 0) {
+    const prev = modalStack.pop();
+    const body = document.getElementById('book-modal-body');
+    if (body) {
+      body.innerHTML = prev;
+      const inner = document.getElementById('book-modal-inner');
+      if (inner) inner.scrollTop = 0;
+    }
+  } else {
+    closeBookModal();
+  }
+}
+
+function closeBookModal() {
+  modalStack.length = 0; // clear stack on close
+  document.getElementById('book-modal').classList.remove('on');
+  document.body.style.overflow = '';
+  const inner = document.getElementById('book-modal-inner');
+  if (inner) inner.onscroll = null;
 }
 
 function addSwipeToClose(elId, closeFn) {
@@ -1692,10 +1732,7 @@ function addSwipeToClose(elId, closeFn) {
   };
 }
 
-function closeBookModal() {
-  document.getElementById('book-modal').classList.remove('on');
-  document.body.style.overflow = '';
-}
+// closeBookModal now defined with openBookModal
 
 function bookModalClick(e) {
   // On mobile, don't close on backdrop tap - too easy to accidentally close
@@ -2791,7 +2828,7 @@ async function openAuthorPage(authorName, olAuthorKey) {
   const modal = document.getElementById('book-modal-body');
   modal.innerHTML = `<div class="bp">
     <div class="bp-nav">
-      <div class="bp-back" onclick="closeBookModal()">← Back</div>
+      <div class="bp-back" onclick="modalBack()">← Back</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:20px 0">
       <div class="spinner"></div>
@@ -2919,8 +2956,8 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
 
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
-      <div class="bp-back" onclick="closeBookModal()">← Back</div>
-      <button onclick="var m=document.getElementById('book-modal-inner');if(m)m.scrollTop=0;window.scrollTo({top:0,behavior:'smooth'})" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">↑ Top</button>
+      <div class="bp-back" onclick="modalBack()">← Back</div>
+      <button onclick="var m=document.getElementById('book-modal-inner');if(m)m.scrollTop=0;" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">↑ Top</button>
     </div>
 
     <!-- Hero: centered text only -->
