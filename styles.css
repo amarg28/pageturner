@@ -942,3 +942,7 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .card-dnf-badge{display:inline-block;font-size:9px;font-weight:600;background:var(--coral);color:#fff;padding:1px 6px;border-radius:100px;margin-top:3px;letter-spacing:.03em}
 .book-card.dnf-card{opacity:.75}
 .book-card.dnf-card .cover-wrap{filter:grayscale(30%)}
+
+/* ── AUTHOR PAGE ───────────────────────────────────────────────────────── */
+.author-link{cursor:pointer;text-decoration:underline;text-decoration-color:var(--bd2);text-underline-offset:3px;transition:text-decoration-color .15s}
+.author-link:hover{text-decoration-color:var(--amber);color:var(--amber)}
