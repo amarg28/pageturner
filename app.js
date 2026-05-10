@@ -2842,7 +2842,7 @@ async function openAuthorPage(authorName, olAuthorKey) {
     const displayWorks = showNotable ? notable : works;
 
     // Render
-    renderAuthorPage(authorName, authorKey, bio, photo, born, died, nationality, works, displayWorks, showNotable, myBooks);
+    renderAuthorPage(authorName, authorKey, bio, born, died, nationality, works, displayWorks, showNotable, myBooks);
 
   } catch(e) {
     document.getElementById('book-modal-body').innerHTML = `<div class="bp">
@@ -2852,7 +2852,7 @@ async function openAuthorPage(authorName, olAuthorKey) {
   }
 }
 
-function renderAuthorPage(name, olKey, bio, photo, born, died, nationality, allWorks, displayWorks, hasMore, myBooks) {
+function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, displayWorks, hasMore, myBooks) {
   const stats = [
     born ? `Born ${born}` : null,
     died ? `Died ${died}` : null,
