@@ -1758,7 +1758,7 @@ async function loadSeriesSection(b) {
       const ratingHtml = lb.rating ? toStars(lb.rating) : 'In library';
       const thisLabel = isCurrent ? '<div style="font-size:10px;color:#fff;flex-shrink:0;align-self:center;font-weight:500">← you are here</div>' : '';
       const bg = isCurrent ? 'var(--amber)' : '';
-      const click = isCurrent ? '' : `closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),50)`;
+      const click = isCurrent ? '' : `closeBookModal();setTimeout(()=>openBookPage('${lb.id}'),150)`;
       return `<div style="display:flex;gap:9px;padding:7px 6px;border-bottom:0.5px solid var(--bd);cursor:${isCurrent?'default':'pointer'};border-radius:var(--r);background:${bg}" onclick="${click}">
         ${coverHtml}
         <div style="flex:1;min-width:0">
@@ -2874,7 +2874,7 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
       <div class="bpsec-t">In your library</div>
       ${myBooks.map(b => {
         const cover = bCover(b);
-        return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),50)">
+        return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),150)">
           ${cover?`<img src="${cover}" style="width:32px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:32px;height:48px;background:var(--bg2);border-radius:4px;flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-family:'Lora',serif;font-size:13px;font-weight:500">${bTitle(b)}</div>
@@ -2920,7 +2920,7 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
       <div class="bp-back" onclick="closeBookModal()">← Back</div>
-      <button onclick="document.getElementById('book-modal-inner').scrollTo({top:0,behavior:'smooth'})" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">↑ Top</button>
+      <button onclick="var m=document.getElementById('book-modal-inner');if(m)m.scrollTop=0;window.scrollTo({top:0,behavior:'smooth'})" style="margin-left:auto;font-size:11px;padding:4px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;cursor:pointer;color:var(--tx2);font-family:'DM Sans',sans-serif">↑ Top</button>
     </div>
 
     <!-- Hero: centered text only -->
@@ -2942,7 +2942,7 @@ function renderAuthorPage(name, olKey, bio, born, died, nationality, allWorks, d
           <div class="bpsec-t">In your library</div>
           ${myBooks.map(b => {
             const cover = bCover(b);
-            return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),50)">
+            return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;align-items:center" onclick="closeBookModal();setTimeout(()=>openBookPage('${b.id}'),150)">
               ${cover?`<img src="${cover}" style="width:32px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy">`:`<div style="width:32px;height:48px;background:var(--bg2);border-radius:4px;flex-shrink:0"></div>`}
               <div style="flex:1;min-width:0">
                 <div style="font-family:'Lora',serif;font-size:13px;font-weight:500">${bTitle(b)}</div>
