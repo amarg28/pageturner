@@ -1286,6 +1286,7 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
   document.getElementById('del-body').innerHTML = `
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
     <div class="modal-title" style="margin-bottom:12px">Search books</div>
+    <input type="password" style="display:none" autocomplete="new-password">
     <div class="full-search-bar">
       <input class="full-search-input fi" id="fs-q" value="${q}" placeholder="Title, author, ISBN…" onkeydown="if(event.key==='Enter')showFullSearchModal(document.getElementById('fs-q').value)" autofocus>
       <button class="btn-primary" style="flex-shrink:0;padding:8px 16px" onclick="showFullSearchModal(document.getElementById('fs-q').value)">Search</button>
@@ -1293,9 +1294,9 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
     <details class="full-search-advanced" style="margin:10px 0 14px">
       <summary style="font-size:12px;color:var(--tx2);cursor:pointer;user-select:none">Advanced search ▾</summary>
       <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:10px;align-items:end">
-        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Title</div><input class="fi" id="fs-title" placeholder="Exact title" value="${advTitle}" style="font-size:12px;padding:6px 10px"></div>
-        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Author</div><input class="fi" id="fs-author" placeholder="Author name" value="${advAuthor}" style="font-size:12px;padding:6px 10px"></div>
-        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Year</div><input class="fi" id="fs-year" placeholder="2019" value="${advYear}" style="width:70px;font-size:12px;padding:6px 10px"></div>
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Title</div><input class="fi" id="fs-title" placeholder="Exact title" value="${advTitle}" style="font-size:12px;padding:6px 10px" autocomplete="off"></div>
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Author</div><input class="fi" id="fs-author" placeholder="Author name" value="${advAuthor}" style="font-size:12px;padding:6px 10px" autocomplete="off"></div>
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Year</div><input class="fi" id="fs-year" placeholder="2019" value="${advYear}" style="width:70px;font-size:12px;padding:6px 10px" autocomplete="off"></div>
         <button class="btn-primary" style="padding:8px 12px;font-size:12px" onclick="showFullSearchModal(document.getElementById('fs-q').value,1,document.getElementById('fs-title').value,document.getElementById('fs-author').value,document.getElementById('fs-year').value)">Go</button>
       </div>
     </details>
@@ -1339,7 +1340,7 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
       ${page<pages?`<button class="btn-ghost" onclick="showFullSearchModal('${safeQ}',${page+1},'${safeT}','${safeA}','${advYear}')">Next →</button>`:'<span></span>'}
     </div>` : `<div style="font-size:12px;color:var(--tx2);padding:8px 0">${total.toLocaleString()} result${total!==1?'s':''}</div>`;
 
-    document.getElementById('full-search-results').innerHTML = paginationHtml + resultsHtml + (pages>1?paginationHtml:'');
+    document.getElementById('full-search-results').innerHTML = paginationHtml + resultsHtml;
   } catch(e) {
     document.getElementById('full-search-results').innerHTML = `<div style="color:var(--coral);padding:16px 0">Search failed: ${e.message}</div>`;
   }
