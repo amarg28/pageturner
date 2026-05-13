@@ -232,15 +232,9 @@
         <div class="discover-side">
           <div class="discover-section-label">Add a book</div>
           <div class="add-wrap">
-            <div class="bsearch">
-              <input class="bsearch-in" id="ol-q" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')olSearch()">
-              <button class="btn-search" id="ol-btn" onclick="olSearch()">Search</button>
-            </div>
-            <div style="font-size:11px;color:var(--tx2);margin-top:6px">Can't find it? <button onclick="openManualEntry()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;padding:0;text-decoration:underline">Add manually →</button></div>
+            <div style="font-size:13px;color:var(--tx1);margin-bottom:12px;line-height:1.6">Use the <strong>search bar at the top</strong> to find any book and add it to your library or TBR.</div>
+            <button onclick="openManualEntry()" class="btn-ghost" style="width:100%;font-size:13px;margin-bottom:16px">+ Add book manually</button>
             <div id="manual-entry-form" style="display:none"></div>
-            <div id="ol-results" style="display:none"></div>
-            <div id="edition-section" style="display:none"></div>
-            <div id="book-form" style="display:none"></div>
 
             <div class="import-sec">
               <div style="font-size:13px;font-weight:500;margin-bottom:6px">Import your library</div>
