@@ -15,29 +15,116 @@
 
 <!-- ── AUTH ──────────────────────────────────────────────────────────── -->
 <div id="auth-screen" class="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">page<em>turner</em></div>
-    <div class="auth-tagline">Track what you read. Reflect on what stayed with you. Discover what's next.</div>
-    <div class="auth-steps">
-      <div class="auth-step"><span class="auth-step-icon">📚</span><div><strong>Track</strong> your reading history with ratings, notes and dates</div></div>
-      <div class="auth-step"><span class="auth-step-icon">✦</span><div><strong>Reflect</strong> on books a year later — does your opinion still hold?</div></div>
-      <div class="auth-step"><span class="auth-step-icon">🔭</span><div><strong>Discover</strong> your next book with AI that knows your taste</div></div>
+
+  <!-- LANDING PAGE -->
+  <div class="landing" id="landing-view">
+    <div class="landing-nav">
+      <div class="landing-logo">page<em>turner</em></div>
+      <div class="landing-nav-btns">
+        <button class="landing-signin-btn" onclick="showAuthView('signin')">Sign in</button>
+        <button class="landing-cta-btn" onclick="showAuthView('signup')">Get started free</button>
+      </div>
     </div>
-    <div class="auth-tabs">
-      <button class="auth-tab on" onclick="switchAuthTab('signin')">Sign in</button>
-      <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
+
+    <div class="landing-hero">
+      <div class="landing-hero-text">
+        <div class="landing-headline">Your personal<br>reading companion.</div>
+        <div class="landing-subhead">Track every book you read. Reflect on what stayed with you. Let AI discover what to read next — based on your actual taste, not a bestseller list.</div>
+        <div class="landing-hero-btns">
+          <button class="landing-cta-btn landing-cta-large" onclick="showAuthView('signup')">Start for free →</button>
+          <button class="landing-ghost-btn" onclick="showAuthView('signin')">Already have an account</button>
+        </div>
+      </div>
+      <div class="landing-hero-visual">
+        <div class="landing-feature-cards">
+          <div class="landing-fcard">
+            <div class="landing-fcard-icon">📚</div>
+            <div class="landing-fcard-title">Track</div>
+            <div class="landing-fcard-desc">Log every book with ratings, dates, and your initial thoughts.</div>
+          </div>
+          <div class="landing-fcard landing-fcard-accent">
+            <div class="landing-fcard-icon">✦</div>
+            <div class="landing-fcard-title">Reflect</div>
+            <div class="landing-fcard-desc">Revisit books after time passes. Does your opinion still hold?</div>
+          </div>
+          <div class="landing-fcard">
+            <div class="landing-fcard-icon">🤖</div>
+            <div class="landing-fcard-title">Discover</div>
+            <div class="landing-fcard-desc">AI that knows your reading history recommends what's next.</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="auth-field">
-      <label class="auth-label">Email</label>
-      <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')authSubmit()">
+
+    <div class="landing-features">
+      <div class="landing-feature">
+        <div class="landing-feature-icon">📖</div>
+        <div>
+          <div class="landing-feature-title">Import from Goodreads or StoryGraph</div>
+          <div class="landing-feature-desc">Bring your entire reading history in seconds. Ratings, dates, reviews — all preserved.</div>
+        </div>
+      </div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">✦</div>
+        <div>
+          <div class="landing-feature-title">A reflection journal unlike any other</div>
+          <div class="landing-feature-desc">Books resurface after your chosen wait period with prompted questions. Your reflections fuel smarter recommendations over time.</div>
+        </div>
+      </div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">🤖</div>
+        <div>
+          <div class="landing-feature-title">AI that actually knows your taste</div>
+          <div class="landing-feature-desc">Book Bot reads your full library, your notes, and your reflections. It doesn't just recommend popular books — it recommends your next book.</div>
+        </div>
+      </div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">✍️</div>
+        <div>
+          <div class="landing-feature-title">Deep author pages</div>
+          <div class="landing-feature-desc">Explore any author's full bibliography, see what you've read, and get a personalised "where to start" recommendation.</div>
+        </div>
+      </div>
     </div>
-    <div class="auth-field">
-      <label class="auth-label">Password</label>
-      <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
+
+    <div class="landing-footer">
+      <div class="landing-footer-logo">page<em>turner</em></div>
+      <div class="landing-footer-text">Free to use · No ads · Your data stays yours</div>
+      <div class="landing-footer-links">
+        <button onclick="showAuthView('signup')" style="background:none;border:none;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px">Get started →</button>
+      </div>
     </div>
-    <button class="auth-btn" id="auth-btn" onclick="authSubmit()">Sign in</button>
-    <div class="auth-msg error" id="auth-error"></div>
-    <div class="auth-msg success" id="auth-success"></div>
+  </div>
+
+  <!-- AUTH FORM -->
+  <div class="auth-form-view" id="auth-form-view" style="display:none">
+    <div class="auth-card">
+      <button class="auth-back-btn" onclick="showLanding()">← Back</button>
+      <div class="auth-logo">page<em>turner</em></div>
+      <div class="auth-tabs">
+        <button class="auth-tab on" id="auth-tab-signin" onclick="switchAuthTab('signin')">Sign in</button>
+        <button class="auth-tab" id="auth-tab-signup" onclick="switchAuthTab('signup')">Create account</button>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')authSubmit()">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
+      </div>
+      <button class="auth-btn" id="auth-btn" onclick="authSubmit()">Sign in</button>
+      <div class="auth-msg error" id="auth-error"></div>
+      <div class="auth-msg success" id="auth-success"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ONBOARDING SURVEY -->
+<div id="survey-overlay" class="survey-overlay" style="display:none">
+  <div class="survey-card" id="survey-card">
+    <!-- Steps rendered by JS -->
   </div>
 </div>
 
@@ -506,8 +593,10 @@
       </div>
     </div>
 
-    <!-- Sign out -->
+    <!-- Rerun survey + Sign out -->
     <div class="settings-section">
+      <div style="font-size:12px;color:var(--tx1);margin-bottom:10px;line-height:1.5">Rerun the book recommendation survey to get fresh starter suggestions.</div>
+      <button class="settings-save-btn" style="display:block;width:100%;margin-bottom:12px" onclick="closeSettings();localStorage.removeItem('pt_survey_done');showSurvey()">✦ Rerun starter survey</button>
       <button class="settings-signout-btn" onclick="signOut()">Sign out</button>
     </div>
 
