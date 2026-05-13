@@ -1236,34 +1236,26 @@ function closeGsearch() {
   gsearchResults=[]; gsearchIdx=-1;
 }
 
+let gsearchAllResults = [];
+
 async function doGsearch(q) {
   const box = document.getElementById('gsearch-results');
-  box.innerHTML=`<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
+  box.innerHTML = `<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
   box.classList.add('open');
 
-  // Find matching authors from library
-  const authorNames = [...new Set(books.map(b => bAuthor(b)))]
-    .filter(a => a.toLowerCase().includes(q.toLowerCase())).slice(0,2);
-  const authorHtml = authorNames.map(a => {
-    const cnt = books.filter(b=>bAuthor(b)===a).length;
-    const safeA = a.replace(/'/g,"\\'");
-    return `<div class="gsearch-result" onclick="closeGsearch();openAuthorPage('${safeA}')">
-      <div class="gsearch-result-cover-ph" style="font-size:20px">✍️</div>
-      <div style="flex:1;min-width:0">
-        <div class="gsearch-result-title">${a}</div>
-        <div class="gsearch-result-author">Author · ${cnt} book${cnt!==1?'s':''} in your library</div>
-      </div>
-    </div>`;
-  }).join('');
-
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
     const d = await r.json();
-    gsearchResults = d.docs||[];
-    if (!gsearchResults.length && !authorHtml) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
-    box.innerHTML = authorHtml + gsearchResults.map((res,i) => {
+    gsearchAllResults = d.docs || [];
+    gsearchResults = gsearchAllResults.slice(0, 5);
+    const total = d.numFound || 0;
+
+    if (!gsearchAllResults.length) { box.innerHTML = `<div class="gsearch-empty">No results found.</div>`; return; }
+
+    const safeQ = q.replace(/'/g, "\\'");
+    box.innerHTML = gsearchResults.map((res,i) => {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
-      const author = (res.author_name||[]).slice(0,2).join(', ')||'Unknown author';
+      const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
         ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="gsearch-result-cover-ph">📖</div>`}
         <div style="flex:1;min-width:0">
@@ -1273,8 +1265,84 @@ async function doGsearch(q) {
           ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
         </div>
       </div>`;
+    }).join('') +
+    `<div class="gsearch-view-all" onclick="openFullSearch('${safeQ}')">View all results for "${q.length>25?q.slice(0,25)+'…':q}" →</div>`;
+  } catch(e) { box.innerHTML = `<div class="gsearch-empty">Search failed.</div>`; }
+}
+
+function openFullSearch(q) {
+  closeGsearch();
+  showFullSearchModal(q);
+}
+
+async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear='') {
+  const parts = [];
+  if (advTitle) parts.push('title:' + advTitle);
+  if (advAuthor) parts.push('author:' + advAuthor);
+  if (!advTitle && !advAuthor) parts.push(q);
+  const offset = (page-1) * 20;
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(parts.join(' '))}&limit=20&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median${advYear?'&published_in='+advYear:''}`;
+
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title" style="margin-bottom:12px">Search books</div>
+    <div class="full-search-bar">
+      <input class="full-search-input fi" id="fs-q" value="${q}" placeholder="Title, author, ISBN…" onkeydown="if(event.key==='Enter')showFullSearchModal(document.getElementById('fs-q').value)" autofocus>
+      <button class="btn-primary" style="flex-shrink:0;padding:8px 16px" onclick="showFullSearchModal(document.getElementById('fs-q').value)">Search</button>
+    </div>
+    <details class="full-search-advanced" style="margin:10px 0 14px">
+      <summary style="font-size:12px;color:var(--tx2);cursor:pointer;user-select:none">Advanced search ▾</summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:10px;align-items:end">
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Title</div><input class="fi" id="fs-title" placeholder="Exact title" value="${advTitle}" style="font-size:12px;padding:6px 10px"></div>
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Author</div><input class="fi" id="fs-author" placeholder="Author name" value="${advAuthor}" style="font-size:12px;padding:6px 10px"></div>
+        <div><div style="font-size:11px;color:var(--tx2);margin-bottom:3px">Year</div><input class="fi" id="fs-year" placeholder="2019" value="${advYear}" style="width:70px;font-size:12px;padding:6px 10px"></div>
+        <button class="btn-primary" style="padding:8px 12px;font-size:12px" onclick="showFullSearchModal(document.getElementById('fs-q').value,1,document.getElementById('fs-title').value,document.getElementById('fs-author').value,document.getElementById('fs-year').value)">Go</button>
+      </div>
+    </details>
+    <div id="full-search-results"><div style="display:flex;gap:8px;align-items:center;padding:16px 0"><div class="spinner"></div>Searching…</div></div>`;
+  document.getElementById('del-modal').classList.add('on');
+
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    const results = d.docs || [];
+    const total = d.numFound || 0;
+    const pages = Math.min(Math.ceil(total / 20), 10);
+
+    if (!results.length) {
+      document.getElementById('full-search-results').innerHTML = `<div style="padding:16px 0;color:var(--tx1)">No results found. Try different search terms.</div>`;
+      return;
+    }
+
+    const safeQ = q.replace(/'/g,"\\'");
+    const safeT = advTitle.replace(/'/g,"\\'");
+    const safeA = advAuthor.replace(/'/g,"\\'");
+
+    const resultsHtml = results.map(res => {
+      const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
+      const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
+      const safeRes = JSON.stringify(res).replace(/'/g,"\\'").replace(/\\\\/g,'\\\\');
+      return `<div class="full-search-result" onclick="document.getElementById('del-modal').classList.remove('on');setTimeout(()=>{openUnreadBookPage(${JSON.stringify(res)})},50)">
+        ${res.cover_i?`<img src="${cUrl(res.cover_i,'S')}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:36px;height:54px;background:var(--bg2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">📖</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:2px">${res.title}</div>
+          <div style="font-size:12px;color:var(--tx1)">${author}</div>
+          <div style="font-size:11px;color:var(--tx2);margin-top:2px">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' p':''].filter(Boolean).join(' · ')}</div>
+          ${inLib?`<div style="font-size:11px;color:var(--teal);margin-top:2px">✓ In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
+        </div>
+      </div>`;
     }).join('');
-  } catch(e) { box.innerHTML=`<div class="gsearch-empty">Search failed.</div>`; }
+
+    const paginationHtml = pages > 1 ? `<div class="full-search-pagination">
+      ${page>1?`<button class="btn-ghost" onclick="showFullSearchModal('${safeQ}',${page-1},'${safeT}','${safeA}','${advYear}')">← Prev</button>`:'<span></span>'}
+      <span style="font-size:12px;color:var(--tx2)">Page ${page} of ${pages} · ${total.toLocaleString()} results</span>
+      ${page<pages?`<button class="btn-ghost" onclick="showFullSearchModal('${safeQ}',${page+1},'${safeT}','${safeA}','${advYear}')">Next →</button>`:'<span></span>'}
+    </div>` : `<div style="font-size:12px;color:var(--tx2);padding:8px 0">${total.toLocaleString()} result${total!==1?'s':''}</div>`;
+
+    document.getElementById('full-search-results').innerHTML = paginationHtml + resultsHtml + (pages>1?paginationHtml:'');
+  } catch(e) {
+    document.getElementById('full-search-results').innerHTML = `<div style="color:var(--coral);padding:16px 0">Search failed: ${e.message}</div>`;
+  }
 }
 
 function gsearchKey(e) {
@@ -2000,7 +2068,7 @@ async function genAnalysis(bookId) {
   btn.disabled=true; btn.textContent='Thinking…';
   document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Checking your reading history…</div>`;
   try {
-    const text = await callClaude(`Based on this reader's history, will they enjoy "${bTitle(b)}" by ${bAuthor(b)}?\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)}\nDescription:${bDesc(b)||'N/A'}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
+    const text = await callClaude(`Based on this reader's history, is "${bTitle(b)}" by ${bAuthor(b)} a good fit for them?\nHistory:\n${booksCtxStr()}\nGenre:${bGenre(b)}\nDescription:${bDesc(b)||'N/A'}\n\nRespond warmly in 2-3 sentences. Focus on the big picture — why it does or doesn't fit their taste based on patterns you see in their reading history. Reference 1-2 specific books. End with PREDICTED: [number]/10.`, 300);
     const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
     const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
     const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span style="color:var(--amber)">${toStars(parseFloat(pred[1]))}</span></div>`:''}
@@ -2025,7 +2093,7 @@ async function genUnreadAnalysis(olKey, title, author) {
   btn.disabled=true; btn.textContent='Thinking…';
   document.getElementById('ai-result').innerHTML=`<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx1)"><div class="spinner"></div>Checking your reading history…</div>`;
   try {
-    const text = await callClaude(`Based on this reader's history, will they enjoy "${title}" by ${author}?\nHistory:\n${booksCtxStr()}\n\nRespond warmly in 2-3 sentences max. Reference 1-2 specific books from their history. End with PREDICTED: [number]/10.`, 300);
+    const text = await callClaude(`Based on this reader's history, is "${title}" by ${author} a good fit for them?\nHistory:\n${booksCtxStr()}\n\nRespond warmly in 2-3 sentences. Focus on the big picture — why it does or doesn't fit their taste based on patterns you see in their reading history. Reference 1-2 specific books. End with PREDICTED: [number]/10.`, 300);
     const pred=text.match(/PREDICTED:\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
     const analysis = text.replace(/PREDICTED:.*$/im,'').trim();
     const html = `${pred?`<div class="ai-pred"><span>Book Bot thinks</span><span style="color:var(--amber)">${toStars(parseFloat(pred[1]))}</span></div>`:''}
