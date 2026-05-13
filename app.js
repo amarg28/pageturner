@@ -419,10 +419,14 @@ function onSignedIn() {
   restoreChatHistory();
   go('library');
   loadBooks();
-  // Show tour on first ever sign-in
+  // Show tour then survey for new users
   const toured = localStorage.getItem('pt_toured');
+  const surveyed = localStorage.getItem('pt_survey_done');
   if (!toured) {
     setTimeout(() => showTour(), 1200);
+    setTimeout(() => { if (!localStorage.getItem('pt_survey_done')) showSurvey(); }, 3000);
+  } else if (!surveyed) {
+    setTimeout(() => showSurvey(), 800);
   }
 }
 
@@ -3165,6 +3169,290 @@ Respond warmly in 3-4 sentences. Name the specific next book, give a one-sentenc
     result.innerHTML = `<div style="font-size:13px;color:var(--coral)">Error: ${e.message}</div>`;
     btn.textContent = '✦ Try again';
     btn.disabled = false;
+  }
+}
+
+/* ── LANDING PAGE ──────────────────────────────────────────────────────── */
+function showAuthView(tab) {
+  document.getElementById('landing-view').style.display = 'none';
+  document.getElementById('auth-form-view').style.display = 'flex';
+  switchAuthTab(tab);
+  if (tab === 'signup') document.getElementById('auth-email').focus();
+}
+
+function showLanding() {
+  document.getElementById('landing-view').style.display = 'block';
+  document.getElementById('auth-form-view').style.display = 'none';
+}
+
+/* ── ONBOARDING SURVEY ─────────────────────────────────────────────────── */
+let surveyAnswers = {
+  books: [],        // [{title, author, key}]
+  mood: '',         // 'challenge' | 'relax'
+  length: '',       // 'long' | 'short'
+  reality: '',      // 'real' | 'fantastical'
+  themes: ''        // free text
+};
+let surveyStep = 0;
+const SURVEY_STEPS = 5;
+
+function showSurvey() {
+  surveyAnswers = { books: [], mood: '', length: '', reality: '', themes: '' };
+  surveyStep = 0;
+  document.getElementById('survey-overlay').style.display = 'flex';
+  renderSurveyStep();
+}
+
+function closeSurvey() {
+  document.getElementById('survey-overlay').style.display = 'none';
+  localStorage.setItem('pt_survey_done', '1');
+}
+
+function renderSurveyStep() {
+  const card = document.getElementById('survey-card');
+  const progress = `<div class="survey-progress">
+    ${Array.from({length:SURVEY_STEPS},(_,i)=>`<div class="survey-pip${i<=surveyStep?' on':''}"></div>`).join('')}
+  </div>`;
+
+  if (surveyStep === 0) {
+    card.innerHTML = `
+      ${progress}
+      <div class="survey-title">Let's find your next book</div>
+      <div class="survey-sub">Tell us about books you've loved and we'll suggest where to start.</div>
+      <div class="survey-q">Name up to 5 books you've enjoyed</div>
+      <div class="survey-book-search-wrap">
+        <input class="fi" id="survey-book-input" placeholder="Search by title or author…" oninput="surveyBookSearch()" autocomplete="off" style="margin-bottom:8px">
+        <div id="survey-book-suggestions" class="survey-suggestions"></div>
+      </div>
+      <div id="survey-books-added" class="survey-books-added"></div>
+      <div class="survey-acts">
+        <button class="btn-ghost" onclick="closeSurvey()">Skip</button>
+        <button class="btn-primary" onclick="surveyNext()">Next →</button>
+      </div>`;
+  } else if (surveyStep === 1) {
+    card.innerHTML = `
+      ${progress}
+      <div class="survey-title">What are you in the mood for?</div>
+      <div class="survey-q" style="margin-bottom:20px">Right now, I want something that…</div>
+      <div class="survey-choice-grid">
+        <button class="survey-choice${surveyAnswers.mood==='challenge'?' selected':''}" onclick="surveyPick('mood','challenge',this)">
+          <div class="survey-choice-icon">🧠</div>
+          <div class="survey-choice-label">Challenges my mind</div>
+          <div class="survey-choice-desc">Complex ideas, deep themes, makes me think</div>
+        </button>
+        <button class="survey-choice${surveyAnswers.mood==='relax'?' selected':''}" onclick="surveyPick('mood','relax',this)">
+          <div class="survey-choice-icon">☁️</div>
+          <div class="survey-choice-label">Gives my mind a break</div>
+          <div class="survey-choice-desc">Enjoyable, absorbing, doesn't require effort</div>
+        </button>
+      </div>
+      <div class="survey-acts">
+        <button class="btn-ghost" onclick="surveyBack()">← Back</button>
+        <button class="btn-primary" onclick="surveyNext()" ${!surveyAnswers.mood?'disabled':''}>Next →</button>
+      </div>`;
+  } else if (surveyStep === 2) {
+    card.innerHTML = `
+      ${progress}
+      <div class="survey-title">How much time do you have?</div>
+      <div class="survey-q" style="margin-bottom:20px">I want to read something…</div>
+      <div class="survey-choice-grid">
+        <button class="survey-choice${surveyAnswers.length==='long'?' selected':''}" onclick="surveyPick('length','long',this)">
+          <div class="survey-choice-icon">🌊</div>
+          <div class="survey-choice-label">Long and immersive</div>
+          <div class="survey-choice-desc">A world to lose myself in for weeks</div>
+        </button>
+        <button class="survey-choice${surveyAnswers.length==='short'?' selected':''}" onclick="surveyPick('length','short',this)">
+          <div class="survey-choice-icon">⚡</div>
+          <div class="survey-choice-label">Quick and satisfying</div>
+          <div class="survey-choice-desc">Reads fast, stays with me</div>
+        </button>
+      </div>
+      <div class="survey-acts">
+        <button class="btn-ghost" onclick="surveyBack()">← Back</button>
+        <button class="btn-primary" onclick="surveyNext()" ${!surveyAnswers.length?'disabled':''}>Next →</button>
+      </div>`;
+  } else if (surveyStep === 3) {
+    card.innerHTML = `
+      ${progress}
+      <div class="survey-title">Reality or beyond?</div>
+      <div class="survey-q" style="margin-bottom:20px">I prefer stories that are…</div>
+      <div class="survey-choice-grid">
+        <button class="survey-choice${surveyAnswers.reality==='real'?' selected':''}" onclick="surveyPick('reality','real',this)">
+          <div class="survey-choice-icon">🌍</div>
+          <div class="survey-choice-label">Grounded in reality</div>
+          <div class="survey-choice-desc">Could actually happen</div>
+        </button>
+        <button class="survey-choice${surveyAnswers.reality==='fantastical'?' selected':''}" onclick="surveyPick('reality','fantastical',this)">
+          <div class="survey-choice-icon">🌌</div>
+          <div class="survey-choice-label">Beyond reality</div>
+          <div class="survey-choice-desc">Magic, sci-fi, the impossible</div>
+        </button>
+      </div>
+      <div class="survey-acts">
+        <button class="btn-ghost" onclick="surveyBack()">← Back</button>
+        <button class="btn-primary" onclick="surveyNext()" ${!surveyAnswers.reality?'disabled':''}>Next →</button>
+      </div>`;
+  } else if (surveyStep === 4) {
+    card.innerHTML = `
+      ${progress}
+      <div class="survey-title">Any themes or moods?</div>
+      <div class="survey-sub">Optional — type anything that calls to you right now.</div>
+      <div class="survey-q">I want to read about…</div>
+      <input class="fi" id="survey-themes" placeholder="e.g. grief, found family, political intrigue, slow burn…" value="${surveyAnswers.themes}" oninput="surveyAnswers.themes=this.value" style="margin-bottom:8px">
+      <div style="font-size:11px;color:var(--tx2)">Separate with commas. Leave blank to skip.</div>
+      <div class="survey-acts">
+        <button class="btn-ghost" onclick="surveyBack()">← Back</button>
+        <button class="btn-primary" onclick="surveySubmit()">Find my books ✦</button>
+      </div>`;
+  }
+}
+
+let surveyBookTimer;
+async function surveyBookSearch() {
+  clearTimeout(surveyBookTimer);
+  const q = document.getElementById('survey-book-input')?.value.trim();
+  const sug = document.getElementById('survey-book-suggestions');
+  if (!q || q.length < 2) { if (sug) sug.innerHTML=''; return; }
+  surveyBookTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5&fields=key,title,author_name`);
+      const d = await r.json();
+      const results = d.docs||[];
+      if (!sug) return;
+      sug.innerHTML = results.map(res => {
+        const author = (res.author_name||[])[0]||'';
+        const alreadyAdded = surveyAnswers.books.find(b=>b.key===res.key);
+        if (alreadyAdded) return '';
+        return `<div class="survey-suggestion" onclick="surveyAddBook('${res.key}','${esc(res.title)}','${esc(author)}')">
+          <span style="font-family:'Lora',serif;font-size:13px">${res.title}</span>
+          <span style="font-size:11px;color:var(--tx2);margin-left:6px">${author}</span>
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  }, 300);
+}
+
+function surveyAddBook(key, title, author) {
+  if (surveyAnswers.books.length >= 5) return;
+  if (surveyAnswers.books.find(b=>b.key===key)) return;
+  surveyAnswers.books.push({key, title, author});
+  document.getElementById('survey-book-input').value = '';
+  document.getElementById('survey-book-suggestions').innerHTML = '';
+  renderSurveyBooks();
+}
+
+function surveyRemoveBook(key) {
+  surveyAnswers.books = surveyAnswers.books.filter(b=>b.key!==key);
+  renderSurveyBooks();
+}
+
+function renderSurveyBooks() {
+  const el = document.getElementById('survey-books-added');
+  if (!el) return;
+  el.innerHTML = surveyAnswers.books.map(b =>
+    `<div class="survey-book-chip">
+      <span style="font-family:'Lora',serif;font-size:13px">${b.title}</span>
+      <span style="font-size:11px;color:var(--tx2);margin:0 6px">${b.author}</span>
+      <button onclick="surveyRemoveBook('${b.key}')" style="background:none;border:none;cursor:pointer;color:var(--tx2);font-size:14px;padding:0;line-height:1">×</button>
+    </div>`
+  ).join('');
+}
+
+function surveyPick(field, value, btn) {
+  surveyAnswers[field] = value;
+  btn.closest('.survey-choice-grid').querySelectorAll('.survey-choice').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  btn.closest('.survey-card').querySelector('.btn-primary').disabled = false;
+}
+
+function surveyNext() {
+  surveyStep = Math.min(surveyStep+1, SURVEY_STEPS-1);
+  renderSurveyStep();
+}
+
+function surveyBack() {
+  surveyStep = Math.max(surveyStep-1, 0);
+  renderSurveyStep();
+}
+
+async function surveySubmit() {
+  const card = document.getElementById('survey-card');
+  card.innerHTML = `<div style="text-align:center;padding:40px 20px">
+    <div class="spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto 16px"></div>
+    <div style="font-family:'Lora',serif;font-size:18px;margin-bottom:8px">Finding your books…</div>
+    <div style="font-size:13px;color:var(--tx1)">Checking the whole library for you.</div>
+  </div>`;
+
+  const moodLabel = surveyAnswers.mood==='challenge'?'challenging and intellectually stimulating':'relaxing and easy to enjoy';
+  const lengthLabel = surveyAnswers.length==='long'?'long and immersive':'shorter and quick to read';
+  const realityLabel = surveyAnswers.reality==='real'?'grounded in reality':'fantastical, magical, or science fiction';
+  const booksCtx = surveyAnswers.books.length
+    ? `Books they've loved: ${surveyAnswers.books.map(b=>`"${b.title}" by ${b.author}`).join(', ')}.`
+    : 'No prior books specified.';
+  const themesCtx = surveyAnswers.themes ? `Themes/moods they want: ${surveyAnswers.themes}.` : '';
+
+  const prompt = `A new reader has just signed up for a book tracking app. Based on their preferences, recommend exactly 5 books they should read.
+
+${booksCtx}
+They want something: ${moodLabel}, ${lengthLabel}, and ${realityLabel}.
+${themesCtx}
+
+For each book provide:
+- Title and author
+- One sentence description (what it's about)
+- One sentence on why it matches their preferences
+
+Format as JSON array only, no other text:
+[{"title":"...","author":"...","description":"...","why":"..."},...]`;
+
+  try {
+    const text = await callClaude(prompt, 800);
+    const clean = text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const recs = JSON.parse(clean);
+    renderSurveyResults(recs);
+  } catch(e) {
+    card.innerHTML = `<div style="padding:20px;text-align:center">
+      <div style="font-size:14px;color:var(--coral);margin-bottom:16px">Couldn't generate recommendations right now.</div>
+      <button class="btn-primary" onclick="surveySubmit()">Try again</button>
+      <button class="btn-ghost" style="margin-left:8px" onclick="closeSurvey()">Skip for now</button>
+    </div>`;
+  }
+}
+
+function renderSurveyResults(recs) {
+  const card = document.getElementById('survey-card');
+  card.innerHTML = `
+    <div class="survey-title">Your starter books</div>
+    <div class="survey-sub" style="margin-bottom:20px">Based on your preferences — add any to your TBR to get started.</div>
+    <div class="survey-results">
+      ${recs.map((r,i) => `<div class="survey-result-card">
+        <div class="survey-result-num">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Lora',serif;font-size:15px;font-weight:500;margin-bottom:2px">${r.title}</div>
+          <div style="font-size:12px;color:var(--tx2);margin-bottom:6px">by ${r.author}</div>
+          <div style="font-size:13px;color:var(--tx1);line-height:1.5;margin-bottom:4px">${r.description}</div>
+          <div style="font-size:12px;color:var(--amber);font-style:italic">${r.why}</div>
+        </div>
+        <button class="survey-tbr-btn" onclick="surveyAddTBR('${esc(r.title)}','${esc(r.author)}',this)">+ TBR</button>
+      </div>`).join('')}
+    </div>
+    <div class="survey-acts" style="margin-top:20px">
+      <button class="btn-primary" onclick="closeSurvey();go('library')">Go to my library →</button>
+    </div>`;
+}
+
+async function surveyAddTBR(title, author, btn) {
+  btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1&fields=key,cover_i,isbn`);
+    const d = await r.json();
+    const doc = d.docs?.[0];
+    await quickAddBook('tbr', doc?.isbn?.[0]||'', doc?.key||'', title, author);
+    btn.textContent = '✓ Added';
+    btn.style.background = 'var(--teal)';
+    btn.style.borderColor = 'var(--teal)';
+  } catch(e) {
+    btn.disabled=false; btn.textContent='+ TBR';
   }
 }
 
