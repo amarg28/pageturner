@@ -1253,7 +1253,7 @@ async function doGsearch(q) {
     if (!gsearchAllResults.length) { box.innerHTML = `<div class="gsearch-empty">No results found.</div>`; return; }
 
     const safeQ = q.replace(/'/g, "\\'");
-    box.innerHTML = gsearchResults.map((res,i) => {
+    const resultsHtml = gsearchResults.map((res,i) => {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
       const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
@@ -1265,8 +1265,8 @@ async function doGsearch(q) {
           ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
         </div>
       </div>`;
-    }).join('') +
-    `<div class="gsearch-view-all" onclick="openFullSearch('${safeQ}')">View all results for "${q.length>25?q.slice(0,25)+'…':q}" →</div>`;
+    }).join('');
+    box.innerHTML = `<div class="gsearch-scroll">${resultsHtml}</div><div class="gsearch-view-all" onclick="openFullSearch('${safeQ}')">View all results for "${q.length>25?q.slice(0,25)+'…':q}" →</div>`;
   } catch(e) { box.innerHTML = `<div class="gsearch-empty">Search failed.</div>`; }
 }
 
@@ -1348,10 +1348,22 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
 
 function gsearchKey(e) {
   const box = document.getElementById('gsearch-results');
+  if (e.key==='Enter') {
+    e.preventDefault();
+    const q = document.getElementById('gsearch-input').value.trim();
+    if (!q) return;
+    if (gsearchIdx >= 0 && box.classList.contains('open')) {
+      gsearchSelect(gsearchIdx);
+    } else {
+      // Open full search modal
+      closeGsearch();
+      showFullSearchModal(q);
+    }
+    return;
+  }
   if (!box.classList.contains('open')) return;
   if (e.key==='ArrowDown'){e.preventDefault();gsearchIdx=Math.min(gsearchIdx+1,gsearchResults.length-1);highlightGsearch();}
   else if (e.key==='ArrowUp'){e.preventDefault();gsearchIdx=Math.max(gsearchIdx-1,0);highlightGsearch();}
-  else if (e.key==='Enter'&&gsearchIdx>=0){e.preventDefault();gsearchSelect(gsearchIdx);}
   else if (e.key==='Escape') closeGsearch();
 }
 
