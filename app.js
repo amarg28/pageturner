@@ -3990,7 +3990,7 @@ function drawGenreTreemap(data) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 800;
-  const H = canvas.offsetHeight || 300;
+  const H = canvas.offsetHeight || 340;
   // Scale canvas for high-DPI screens
   canvas.width = W * dpr;
   canvas.height = H * dpr;
