@@ -107,11 +107,11 @@
       </div>
       <div class="auth-field">
         <label class="auth-label">Email</label>
-        <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')authSubmit()">
+        <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')authSubmit()">
       </div>
       <div class="auth-field">
         <label class="auth-label">Password</label>
-        <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
+        <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
       </div>
       <button class="auth-btn" id="auth-btn" onclick="authSubmit()">Sign in</button>
       <div class="auth-msg error" id="auth-error"></div>
@@ -148,7 +148,7 @@
       <div style="font-size:13px;color:var(--tx1);margin-bottom:18px">Choose a new password for your account.</div>
       <div class="auth-field">
         <label class="auth-label">New password</label>
-        <input class="auth-input" type="password" id="new-password" placeholder="At least 6 characters" onkeydown="if(event.key==='Enter')setNewPassword()">
+        <input class="auth-input" type="password" id="new-password" placeholder="At least 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()">
       </div>
       <button class="auth-btn" id="set-pw-btn" onclick="setNewPassword()">Save new password</button>
       <div class="auth-msg error" id="set-pw-error" style="display:none"></div>
