@@ -1422,24 +1422,20 @@ async function doGsearch(q) {
 
   try {
     // Search OL via cache proxy
-    let d = await cachedFetch('search', { q, limit: 20 });
+    let d = null;
+    try {
+      d = await cachedFetch('search', { q, limit: 20 });
+    } catch(e) {}
     if (!d) {
       const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title`);
       d = await r.json();
     }
-    let olResults = d.docs || [];
+    let olResults = d?.docs || [];
 
-    // If OL returns fewer than 3 results, try Google Books as fallback
-    if (olResults.length < 3) {
-      const gbResults = await googleBooksSearch(q, 10);
-      // Merge - deduplicate by title+author
-      const olTitles = new Set(olResults.map(r => r.title.toLowerCase()));
-      const newFromGB = gbResults.filter(g => !olTitles.has(g.title.toLowerCase()));
-      olResults = [...olResults, ...newFromGB];
-      if (olResults.length > 0 && gbResults.length > 0) {
-        // Tag the source so we can show a subtle indicator
-        olResults = olResults.map(r => r._source === 'google' ? {...r, _gb_fallback: true} : r);
-      }
+    // Only use Google Books if OL returns zero results
+    if (olResults.length === 0) {
+      const gbResults = await googleBooksSearch(q, 5);
+      olResults = gbResults; // Google results only, limited to 5
     }
 
     gsearchAllResults = olResults;
@@ -1522,12 +1518,10 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
     const total = d.numFound || 0;
     const pages = Math.min(Math.ceil(total / 20), 10);
 
-    // If OL returns very few results, supplement with Google Books
-    if (results.length < 3) {
-      const gbResults = await googleBooksSearch(parts.join(' '), 10);
-      const olTitles = new Set(results.map(r => r.title.toLowerCase()));
-      const newFromGB = gbResults.filter(g => !olTitles.has(g.title.toLowerCase()));
-      results.push(...newFromGB);
+    // Only use Google Books if OL returns zero results
+    if (results.length === 0) {
+      const gbResults = await googleBooksSearch(parts.join(' '), 8);
+      results.push(...gbResults);
     }
 
     if (!results.length) {
