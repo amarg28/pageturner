@@ -1421,15 +1421,10 @@ async function doGsearch(q) {
   box.classList.add('open');
 
   try {
-    // Search OL via cache proxy
+    // Search OL directly
     let d = null;
-    try {
-      d = await cachedFetch('search', { q, limit: 20 });
-    } catch(e) {}
-    if (!d) {
-      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title`);
-      d = await r.json();
-    }
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title`);
+    d = await r.json();
     let olResults = d?.docs || [];
 
     // Only use Google Books if OL returns zero results
@@ -1507,13 +1502,8 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
   try {
     // Use cache proxy for first page, direct OL for pagination
     let d = null;
-    if (offset === 0) {
-      d = await cachedFetch('search', { q: parts.join(' '), limit: pageLimit, extra: advYear ? `&published_in=${advYear}` : '' });
-    }
-    if (!d) {
-      const r = await fetch(url);
-      d = await r.json();
-    }
+    const r = await fetch(url);
+    d = await r.json();
     const results = d.docs || [];
     const total = d.numFound || 0;
     const pages = Math.min(Math.ceil(total / 20), 10);
