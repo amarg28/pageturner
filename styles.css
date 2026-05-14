@@ -20,7 +20,7 @@
 body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color:var(--tx0);min-height:100vh}
 
 /* ── AUTH ──────────────────────────────────────────────────────────────── */
-.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-screen{min-height:100vh;background:var(--bg0);display:block}
 .auth-card{background:var(--bg0);border:0.5px solid var(--bd2);border-radius:var(--rxl);padding:40px;max-width:420px;width:100%}
 .auth-logo{font-family:'Lora',serif;font-size:28px;font-weight:400;letter-spacing:-.02em;margin-bottom:6px}
 .auth-logo em{font-style:italic;color:var(--amber)}
@@ -984,7 +984,6 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 /* ══════════════════════════════════════════════════════════════════════════
    LANDING PAGE
    ══════════════════════════════════════════════════════════════════════════ */
-.auth-screen{min-height:100vh;background:var(--bg0)}
 .landing{max-width:1100px;margin:0 auto;padding:0 28px 60px}
 
 /* Nav */
