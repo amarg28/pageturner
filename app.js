@@ -2398,34 +2398,7 @@ function tagKey(e,id,type){const inp=e.target;if((e.key==='Enter'||e.key===',')&
 function getTagVal(id){const wrap=document.getElementById(id+'-wrap');if(!wrap)return'';return joinTags([...wrap.querySelectorAll('.tchip')].map(el=>el.dataset.tag));}
 
 /* ── ADD BOOK (OL SEARCH) ──────────────────────────────────────────────── */
-async function olSearch() {
-  const q=document.getElementById('ol-q').value.trim();if(!q)return;
-  const btn=document.getElementById('ol-btn');btn.disabled=true;btn.textContent='Searching…';
-  selResult=null;selEdition=null;
-  document.getElementById('edition-section').style.display='none';
-  document.getElementById('book-form').style.display='none';
-  try{
-    const r=await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,edition_count`);
-    const d=await r.json();olResults=d.docs||[];renderOLR();
-  }catch(e){document.getElementById('ol-results').innerHTML='<div style="padding:12px;font-size:13px;color:var(--coral)">Search failed.</div>';document.getElementById('ol-results').style.display='block';}
-  btn.disabled=false;btn.textContent='Search';
-}
 
-function renderOLR(){
-  const el=document.getElementById('ol-results');
-  if(!olResults.length){el.innerHTML='<div class="rlist" style="padding:14px;font-size:13px;color:var(--tx1)">No results found.</div>';el.style.display='block';return;}
-  el.innerHTML=`<div class="rlist">${olResults.map((r,i)=>`
-    <div class="ritem" id="ri-${i}" onclick="selRes(${i})">
-      ${r.cover_i?`<img class="rcover" src="${cUrl(r.cover_i,'S')}" alt="" loading="lazy">`:`<div class="rcover-ph">📖</div>`}
-      <div style="flex:1;min-width:0">
-        <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:2px">${r.title}</div>
-        <div style="font-size:12px;color:var(--tx1);margin-bottom:2px">${(r.author_name||[]).slice(0,2).join(', ')||'Unknown'}</div>
-        <div style="font-size:11px;color:var(--tx2)">${[r.first_publish_year,r.edition_count?r.edition_count+' editions':'',r.number_of_pages_median?'~'+r.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
-        ${r.isbn?.[0]?`<div style="font-size:10px;color:var(--tx2);font-family:monospace;margin-top:2px">ISBN: ${r.isbn[0]}</div>`:''}
-      </div>
-    </div>`).join('')}</div>`;
-  el.style.display='block';
-}
 
 async function selRes(i){
   document.querySelectorAll('.ritem').forEach(el=>el.classList.remove('sel'));
@@ -2435,7 +2408,6 @@ async function selRes(i){
 }
 
 async function loadEds(key){
-  const sec=document.getElementById('edition-section');
   sec.innerHTML=`<div class="edsec"><div style="font-size:12px;color:var(--tx1)">Loading editions…</div></div>`;sec.style.display='block';
   try{
     const r=await fetch(`https://openlibrary.org${key}/editions.json?limit=40`);const d=await r.json();
@@ -2447,7 +2419,6 @@ async function loadEds(key){
 function gFmt(e){const f=(e.physical_format||'').toLowerCase();if(f.includes('ebook')||f.includes('digital'))return'EBook';if(f.includes('audio'))return'Audiobook';if(f.includes('hard'))return'Hardcover';if(f.includes('paper')||f.includes('mass'))return'Paperback';return'Print';}
 
 function renderEds(){
-  const sec=document.getElementById('edition-section');
   const fil=edFilt==='all'?editions:editions.filter(e=>e.format.toLowerCase().includes(edFilt));
   const fc={};editions.forEach(e=>{fc[e.format]=(fc[e.format]||0)+1;});
   const fbtns=['all',...Object.keys(fc)].map(f=>`<button class="efilt${edFilt===f?' on':''}" onclick="setEF('${f}')">${f==='all'?'All':f}${f!=='all'?' ('+fc[f]+')':''}</button>`).join('');
@@ -2525,9 +2496,6 @@ async function submitBook(){
 
 function resetAdd(){
   olResults=[];selResult=null;editions=[];selEdition=null;
-  document.getElementById('ol-q').value='';
-  document.getElementById('ol-results').style.display='none';
-  document.getElementById('edition-section').style.display='none';
   document.getElementById('book-form').style.display='none';
 }
 
@@ -2907,7 +2875,7 @@ function updateApiNotice() {
     notice.textContent = 'Using your personal API key.';
     notice.style.display = 'block';
     notice.style.color = 'var(--teal)';
-    notice.style.background = 'var(--teal-l)';
+    notice.style.background = 'var(--bg2)';
   } else {
     notice.innerHTML = 'Using shared AI access. For faster responses, <button onclick="openSettings()" style="background:none;border:none;color:var(--amber);cursor:pointer;font-size:12px;font-family:\'DM Sans\',sans-serif;padding:0;text-decoration:underline">add your own API key in Settings →</button>';
     notice.style.display = 'block';
@@ -3012,7 +2980,6 @@ async function submitManualEntry() {
     await saveBook(newBook);
     books.unshift(newBook);
     closeManualEntry();
-    document.getElementById('ol-q').value = '';
     renderLibrary();
     go('library');
     showToast(`"${title}" added to your library ✓`);
