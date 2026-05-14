@@ -4045,7 +4045,7 @@ function drawGenreTreemap(data) {
     const tip = document.createElement('div');
     tip.id = 'treemap-tip';
     tip.style.cssText = `position:fixed;background:#1a1a2e;color:#fff;padding:7px 12px;border-radius:8px;font-size:12px;font-family:"DM Sans",sans-serif;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
-    tip.textContent = `${hit.label}: ${hit.count} book${hit.count!==1?'s':''} · avg ${hit.avg!=='—' ? (parseFloat(hit.avg)/2).toFixed(1)+'★' : '—'}`;
+    tip.textContent = `${hit.label}: ${hit.count} book${hit.count!==1?'s':''} · avg ${hit.avg!=='—' ? hit.avg+'★' : '—'}`;
     tip.style.left = Math.min(clientX + 10, window.innerWidth - 200) + 'px';
     tip.style.top = (clientY - 40) + 'px';
     document.body.appendChild(tip);
@@ -4124,9 +4124,9 @@ function drawStats(){
 
   // ── GENRE HORIZONTAL BAR CHART ───────────────────────────────────────────
   const genreChartData=genreSorted.slice(0,12).map(([g,v])=>{
-    const avgR=v.rated>0?v.rated>0?(v.total/v.rated):0:0;
-    const color=avgR>=4?'#1D9E75':avgR>=3?'#BA7517':'#D85A30';
-    return{label:g,count:v.count,avg:avgR>0?avgR.toFixed(1):'—',color};
+    const avgR=v.rated>0?(v.total/v.rated):0;
+    const color=avgR>=8?'#1D9E75':avgR>=6?'#BA7517':'#D85A30';
+    return{label:g,count:v.count,avg:avgR>0?(avgR/2).toFixed(1):'—',color};
   });
 
   // Render as custom HTML bars (more control than Chart.js for this layout)
