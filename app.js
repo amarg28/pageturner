@@ -1417,27 +1417,21 @@ let gsearchAllResults = [];
 
 async function doGsearch(q) {
   const box = document.getElementById('gsearch-results');
+  if (!box) return;
   box.innerHTML = `<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
   box.classList.add('open');
 
   try {
-    // Search OL directly
-    let d = null;
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title`);
-    d = await r.json();
-    let olResults = d?.docs || [];
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=10&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
+    if (!r.ok) throw new Error(`OL returned ${r.status}`);
+    const d = await r.json();
+    const results = d.docs || [];
 
-    // Only use Google Books if OL returns zero results
-    if (olResults.length === 0) {
-      const gbResults = await googleBooksSearch(q, 5);
-      olResults = gbResults; // Google results only, limited to 5
-    }
+    gsearchAllResults = results;
+    gsearchResults = results.slice(0, 5);
 
-    gsearchAllResults = olResults;
-    gsearchResults = gsearchAllResults.slice(0, 5);
-
-    if (!gsearchAllResults.length) {
-      box.innerHTML = `<div class="gsearch-empty">No results found for "${q}".<div style="margin-top:6px;font-size:11px;color:var(--tx2)">Try the author's name, or the original language title.</div></div>`;
+    if (!results.length) {
+      box.innerHTML = `<div class="gsearch-empty">No results found for "${q}".</div>`;
       return;
     }
 
@@ -1445,25 +1439,27 @@ async function doGsearch(q) {
     const resultsHtml = gsearchResults.map((res,i) => {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
       const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
-      const altTitle = res.alternative_title?.[0] && res.alternative_title[0].toLowerCase()!==res.title.toLowerCase() ? res.alternative_title[0] : null;
       const coverHtml = res.cover_i
         ? `<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`
-        : res.gb_cover
-        ? `<img class="gsearch-result-cover" src="${res.gb_cover}" alt="" loading="lazy" onerror="this.style.display='none'">`
         : `<div class="gsearch-result-cover-ph">📖</div>`;
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
         ${coverHtml}
         <div style="flex:1;min-width:0">
           <div class="gsearch-result-title">${res.title}</div>
-          ${altTitle?`<div style="font-size:10px;color:var(--tx2);font-style:italic">Also: ${altTitle}</div>`:''}
           <div class="gsearch-result-author">${author}</div>
-          <div class="gsearch-result-meta">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
-          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
+          <div class="gsearch-result-meta">${[res.first_publish_year, res.number_of_pages_median ? '~'+res.number_of_pages_median+' pages' : ''].filter(Boolean).join(' · ')}</div>
+          ${inLib ? `<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>` : ''}
         </div>
       </div>`;
     }).join('');
-    box.innerHTML = `<div class="gsearch-scroll">${resultsHtml}</div><div class="gsearch-view-all" onclick="openFullSearch('${safeQ}')">View all results for "${q.length>25?q.slice(0,25)+'…':q}" →</div>`;
-  } catch(e) { box.innerHTML = `<div class="gsearch-empty">Search failed.</div>`; }
+
+    box.innerHTML = `<div class="gsearch-scroll">${resultsHtml}</div>
+      <div class="gsearch-view-all" onclick="openFullSearch('${safeQ}')">View all results for "${q.length>25?q.slice(0,25)+'…':q}" →</div>`;
+
+  } catch(e) {
+    console.error('Search error:', e);
+    box.innerHTML = `<div class="gsearch-empty">Search failed: ${e.message}</div>`;
+  }
 }
 
 function openFullSearch(q) {
