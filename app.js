@@ -367,6 +367,101 @@ async function refreshSession() {
 }
 
 /* ── AUTH UI ───────────────────────────────────────────────────────────── */
+async function sendPasswordReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  const btn = document.getElementById('reset-btn');
+  const err = document.getElementById('reset-error');
+  const success = document.getElementById('reset-success');
+  if (!email) { err.textContent = 'Please enter your email address.'; err.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  err.style.display = 'none'; success.style.display = 'none';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email, redirect_to: 'https://amarg28.github.io/pageturner' })
+    });
+    if (r.ok || r.status === 200) {
+      success.textContent = 'Reset link sent. Check your inbox — and your spam folder.';
+      success.style.display = 'block';
+      btn.textContent = 'Sent ✓';
+    } else {
+      const d = await r.json();
+      throw new Error(d.msg || d.error_description || 'Could not send reset email.');
+    }
+  } catch(e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Send reset link';
+  }
+}
+
+function showForgotPassword() {
+  document.getElementById('auth-form-view').style.display = 'none';
+  document.getElementById('forgot-view').style.display = 'flex';
+  setTimeout(() => document.getElementById('reset-email')?.focus(), 100);
+}
+
+function hideForgotPassword() {
+  document.getElementById('forgot-view').style.display = 'none';
+  document.getElementById('auth-form-view').style.display = 'flex';
+}
+
+// Handle password reset token in URL (when user clicks email link)
+async function checkPasswordResetToken() {
+  const hash = window.location.hash;
+  if (!hash.includes('type=recovery') && !hash.includes('access_token')) return;
+  const params = new URLSearchParams(hash.slice(1));
+  const type = params.get('type');
+  const token = params.get('access_token');
+  if (type === 'recovery' && token) {
+    // Show set new password form
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('landing-view').style.display = 'none';
+    document.getElementById('auth-form-view').style.display = 'none';
+    document.getElementById('forgot-view').style.display = 'none';
+    document.getElementById('set-password-view').style.display = 'flex';
+    window._resetToken = token;
+    // Clear hash from URL
+    history.replaceState(null, '', window.location.pathname);
+  }
+}
+
+async function setNewPassword() {
+  const pw = document.getElementById('new-password').value.trim();
+  const btn = document.getElementById('set-pw-btn');
+  const err = document.getElementById('set-pw-error');
+  if (pw.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  err.style.display = 'none';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${window._resetToken}`
+      },
+      body: JSON.stringify({ password: pw })
+    });
+    if (r.ok) {
+      document.getElementById('set-password-view').style.display = 'none';
+      document.getElementById('auth-form-view').style.display = 'flex';
+      switchAuthTab('signin');
+      document.getElementById('auth-success').textContent = 'Password updated. You can now sign in.';
+      document.getElementById('auth-success').style.display = 'block';
+    } else {
+      const d = await r.json();
+      throw new Error(d.msg || 'Could not update password.');
+    }
+  } catch(e) {
+    document.getElementById('set-pw-error').textContent = e.message;
+    document.getElementById('set-pw-error').style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Save new password';
+  }
+}
+
 function switchAuthTab(m) {
   authMode = m;
   document.querySelectorAll('.auth-tab').forEach((t,i) =>
@@ -374,6 +469,8 @@ function switchAuthTab(m) {
   document.getElementById('auth-btn').textContent = m === 'signin' ? 'Sign in' : 'Create account';
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-success').style.display = 'none';
+  const forgotLink = document.getElementById('forgot-pw-link');
+  if (forgotLink) forgotLink.style.display = m === 'signin' ? 'block' : 'none';
 }
 
 async function authSubmit() {
@@ -705,6 +802,7 @@ function closeStatsOverlay() {
 
 // Tap topbar to scroll to top on mobile
 document.addEventListener('DOMContentLoaded', () => {
+  checkPasswordResetToken();
   const topbar = document.querySelector('.topbar');
   if (topbar) {
     topbar.addEventListener('click', e => {
