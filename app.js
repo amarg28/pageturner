@@ -9,6 +9,23 @@
 
 /* ── CONFIG ────────────────────────────────────────────────────────────── */
 const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
+const META_PROXY = 'https://pageturner-bay.vercel.app/api/meta';
+
+// Fetch via cache proxy with OL fallback
+async function cachedFetch(type, params) {
+  const qs = new URLSearchParams({ type, ...params }).toString();
+  try {
+    const r = await fetch(`${META_PROXY}?${qs}`);
+    if (r.ok) {
+      const d = await r.json();
+      return d.data;
+    }
+  } catch(e) {
+    console.warn('Cache proxy unavailable, falling back to OL directly');
+  }
+  return null;
+}
+
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcGxqYnd3cGVycGp6bG1vdXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTM2OTUsImV4cCI6MjA5MzI4OTY5NX0.KcrGgQa7vgI67A9Ug7pkQbMv5UdhhZ70D2f__MRNZVs';
 
 /* ── TAG DEFINITIONS ───────────────────────────────────────────────────── */
@@ -1375,8 +1392,12 @@ async function doGsearch(q) {
 
   try {
     // Search broadly - OL indexes alternate titles and translated titles
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title,edition_key`);
-    const d = await r.json();
+    // Use cache proxy first, fall back to direct OL
+    let d = await cachedFetch('search', { q, limit: 20 });
+    if (!d) {
+      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title,edition_key`);
+      d = await r.json();
+    }
     gsearchAllResults = d.docs || [];
     gsearchResults = gsearchAllResults.slice(0, 5);
     const total = d.numFound || 0;
@@ -1442,8 +1463,15 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
   document.getElementById('del-modal').classList.add('on');
 
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    // Use cache proxy for first page, direct OL for pagination
+    let d = null;
+    if (offset === 0) {
+      d = await cachedFetch('search', { q: parts.join(' '), limit: pageLimit, extra: advYear ? `&published_in=${advYear}` : '' });
+    }
+    if (!d) {
+      const r = await fetch(url);
+      d = await r.json();
+    }
     const results = d.docs || [];
     const total = d.numFound || 0;
     const pages = Math.min(Math.ceil(total / 20), 10);
@@ -3039,30 +3067,36 @@ async function openAuthorPage(authorName, olAuthorKey) {
     // 1. Find author key if not provided
     let authorKey = olAuthorKey;
     if (!authorKey) {
-      const sr = await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`);
-      const sd = await sr.json();
+      const sd = await cachedFetch('author_search', { q: authorName })
+                 || await (async () => {
+                   const r = await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`);
+                   return r.json();
+                 })();
       authorKey = sd.docs?.[0]?.key || null;
     }
 
-    // 2. Fetch author data
+    // 2. Fetch author data and works via cache proxy
     let bio = '', born = '', died = '', nationality = '';
+    let works = [];
     if (authorKey) {
-      const ar = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
-      const ad = await ar.json();
+      // Try cache proxy first for both author + works in one call
+      const cached = await cachedFetch('author', { key: authorKey });
+      let ad, wd;
+      if (cached) {
+        ad = cached.author;
+        wd = cached.works;
+      } else {
+        [ad, wd] = await Promise.all([
+          fetch(`https://openlibrary.org/authors/${authorKey}.json`).then(r => r.json()),
+          fetch(`https://openlibrary.org/authors/${authorKey}/works.json?limit=200`).then(r => r.json())
+        ]);
+      }
       bio = typeof ad.bio === 'string' ? ad.bio : ad.bio?.value || '';
-      bio = bio.replace(/\[\[([^\]]+)\]\]/g, '$1'); // strip OL markup
-
+      bio = bio.replace(/\[\[([^\]]+)\]\]/g, '$1');
       born = ad.birth_date || '';
       died = ad.death_date || '';
       nationality = ad.nationality || '';
-    }
-
-    // 3. Fetch works
-    let works = [];
-    if (authorKey) {
-      const wr = await fetch(`https://openlibrary.org/authors/${authorKey}/works.json?limit=200`);
-      const wd = await wr.json();
-      works = (wd.entries || []).map(w => ({
+      works = (wd?.entries || []).map(w => ({
         key: w.key,
         title: w.title,
         year: w.first_publish_date ? parseInt(w.first_publish_date) : null,
