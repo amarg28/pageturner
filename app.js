@@ -1248,22 +1248,30 @@ async function doGsearch(q) {
   box.classList.add('open');
 
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
+    // Search broadly - OL indexes alternate titles and translated titles
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title,edition_key`);
     const d = await r.json();
     gsearchAllResults = d.docs || [];
     gsearchResults = gsearchAllResults.slice(0, 5);
     const total = d.numFound || 0;
 
-    if (!gsearchAllResults.length) { box.innerHTML = `<div class="gsearch-empty">No results found.</div>`; return; }
+    if (!gsearchAllResults.length) {
+      // Try a broader search stripping articles
+      const stripped = q.replace(/^(the|a|an|el|la|los|las|le|les|il|die|der|das)\s+/i,'');
+      box.innerHTML = `<div class="gsearch-empty">No results for "${q}". ${stripped!==q?`Try searching "<span style="color:var(--amber);cursor:pointer" onclick="document.getElementById('gsearch-input').value='${stripped}';gsearchInput()">${stripped}</span>"`:''}<div style="margin-top:6px;font-size:11px;color:var(--tx2)">Tip: try the original language title or the author's name</div></div>`;
+      return;
+    }
 
     const safeQ = q.replace(/'/g, "\\'");
     const resultsHtml = gsearchResults.map((res,i) => {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
       const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
+      const altTitle = res.alternative_title?.[0] && res.alternative_title[0].toLowerCase()!==res.title.toLowerCase() ? res.alternative_title[0] : null;
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
         ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="gsearch-result-cover-ph">📖</div>`}
         <div style="flex:1;min-width:0">
           <div class="gsearch-result-title">${res.title}</div>
+          ${altTitle?`<div style="font-size:10px;color:var(--tx2);font-style:italic">Also known as: ${altTitle}</div>`:''}
           <div class="gsearch-result-author">${author}</div>
           <div class="gsearch-result-meta">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
           ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
@@ -1285,7 +1293,7 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
   if (advAuthor) parts.push('author:' + advAuthor);
   if (!advTitle && !advAuthor) parts.push(q);
   const offset = (page-1) * 20;
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(parts.join(' '))}&limit=20&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median${advYear?'&published_in='+advYear:''}`;
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(parts.join(' '))}&limit=20&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title${advYear?'&published_in='+advYear:''}`;
 
   document.getElementById('del-body').innerHTML = `
     <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
