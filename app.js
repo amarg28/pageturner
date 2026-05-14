@@ -8,6 +8,35 @@
 })();
 
 /* ── CONFIG ────────────────────────────────────────────────────────────── */
+// Normalise a Google Books result to match OL result shape
+function gbToOL(item) {
+  const info = item.volumeInfo || {};
+  const isbn = (info.industryIdentifiers || [])
+    .find(x => x.type === 'ISBN_13' || x.type === 'ISBN_10')?.identifier || null;
+  const coverId = item.id; // use GB id as cover key
+  return {
+    key: `/works/gb:${item.id}`,
+    title: info.title || 'Unknown',
+    author_name: info.authors || [],
+    cover_i: null,
+    gb_cover: info.imageLinks?.thumbnail?.replace('http:','https:').replace('&zoom=1','&zoom=2') || null,
+    first_publish_year: info.publishedDate ? parseInt(info.publishedDate) : null,
+    number_of_pages_median: info.pageCount || null,
+    isbn: isbn ? [isbn] : [],
+    description: typeof info.description === 'string' ? info.description : '',
+    _source: 'google'
+  };
+}
+
+async function googleBooksSearch(q, limit=10) {
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${limit}&printType=books&langRestrict=en`);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.items || []).map(gbToOL);
+  } catch(e) { return []; }
+}
+
 const SUPABASE_URL = 'https://ifpljbwwperpjzlmoust.supabase.co';
 const META_PROXY = 'https://pageturner-bay.vercel.app/api/meta';
 
@@ -578,6 +607,7 @@ function closeTour() {
 }
 
 async function signOut() {
+  closeSettings();
   await signOutREST();
   sessionToken = null; currentUser = null; books = [];
   chartsDrawn = false; chatHistory = [];
@@ -1391,21 +1421,32 @@ async function doGsearch(q) {
   box.classList.add('open');
 
   try {
-    // Search broadly - OL indexes alternate titles and translated titles
-    // Use cache proxy first, fall back to direct OL
+    // Search OL via cache proxy
     let d = await cachedFetch('search', { q, limit: 20 });
     if (!d) {
-      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title,edition_key`);
+      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,alternative_title`);
       d = await r.json();
     }
-    gsearchAllResults = d.docs || [];
+    let olResults = d.docs || [];
+
+    // If OL returns fewer than 3 results, try Google Books as fallback
+    if (olResults.length < 3) {
+      const gbResults = await googleBooksSearch(q, 10);
+      // Merge - deduplicate by title+author
+      const olTitles = new Set(olResults.map(r => r.title.toLowerCase()));
+      const newFromGB = gbResults.filter(g => !olTitles.has(g.title.toLowerCase()));
+      olResults = [...olResults, ...newFromGB];
+      if (olResults.length > 0 && gbResults.length > 0) {
+        // Tag the source so we can show a subtle indicator
+        olResults = olResults.map(r => r._source === 'google' ? {...r, _gb_fallback: true} : r);
+      }
+    }
+
+    gsearchAllResults = olResults;
     gsearchResults = gsearchAllResults.slice(0, 5);
-    const total = d.numFound || 0;
 
     if (!gsearchAllResults.length) {
-      // Try a broader search stripping articles
-      const stripped = q.replace(/^(the|a|an|el|la|los|las|le|les|il|die|der|das)\s+/i,'');
-      box.innerHTML = `<div class="gsearch-empty">No results for "${q}". ${stripped!==q?`Try searching "<span style="color:var(--amber);cursor:pointer" onclick="document.getElementById('gsearch-input').value='${stripped}';gsearchInput()">${stripped}</span>"`:''}<div style="margin-top:6px;font-size:11px;color:var(--tx2)">Tip: try the original language title or the author's name</div></div>`;
+      box.innerHTML = `<div class="gsearch-empty">No results found for "${q}".<div style="margin-top:6px;font-size:11px;color:var(--tx2)">Try the author's name, or the original language title.</div></div>`;
       return;
     }
 
@@ -1414,11 +1455,16 @@ async function doGsearch(q) {
       const inLib = books.find(b => (b.isbn && res.isbn?.includes(b.isbn)) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
       const author = (res.author_name||[]).slice(0,2).join(', ') || 'Unknown author';
       const altTitle = res.alternative_title?.[0] && res.alternative_title[0].toLowerCase()!==res.title.toLowerCase() ? res.alternative_title[0] : null;
+      const coverHtml = res.cover_i
+        ? `<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : res.gb_cover
+        ? `<img class="gsearch-result-cover" src="${res.gb_cover}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : `<div class="gsearch-result-cover-ph">📖</div>`;
       return `<div class="gsearch-result" id="gsr-${i}" onclick="gsearchSelect(${i})">
-        ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="gsearch-result-cover-ph">📖</div>`}
+        ${coverHtml}
         <div style="flex:1;min-width:0">
           <div class="gsearch-result-title">${res.title}</div>
-          ${altTitle?`<div style="font-size:10px;color:var(--tx2);font-style:italic">Also known as: ${altTitle}</div>`:''}
+          ${altTitle?`<div style="font-size:10px;color:var(--tx2);font-style:italic">Also: ${altTitle}</div>`:''}
           <div class="gsearch-result-author">${author}</div>
           <div class="gsearch-result-meta">${[res.first_publish_year,res.number_of_pages_median?'~'+res.number_of_pages_median+' pages':''].filter(Boolean).join(' · ')}</div>
           ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
@@ -1476,8 +1522,16 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
     const total = d.numFound || 0;
     const pages = Math.min(Math.ceil(total / 20), 10);
 
+    // If OL returns very few results, supplement with Google Books
+    if (results.length < 3) {
+      const gbResults = await googleBooksSearch(parts.join(' '), 10);
+      const olTitles = new Set(results.map(r => r.title.toLowerCase()));
+      const newFromGB = gbResults.filter(g => !olTitles.has(g.title.toLowerCase()));
+      results.push(...newFromGB);
+    }
+
     if (!results.length) {
-      document.getElementById('full-search-results').innerHTML = `<div style="padding:16px 0;color:var(--tx1)">No results found. Try different search terms.</div>`;
+      document.getElementById('full-search-results').innerHTML = `<div style="padding:16px 0;color:var(--tx1)">No results found. Try different search terms or the author's name.</div>`;
       return;
     }
 
@@ -1493,8 +1547,9 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
       const clickFn = inLib
         ? `document.getElementById('del-modal').classList.remove('on');setTimeout(()=>openBookPage('${inLib.id}'),100)`
         : `document.getElementById('del-modal').classList.remove('on');setTimeout(()=>openUnreadBookPage(window._fullSearchResults[${i}]),100)`;
+      const coverSrc = res.cover_i ? cUrl(res.cover_i,'S') : res.gb_cover || null;
       return `<div class="full-search-result" onclick="${clickFn}">
-        ${res.cover_i?`<img src="${cUrl(res.cover_i,'S')}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:36px;height:54px;background:var(--bg2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">📖</div>`}
+        ${coverSrc?`<img src="${coverSrc}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;border:0.5px solid var(--bd)" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:36px;height:54px;background:var(--bg2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">📖</div>`}
         <div style="flex:1;min-width:0">
           <div style="font-family:'Lora',serif;font-size:14px;font-weight:500;margin-bottom:2px">${res.title}</div>
           <div style="font-size:12px;color:var(--tx1)">${author}</div>
@@ -1565,7 +1620,7 @@ async function openUnreadBookPage(olBook) {
   const isbn = olBook.isbn?.[0] || null;
   const title = olBook.title || 'Unknown title';
   const year = olBook.first_publish_year || null;
-  const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : null;
+  const coverSrc = olBook.cover_i ? cUrl(olBook.cover_i,'L') : olBook.gb_cover || null;
 
   // Pre-cache metadata
   if (!bMeta({isbn, ol_key: olBook.key, manual_title: title})?.title) {
