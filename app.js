@@ -2490,12 +2490,10 @@ function openEdit(bookId) {
         <button class="btn-primary" id="save-edit-btn" onclick="saveEdit('${b.id}')">Save changes</button>
       </div>
     </div>`;
-  document.getElementById('edit-modal').classList.add('on');
-  const el = document.getElementById('edit-modal');
-  console.log('edit-modal classes:', el.className);
-  console.log('edit-modal computed display:', window.getComputedStyle(el).display);
-  console.log('edit-modal computed z-index:', window.getComputedStyle(el).zIndex);
-  console.log('edit-modal rect:', el.getBoundingClientRect());
+  const editModal = document.getElementById('edit-modal');
+  editModal.classList.add('on');
+  editModal.style.display = 'flex';
+  console.log('edit-modal after force:', editModal.style.display, editModal.getBoundingClientRect());
   console.log('openEdit: modal opened');
   } catch(err) { console.error('openEdit error:', err); }
 }
