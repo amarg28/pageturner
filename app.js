@@ -2491,6 +2491,11 @@ function openEdit(bookId) {
       </div>
     </div>`;
   document.getElementById('edit-modal').classList.add('on');
+  const el = document.getElementById('edit-modal');
+  console.log('edit-modal classes:', el.className);
+  console.log('edit-modal computed display:', window.getComputedStyle(el).display);
+  console.log('edit-modal computed z-index:', window.getComputedStyle(el).zIndex);
+  console.log('edit-modal rect:', el.getBoundingClientRect());
   console.log('openEdit: modal opened');
   } catch(err) { console.error('openEdit error:', err); }
 }
