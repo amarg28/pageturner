@@ -2436,7 +2436,9 @@ function editEndDateChanged() {
 }
 
 function openEdit(bookId) {
-  const b=books.find(x=>x.id===bookId);if(!b)return;
+  console.log('openEdit called:', bookId);
+  try {
+  const b=books.find(x=>x.id===bookId);if(!b){console.log('openEdit: book not found');return;}
   const title=bTitle(b);
   document.getElementById('edit-body').innerHTML=`
     <button class="modal-x" onclick="document.getElementById('edit-modal').classList.remove('on')">×</button>
@@ -2489,6 +2491,8 @@ function openEdit(bookId) {
       </div>
     </div>`;
   document.getElementById('edit-modal').classList.add('on');
+  console.log('openEdit: modal opened');
+  } catch(err) { console.error('openEdit error:', err); }
 }
 
 async function saveEdit(bookId) {
