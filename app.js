@@ -335,14 +335,13 @@ async function sbUpdate(table, id, data) {
     headers: sbHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(data)
   });
-  // 204 No Content is success for return=minimal
+  console.log('sbUpdate response:', r.status, r.statusText);
   if (r.status === 204) return {};
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
     console.error('sbUpdate error:', r.status, e);
     throw new Error(e.message || e.hint || r.statusText);
   }
-  // Some Supabase versions return 200 with body even for minimal
   return r.json().catch(() => ({}));
 }
 
@@ -721,10 +720,15 @@ function bookToRow(b) {
 async function saveBook(b) {
   try {
     if (b.id) {
-      await sbUpdate('books', b.id, bookToRow(b));
+      const row = bookToRow(b);
+      console.log('saveBook UPDATE id:', b.id, 'row:', row);
+      await sbUpdate('books', b.id, row);
+      console.log('saveBook UPDATE done');
     } else {
+      console.log('saveBook INSERT');
       const rows = await sbInsert('books', bookToRow(b));
       b.id = rows[0]?.id;
+      console.log('saveBook INSERT done, new id:', b.id);
     }
   } catch(e) { console.error('saveBook error:', e); throw e; }
 }
