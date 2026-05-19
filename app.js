@@ -2492,7 +2492,10 @@ function openEdit(bookId) {
 }
 
 async function saveEdit(bookId) {
-  const b=books.find(x=>x.id===bookId);if(!b)return;
+  console.log('saveEdit called with bookId:', bookId);
+  const b=books.find(x=>x.id===bookId);
+  console.log('saveEdit book found:', !!b);
+  if(!b)return;
   b.status=document.getElementById('e-status').value;
   b.rating=parseFloat(document.getElementById('e-rating').value)||null;
   b.retro_rating=parseFloat(document.getElementById('e-retro').value)||null;
