@@ -1726,15 +1726,16 @@ async function markDNF(bookId) {
   chartsDrawn = false; renderLibrary();
 }
 
-function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
-  // Pre-fill the modal with an add form
+function openAddFinishedForm(isbn, olKey, title, author, coverId, year, existingBookId) {
   const coverSrc = coverId ? cUrl(coverId,'M') : null;
+  const isUpdate = !!existingBookId;
+  const today = new Date().toISOString().slice(0,10);
   document.getElementById('book-modal-body').innerHTML = `<div class="bp">
     <div class="bp-nav">
       <div class="bp-back" onclick="modalBack()">← Back</div>
     </div>
     <div class="fcard">
-      <div class="fcard-title">Add to your library — ${title}</div>
+      <div class="fcard-title">${isUpdate ? 'Mark as finished — ' : 'Add to your library — '}${title}</div>
       <div class="sel-header">
         ${coverSrc?`<img class="sel-cover" src="${coverSrc}" alt="">`:`<div class="sel-cover-ph">📖</div>`}
         <div>
@@ -1749,7 +1750,7 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
           <select class="fi" id="af-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
         </div>
         <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="af-start"></div>
-        <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="af-end"></div>
+        <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="af-end" value="${today}"></div>
         <div class="fg"><label class="fl">Series name</label><input class="fi" type="text" id="af-series-name" placeholder="e.g. The Broken Earth" autocomplete="off"></div>
         <div class="fg"><label class="fl">Book number</label><input class="fi" type="number" id="af-series-num" min="1" step="0.5" placeholder="e.g. 1"></div>
       </div>
@@ -1763,23 +1764,67 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year) {
       </div>
       <div class="form-acts">
         <button class="btn-ghost" onclick="closeBookModal()">Cancel</button>
-        <button class="btn-primary" id="af-submit" onclick="submitAddFinished('${isbn}','${olKey}','${title}','${author}',${coverId||'null'})">Add to library</button>
+        <button class="btn-primary" id="af-submit" onclick="submitAddFinished('${isbn}','${olKey}','${title}','${author}',${coverId||'null'},'${existingBookId||''}')">${isUpdate ? 'Save' : 'Add to library'}</button>
       </div>
     </div>
   </div>`;
 }
 
-async function submitAddFinished(isbn, olKey, title, author, coverId) {
+async function submitAddFinished(isbn, olKey, title, author, coverId, existingBookId) {
   const btn = document.getElementById('af-submit');
   btn.disabled = true; btn.textContent = 'Saving…';
   const start = document.getElementById('af-start').value || null;
   const end   = document.getElementById('af-end').value || null;
   const rating = parseFloat(document.getElementById('af-rating').value) || null;
-  // Pre-cache metadata
+
   if (isbn || olKey) {
     const fakeBook = { isbn: isbn||null, ol_key: olKey||null, manual_title: title, manual_author: author };
     await fetchMetaForBook(fakeBook);
   }
+
+  // If updating an existing book, just update the relevant fields
+  if (existingBookId) {
+    const b = books.find(x => x.id === existingBookId);
+    if (b) {
+      b.status = 'finished';
+      b.end_date = end || new Date().toISOString().slice(0,10);
+      if (start) b.start_date = start;
+      if (rating) b.rating = rating;
+      const fn = document.getElementById('af-fn')?.value;
+      if (fn) b.fiction_nonfiction = fn;
+      const sn = document.getElementById('af-series-name')?.value.trim();
+      if (sn) b.series_name = sn;
+      const snum = parseFloat(document.getElementById('af-series-num')?.value);
+      if (snum) b.series_number = snum;
+      const notes = INITIAL_PROMPTS.map(p => {
+        const v = document.getElementById('af-ip-'+p.id)?.value.trim();
+        return v ? p.q+'\n'+v : '';
+      }).filter(Boolean).join('\n\n');
+      if (notes) b.notes = notes;
+      try {
+        await saveBook(b);
+        closeBookModal();
+        renderLibrary();
+        showToast('Marked as finished ✓');
+      } catch(e) {
+        alert('Could not save: ' + e.message);
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+      return;
+    }
+  }
+
+  // New book - check for duplicates
+  const exists = books.find(b =>
+    (isbn && b.isbn === isbn) ||
+    (olKey && b.ol_key === olKey) ||
+    bTitle(b).toLowerCase() === title.toLowerCase()
+  );
+  if (exists) {
+    alert(`"${title}" is already in your library.`);
+    btn.disabled = false; btn.textContent = 'Add to library'; return;
+  }
+
   const newBook = {
     isbn: isbn||null, ol_key: olKey||null, google_id: null,
     status: 'finished', start_date: start, end_date: end,
@@ -1796,19 +1841,12 @@ async function submitAddFinished(isbn, olKey, title, author, coverId) {
     manual_title: title||null, manual_author: author||null,
     import_source: ''
   };
-  // Check for duplicates
-  const exists = books.find(b =>
-    (isbn && b.isbn === isbn) ||
-    (olKey && b.ol_key === olKey) ||
-    bTitle(b).toLowerCase() === title.toLowerCase()
-  );
-  if (exists) {
-    alert(`"${title}" is already in your library.`);
-    btn.disabled = false; btn.textContent = 'Add to library'; return;
-  }
   try {
     await saveBook(newBook);
     books.unshift(newBook);
+    const afGenre = getTagVal('af-genre');
+    const afck = newBook.isbn||newBook.ol_key||newBook.manual_title;
+    if (afck && afGenre) setMeta(afck, {genre: afGenre});
     closeBookModal();
     renderLibrary(); go('library');
   } catch(e) {
