@@ -326,11 +326,15 @@ async function sbInsert(table, data) {
 async function sbUpdate(table, id, data) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'PATCH',
-    headers: sbHeaders(),
+    headers: sbHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(data)
   });
-  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
-  return r.json();
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.message || r.statusText);
+  }
+  // return=minimal gives 204 No Content - return empty object
+  return {};
 }
 
 async function sbDelete(table, id) {
@@ -863,10 +867,12 @@ function toggleSidebar() {
 }
 
 function openStatsOverlay() {
+  // Close any stray modals that might be open
+  document.getElementById('del-modal')?.classList.remove('on');
+  document.getElementById('edit-modal')?.classList.remove('on');
   document.getElementById('stats-overlay').classList.add('on');
   document.body.style.overflow = 'hidden';
   chartsDrawn = false;
-  // Wait for overlay to render before drawing charts
   requestAnimationFrame(() => setTimeout(drawStats, 50));
 }
 
@@ -1929,11 +1935,15 @@ async function openBookPage(bookId) {
     </div>
   </div>` : '';
 
-  // TBR extra buttons
+  // Status action buttons
   const tbrBtns = b.status === 'tbr' ? `<div class="bp-add-btns" style="margin-top:12px">
     <button class="bp-add-btn bp-add-btn-reading" onclick="quickStatusChange('${b.id}','reading')">Currently reading</button>
     <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${b.isbn||''}','${b.ol_key||''}','${title.replace(/'/g,"\'")}','${author.replace(/'/g,"\'")}',null,null,'${b.id}')">Mark as finished</button>
-  </div>` : '';
+  </div>`
+  : b.status === 'reading' ? `<div class="bp-add-btns" style="margin-top:12px">
+    <button class="bp-add-btn bp-add-btn-finished" onclick="openAddFinishedForm('${b.isbn||''}','${b.ol_key||''}','${title.replace(/'/g,"\'")}','${author.replace(/'/g,"\'")}',null,null,'${b.id}')">✓ Mark as finished</button>
+  </div>`
+  : '';
 
   // Left column content depends on status
   const leftCol = isReadingLayout
