@@ -300,7 +300,6 @@ function sbHeaders(extra = {}) {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${sessionToken || SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    'Prefer': 'return=representation',
     ...extra
   };
 }
@@ -316,7 +315,7 @@ async function sbSelect(table, query = '') {
 async function sbInsert(table, data) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: sbHeaders(),
+    headers: sbHeaders({ 'Prefer': 'return=representation' }),
     body: JSON.stringify(Array.isArray(data) ? data : [data])
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
