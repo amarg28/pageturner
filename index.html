@@ -525,13 +525,7 @@
   </div>
 </div>
 
-<!-- MODALS -->
-<div class="modal-ov" id="edit-modal" onclick="maybeClose(event,'edit-modal')">
-  <div class="modal" id="edit-body"></div>
-</div>
-<div class="modal-ov" id="del-modal" onclick="maybeClose(event,'del-modal')">
-  <div class="modal" id="del-body"></div>
-</div>
+<!-- modals moved to end of body -->
 
 <!-- SETTINGS DRAWER -->
 <div id="settings-backdrop" class="settings-backdrop" onclick="closeSettings()"></div>
@@ -631,6 +625,14 @@
     </div>
 
   </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-ov" id="edit-modal" onclick="maybeClose(event,'edit-modal')">
+  <div class="modal" id="edit-body"></div>
+</div>
+<div class="modal-ov" id="del-modal" onclick="maybeClose(event,'del-modal')">
+  <div class="modal" id="del-body"></div>
 </div>
 
 <script src="app.js"></script>
