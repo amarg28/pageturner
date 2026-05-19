@@ -308,7 +308,11 @@ async function sbSelect(table, query = '') {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
     headers: sbHeaders()
   });
-  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.statusText); }
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    console.error('sbSelect error:', r.status, r.statusText, e);
+    throw new Error(e.message || e.hint || r.statusText);
+  }
   return r.json();
 }
 
@@ -663,12 +667,12 @@ async function loadBooks() {
   document.getElementById('shelf').innerHTML =
     `<div class="loading-wrap"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><span>Loading your library…</span></div>`;
   try {
+    console.log('loadBooks: fetching for user', currentUser?.id);
     const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
+    console.log('loadBooks: got', data?.length, 'books');
     books = data || [];
     booksLoaded = true;
-    // One-time migration: wrap raw notes in impression question format
     migrateRawNotes();
-    // Fetch missing metadata for all books
     await fetchMissingMeta(books);
     renderLibrary();
   } catch(e) {
