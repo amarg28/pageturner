@@ -231,9 +231,12 @@ const pipC = r => r >= 8 ? 'pip-hi' : r >= 6 ? 'pip-mid' : r > 0 ? 'pip-lo' : 'p
 const scC  = v => v >= 8 ? 'hi' : v >= 6 ? 'mid' : 'lo';
 const toStars = r => {
   if (!r) return '';
-  const f = Math.round(r / 2 * 2) / 2;
+  const n = parseFloat(r);
+  if (!isFinite(n) || n <= 0) return '';
+  const clamped = Math.max(0, Math.min(10, n));
+  const f = Math.round(clamped / 2 * 2) / 2;
   const full = Math.floor(f), half = f % 1 >= 0.5 ? 1 : 0, empty = 5 - full - half;
-  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+  return '★'.repeat(Math.max(0, full)) + (half ? '½' : '') + '☆'.repeat(Math.max(0, empty));
 };
 const parseTags = s => s ? s.split(',').map(t => t.trim()).filter(Boolean) : [];
 const joinTags  = a => a.join(', ');
@@ -684,6 +687,10 @@ async function loadBooks() {
 
 function bookToRow(b) {
   const nn = v => (v === '' || v === null || v === undefined) ? null : v;
+  const clampRating = v => {
+    const n = parseFloat(v);
+    return (isFinite(n) && n >= 1 && n <= 10) ? n : null;
+  };
   return {
     user_id: currentUser.id,
     isbn: nn(b.isbn),
@@ -692,8 +699,8 @@ function bookToRow(b) {
     status: b.status || 'finished',
     start_date: nn(b.start_date),
     end_date: nn(b.end_date),
-    rating: nn(b.rating),
-    retro_rating: nn(b.retro_rating),
+    rating: clampRating(b.rating),
+    retro_rating: clampRating(b.retro_rating),
     notes: b.notes || '',
     retro_thoughts: b.retro_thoughts || '',
     mood: b.mood || '',
