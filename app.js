@@ -2491,9 +2491,8 @@ function openEdit(bookId) {
       </div>
     </div>`;
   const editModal = document.getElementById('edit-modal');
-  editModal.classList.add('on');
-  editModal.style.display = 'flex';
-  console.log('edit-modal after force:', editModal.style.display, editModal.getBoundingClientRect());
+  editModal.style.cssText = 'display:flex !important; position:fixed !important; top:0 !important; left:0 !important; right:0 !important; bottom:0 !important; width:100vw !important; height:100vh !important; background:rgba(0,0,0,0.5) !important; z-index:9999 !important; align-items:center !important; justify-content:center !important; padding:20px !important; box-sizing:border-box !important;';
+  console.log('edit-modal after force:', editModal.getBoundingClientRect());
   console.log('openEdit: modal opened');
   } catch(err) { console.error('openEdit error:', err); }
 }
