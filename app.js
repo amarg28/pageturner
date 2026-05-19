@@ -335,12 +335,15 @@ async function sbUpdate(table, id, data) {
     headers: sbHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(data)
   });
+  // 204 No Content is success for return=minimal
+  if (r.status === 204) return {};
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
-    throw new Error(e.message || r.statusText);
+    console.error('sbUpdate error:', r.status, e);
+    throw new Error(e.message || e.hint || r.statusText);
   }
-  // return=minimal gives 204 No Content - return empty object
-  return {};
+  // Some Supabase versions return 200 with body even for minimal
+  return r.json().catch(() => ({}));
 }
 
 async function sbDelete(table, id) {
@@ -2506,13 +2509,17 @@ async function saveEdit(bookId) {
   b.series_name=document.getElementById('e-series-name')?.value.trim()||null;
   b.series_number=parseFloat(document.getElementById('e-series-num')?.value)||null;
   b.fiction_nonfiction=document.getElementById('e-fn')?.value||null;
-  await saveBook(b);
-  document.getElementById('edit-modal').classList.remove('on');
-  chartsDrawn=false;renderLibrary();
-  showToast('Changes saved ✓');
-  // If book modal is open, refresh it with updated data
-  if (document.getElementById('book-modal')?.classList.contains('on')) {
-    openBookPage(bookId);
+  try {
+    await saveBook(b);
+    document.getElementById('edit-modal').classList.remove('on');
+    chartsDrawn=false; renderLibrary();
+    showToast('Changes saved ✓');
+    if (document.getElementById('book-modal')?.classList.contains('on')) {
+      openBookPage(bookId);
+    }
+  } catch(e) {
+    console.error('saveEdit error:', e);
+    showToast('Could not save: ' + e.message);
   }
 }
 
