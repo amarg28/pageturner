@@ -1762,7 +1762,7 @@ function openAddFinishedForm(isbn, olKey, title, author, coverId, year, existing
         </div>
       </div>
       <div class="fgrid">
-        <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="af-rating" min="1" max="10" placeholder="e.g. 8"></div>
+        <div class="fg"><label class="fl">Rating (★ out of 5)</label><input class="fi" type="number" id="af-rating" min="0.5" max="5" step="0.5" placeholder="e.g. 4"></div>
         <div class="fg"><label class="fl">Fiction / Nonfiction</label>
           <select class="fi" id="af-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
         </div>
@@ -1792,7 +1792,8 @@ async function submitAddFinished(isbn, olKey, title, author, coverId, existingBo
   btn.disabled = true; btn.textContent = 'Saving…';
   const start = document.getElementById('af-start').value || null;
   const end   = document.getElementById('af-end').value || null;
-  const rating = parseFloat(document.getElementById('af-rating').value) || null;
+  const ratingRaw = parseFloat(document.getElementById('af-rating').value) || null;
+  const rating = ratingRaw ? Math.round(ratingRaw * 2) : null;
 
   if (isbn || olKey) {
     const fakeBook = { isbn: isbn||null, ol_key: olKey||null, manual_title: title, manual_author: author };
@@ -2460,8 +2461,8 @@ function openEdit(bookId) {
           <option value="Nonfiction"${b.fiction_nonfiction==='Nonfiction'?' selected':''}>Nonfiction</option>
         </select>
       </div>
-      <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="e-rating" min="1" max="10" value="${b.rating||''}"></div>
-      <div class="fg"><label class="fl">Retrospective rating</label><input class="fi" type="number" id="e-retro" min="1" max="10" value="${b.retro_rating||''}"></div>
+      <div class="fg"><label class="fl">Rating (★ out of 5)</label><input class="fi" type="number" id="e-rating" min="0.5" max="5" step="0.5" value="${b.rating ? (b.rating/2) : ''}"></div>
+      <div class="fg"><label class="fl">Retro rating (★ out of 5)</label><input class="fi" type="number" id="e-retro" min="0.5" max="5" step="0.5" value="${b.retro_rating ? (b.retro_rating/2) : ''}"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="e-start" value="${b.start_date||''}"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="e-end" value="${b.end_date||''}" onchange="editEndDateChanged()"></div>
       ${b.status==='reading'?`<div class="fg"><label class="fl">Pages read so far</label><input class="fi" type="number" id="e-pages-read" min="0" value="${b.pages_read||''}"></div>`:''}
@@ -2510,8 +2511,10 @@ async function saveEdit(bookId) {
   const b=books.find(x=>x.id===bookId);
   if(!b)return;
   b.status=document.getElementById('e-status').value;
-  b.rating=parseFloat(document.getElementById('e-rating').value)||null;
-  b.retro_rating=parseFloat(document.getElementById('e-retro').value)||null;
+  const ratingInput = parseFloat(document.getElementById('e-rating').value)||null;
+  b.rating = ratingInput ? Math.round(ratingInput * 2) : null;
+  const retroInput = parseFloat(document.getElementById('e-retro').value)||null;
+  b.retro_rating = retroInput ? Math.round(retroInput * 2) : null;
   b.start_date=document.getElementById('e-start').value||null;
   b.end_date=document.getElementById('e-end').value||null;
   // Save genre to metadata cache (not Supabase - it's metadata)
@@ -2632,7 +2635,7 @@ function buildForm(){
       <div class="fg"><label class="fl">Fiction / Nonfiction</label>
         <select class="fi" id="f-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
       </div>
-      <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" type="number" id="f-rating" min="1" max="10" placeholder="e.g. 8"></div>
+      <div class="fg"><label class="fl">Min rating (★)</label><input class="fi" type="number" id="f-rating" min="0.5" max="5" step="0.5" placeholder="e.g. 4"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="f-start"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="f-end"></div>
     </div>
@@ -3096,7 +3099,7 @@ function openManualEntry() {
       <div class="fg"><label class="fl">Fiction / Nonfiction</label>
         <select class="fi" id="m-fn"><option value="">—</option><option value="Fiction">Fiction</option><option value="Nonfiction">Nonfiction</option></select>
       </div>
-      <div class="fg"><label class="fl">Rating (1–10)</label><input class="fi" id="m-rating" type="number" min="1" max="10" placeholder="e.g. 8"></div>
+      <div class="fg"><label class="fl">Rating (★ out of 5)</label><input class="fi" id="m-rating" type="number" min="0.5" max="5" step="0.5" placeholder="e.g. 4"></div>
       <div class="fg"><label class="fl">Start date</label><input class="fi" id="m-start" type="date"></div>
       <div class="fg"><label class="fl">End date</label><input class="fi" id="m-end" type="date"></div>
     </div>
