@@ -2441,7 +2441,7 @@ function openEdit(bookId) {
   const b=books.find(x=>x.id===bookId);if(!b){console.log('openEdit: book not found');return;}
   const title=bTitle(b);
   document.getElementById('edit-body').innerHTML=`
-    <button class="modal-x" onclick="document.getElementById('edit-modal').classList.remove('on')">×</button>
+    <button class="modal-x" onclick="closeEditModal()">×</button>
     <div class="modal-title">Edit — ${title}</div>
     <!-- Prevent Chrome password save prompt -->
     <input type="password" style="display:none" autocomplete="new-password">
@@ -2486,15 +2486,27 @@ function openEdit(bookId) {
     <div class="fg full" style="margin-bottom:14px"><label class="fl">Retrospective thoughts</label><textarea class="fi fta" id="e-retro-notes">${b.retro_thoughts||''}</textarea></div>
     <div class="edit-modal-footer">
       <div class="form-acts">
-        <button class="btn-ghost" onclick="document.getElementById('edit-modal').classList.remove('on')">Cancel</button>
+        <button class="btn-ghost" onclick="closeEditModal()">Cancel</button>
         <button class="btn-primary" id="save-edit-btn" onclick="saveEdit('${b.id}')">Save changes</button>
       </div>
     </div>`;
   const editModal = document.getElementById('edit-modal');
-  editModal.style.cssText = 'display:flex !important; position:fixed !important; top:0 !important; left:0 !important; right:0 !important; bottom:0 !important; width:100vw !important; height:100vh !important; background:rgba(0,0,0,0.5) !important; z-index:9999 !important; align-items:center !important; justify-content:center !important; padding:20px !important; box-sizing:border-box !important;';
-  console.log('edit-modal after force:', editModal.getBoundingClientRect());
+  // Hide book modal temporarily - its stacking context covers edit modal
+  const bookModal = document.getElementById('book-modal');
+  const bookModalWasOpen = bookModal?.classList.contains('on');
+  if (bookModalWasOpen) bookModal.style.visibility = 'hidden';
+  editModal.classList.add('on');
+  editModal.style.cssText = '';
+  // Restore book modal visibility when edit modal closes
+  editModal._onClose = () => { if (bookModalWasOpen) bookModal.style.visibility = ''; };
   console.log('openEdit: modal opened');
   } catch(err) { console.error('openEdit error:', err); }
+}
+
+function closeEditModal() {
+  const editModal = document.getElementById('edit-modal');
+  editModal.classList.remove('on');
+  if (editModal._onClose) { editModal._onClose(); editModal._onClose = null; }
 }
 
 async function saveEdit(bookId) {
@@ -2524,7 +2536,7 @@ async function saveEdit(bookId) {
   b.fiction_nonfiction=document.getElementById('e-fn')?.value||null;
   try {
     await saveBook(b);
-    document.getElementById('edit-modal').classList.remove('on');
+    closeEditModal();
     chartsDrawn=false; renderLibrary();
     showToast('Changes saved ✓');
     if (document.getElementById('book-modal')?.classList.contains('on')) {
