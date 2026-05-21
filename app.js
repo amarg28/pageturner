@@ -1183,7 +1183,9 @@ function openCRModal() {
     <div class="form-acts" style="margin-top:14px">
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Close</button>
     </div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 }
 
 function openTBRModal() {
@@ -1220,7 +1222,9 @@ function openTBRModal() {
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Close</button>
       <button class="btn-primary" onclick="document.getElementById('del-modal').classList.remove('on');chip('Help me pick from my TBR list');go('discover')">Ask AI to help me pick</button>
     </div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 }
 
 function renderBooks() {
@@ -1516,7 +1520,9 @@ async function showFullSearchModal(q, page=1, advTitle='', advAuthor='', advYear
       </div>
     </details>
     <div id="full-search-results"><div style="display:flex;gap:8px;align-items:center;padding:16px 0"><div class="spinner"></div>Searching…</div></div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 
   try {
     // Use cache proxy for first page, direct OL for pagination
@@ -2180,7 +2186,9 @@ function openEditSeriesModal(bookId) {
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
       <button class="btn-primary" onclick="saveSeriesEdit('${bookId}')">Save</button>
     </div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 }
 
 async function saveSeriesEdit(bookId) {
@@ -2491,14 +2499,14 @@ function openEdit(bookId) {
       </div>
     </div>`;
   const editModal = document.getElementById('edit-modal');
-  // Hide book modal temporarily - its stacking context covers edit modal
+  // Move to body to escape any stacking context
+  if (editModal.parentNode !== document.body) {
+    document.body.appendChild(editModal);
+  }
+  // Restore book modal if it was hidden
   const bookModal = document.getElementById('book-modal');
-  const bookModalWasOpen = bookModal?.classList.contains('on');
-  if (bookModalWasOpen) bookModal.style.visibility = 'hidden';
+  if (bookModal) bookModal.style.visibility = '';
   editModal.classList.add('on');
-  editModal.style.cssText = '';
-  // Restore book modal visibility when edit modal closes
-  editModal._onClose = () => { if (bookModalWasOpen) bookModal.style.visibility = ''; };
   console.log('openEdit: modal opened');
   } catch(err) { console.error('openEdit error:', err); }
 }
@@ -2558,7 +2566,9 @@ function openDel(bookId) {
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
       <button class="btn-danger" onclick="confirmDel('${bookId}')">Remove</button>
     </div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 }
 
 async function confirmDel(bookId) {
@@ -4358,7 +4368,9 @@ function showDuplicatesModal() {
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Done</button>
       <button class="btn-danger" onclick="removeAllDupes()">Remove all ${dupes.length}</button>
     </div>`;
-  document.getElementById('del-modal').classList.add('on');
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
 }
 
 async function removeDupe(bookId, btn) {
