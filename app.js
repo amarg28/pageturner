@@ -335,7 +335,6 @@ async function sbUpdate(table, id, data) {
     headers: sbHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(data)
   });
-  console.log('sbUpdate response:', r.status, r.statusText);
   if (r.status === 204) return {};
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
@@ -672,10 +671,8 @@ async function loadBooks() {
   document.getElementById('shelf').innerHTML =
     `<div class="loading-wrap"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><span>Loading your library…</span></div>`;
   try {
-    console.log('loadBooks: fetching for user', currentUser?.id);
-    const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
-    console.log('loadBooks: got', data?.length, 'books');
-    books = data || [];
+      const data = await sbSelect('books', `user_id=eq.${currentUser.id}&order=created_at.desc`);
+      books = data || [];
     booksLoaded = true;
     migrateRawNotes();
     await fetchMissingMeta(books);
@@ -721,15 +718,11 @@ async function saveBook(b) {
   try {
     if (b.id) {
       const row = bookToRow(b);
-      console.log('saveBook UPDATE id:', b.id, 'row:', row);
-      await sbUpdate('books', b.id, row);
-      console.log('saveBook UPDATE done');
-    } else {
-      console.log('saveBook INSERT');
-      const rows = await sbInsert('books', bookToRow(b));
+          await sbUpdate('books', b.id, row);
+        } else {
+          const rows = await sbInsert('books', bookToRow(b));
       b.id = rows[0]?.id;
-      console.log('saveBook INSERT done, new id:', b.id);
-    }
+        }
   } catch(e) { console.error('saveBook error:', e); throw e; }
 }
 
@@ -2444,8 +2437,6 @@ function editEndDateChanged() {
 }
 
 function openEdit(bookId) {
-  console.log('openEdit called:', bookId);
-  try {
   const b=books.find(x=>x.id===bookId);if(!b){console.log('openEdit: book not found');return;}
   const title=bTitle(b);
   document.getElementById('edit-body').innerHTML=`
@@ -2507,8 +2498,6 @@ function openEdit(bookId) {
   const bookModal = document.getElementById('book-modal');
   if (bookModal) bookModal.style.visibility = '';
   editModal.classList.add('on');
-  console.log('openEdit: modal opened');
-  } catch(err) { console.error('openEdit error:', err); }
 }
 
 function closeEditModal() {
@@ -2518,9 +2507,7 @@ function closeEditModal() {
 }
 
 async function saveEdit(bookId) {
-  console.log('saveEdit called with bookId:', bookId);
   const b=books.find(x=>x.id===bookId);
-  console.log('saveEdit book found:', !!b);
   if(!b)return;
   b.status=document.getElementById('e-status').value;
   b.rating=parseFloat(document.getElementById('e-rating').value)||null;
