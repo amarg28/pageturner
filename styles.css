@@ -1076,3 +1076,31 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
   .survey-card{padding:20px}
   .survey-choice-grid{grid-template-columns:1fr}
 }
+
+/* ── READING GOALS ─────────────────────────────────────────────────────── */
+.goals-wrap{margin-bottom:20px}
+.goals-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.goals-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2)}
+.goals-empty{display:flex;align-items:center;gap:12px;padding:12px 0;margin-bottom:16px}
+.goals-add-btn{font-size:12px;padding:4px 12px;border:0.5px solid var(--amber);border-radius:100px;background:none;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;white-space:nowrap}
+.goals-add-btn:hover{background:var(--amber);color:#fff}
+.goals-ghost-btn{font-size:11px;padding:3px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;color:var(--tx1);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.goals-ghost-btn:hover{border-color:var(--tx1)}
+.goal-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px 18px;margin-bottom:12px}
+.goal-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px}
+.goal-label{font-family:'Lora',serif;font-size:15px;font-weight:500}
+.goal-meta{font-size:11px;color:var(--tx2);margin-top:3px}
+.goal-progress-wrap{margin-bottom:10px}
+.goal-progress-bar{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:5px}
+.goal-progress-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.goal-progress-label{font-size:12px;color:var(--tx1)}
+.goal-stats-row{display:flex;gap:0;border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.goal-stat{flex:1;padding:8px 12px;border-right:0.5px solid var(--bd)}
+.goal-stat:last-child{border-right:none}
+.goal-stat-l{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.goal-stat-v{font-size:14px;font-weight:500}
+.goal-projection{font-size:12px;color:var(--tx1);line-height:1.5}
+@media(max-width:600px){
+  .goal-stats-row{flex-wrap:wrap}
+  .goal-stat{flex:1 1 33%;min-width:80px}
+}
