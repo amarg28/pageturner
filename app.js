@@ -4683,40 +4683,53 @@ function renderGoalCard(goal) {
   const projectedMsg = s.ahead >= 0
     ? `At your current pace you'll finish <strong>${s.projected}</strong> books — <span style="color:var(--teal)">${s.ahead} ahead of goal 🎉</span>`
     : `At your current pace you'll finish <strong>${s.projected}</strong> books — <span style="color:var(--coral)">${Math.abs(s.ahead)} short of goal</span>`;
+  // Progress bar colour shifts coral→amber→teal
+  const barColor = s.pct >= 100 ? 'var(--teal)' : s.pct >= 66 ? '#5BB88A' : s.pct >= 33 ? 'var(--amber)' : 'var(--coral)';
+  const gid = 'goal-expand-' + goal.id.replace(/-/g,'');
 
-  return `<div class="goal-card">
+  return `<div class="goal-card" onclick="toggleGoalExpand('${gid}')" title="Click to expand">
     <div class="goal-card-top">
-      <div>
-        <div class="goal-label">${label}</div>
-        <div class="goal-meta">By ${endStr} · ${daysLeft > 0 ? daysLeft + ' days left' : 'ended'}</div>
-      </div>
+      <div class="goal-label">${label}</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="goals-ghost-btn" onclick="openEditGoal('${goal.id}')">Edit</button>
-        <button class="goals-ghost-btn" style="color:var(--coral)" onclick="confirmDeleteGoal('${goal.id}')">✕</button>
+        <span class="goal-meta">${daysLeft > 0 ? daysLeft + ' days left' : 'ended'}</span>
+        <button class="goals-ghost-btn" onclick="event.stopPropagation();openEditGoal('${goal.id}')">Edit</button>
+        <button class="goals-ghost-btn" style="color:var(--coral)" onclick="event.stopPropagation();confirmDeleteGoal('${goal.id}')">✕</button>
       </div>
     </div>
-    <div class="goal-progress-wrap">
-      <div class="goal-progress-bar">
-        <div class="goal-progress-fill" style="width:${s.pct}%;background:${s.pct>=100?'var(--teal)':s.pct>=50?'var(--amber)':'var(--coral)'}"></div>
-      </div>
+    <div class="goal-progress-bar" style="margin-bottom:6px">
+      <div class="goal-progress-fill" style="width:${s.pct}%;background:${barColor}"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
       <div class="goal-progress-label">${s.count} / ${s.target} books (${s.pct}%)</div>
+      <button class="goal-expand-btn" id="${gid}-btn" onclick="event.stopPropagation();toggleGoalExpand('${gid}')">▾ details</button>
     </div>
-    <div class="goal-stats-row">
-      <div class="goal-stat">
-        <div class="goal-stat-l">Current pace</div>
-        <div class="goal-stat-v" style="color:${paceColor}">${s.booksPerWeekCurrent.toFixed(1)}/wk</div>
+    <div class="goal-details" id="${gid}" style="display:none">
+      <div class="goal-stats-row" style="margin-top:12px">
+        <div class="goal-stat">
+          <div class="goal-stat-l">Current pace</div>
+          <div class="goal-stat-v" style="color:${paceColor}">${s.booksPerWeekCurrent.toFixed(1)}/wk</div>
+        </div>
+        <div class="goal-stat">
+          <div class="goal-stat-l">Needed pace</div>
+          <div class="goal-stat-v">${s.booksPerWeekNeeded.toFixed(1)}/wk</div>
+        </div>
+        <div class="goal-stat">
+          <div class="goal-stat-l">Projected</div>
+          <div class="goal-stat-v">${s.projected} books</div>
+        </div>
       </div>
-      <div class="goal-stat">
-        <div class="goal-stat-l">Needed pace</div>
-        <div class="goal-stat-v">${s.booksPerWeekNeeded.toFixed(1)}/wk</div>
-      </div>
-      <div class="goal-stat">
-        <div class="goal-stat-l">Projected</div>
-        <div class="goal-stat-v">${s.projected} books</div>
-      </div>
+      <div class="goal-projection" style="margin-top:10px">${projectedMsg}</div>
     </div>
-    <div class="goal-projection">${projectedMsg}</div>
   </div>`;
+}
+
+function toggleGoalExpand(gid) {
+  const details = document.getElementById(gid);
+  const btn = document.getElementById(gid + '-btn');
+  if (!details) return;
+  const open = details.style.display !== 'none';
+  details.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? '▾ details' : '▴ less';
 }
 
 function openAddGoal() {
