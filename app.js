@@ -4693,7 +4693,6 @@ function renderGoalCard(goal) {
       <div style="display:flex;gap:8px;align-items:center">
         <span class="goal-meta">${daysLeft > 0 ? daysLeft + ' days left' : 'ended'}</span>
         <button class="goals-ghost-btn" onclick="event.stopPropagation();openEditGoal('${goal.id}')">Edit</button>
-        <button class="goals-ghost-btn" style="color:var(--coral)" onclick="event.stopPropagation();confirmDeleteGoal('${goal.id}')">✕</button>
       </div>
     </div>
     <div class="goal-progress-bar" style="margin-bottom:6px">
@@ -4770,6 +4769,7 @@ function openEditGoal(id) {
       <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="goal-end" value="${g.end_date}"></div>
     </div>
     <div class="form-acts">
+      <button class="btn-ghost" style="color:var(--coral);margin-right:auto" onclick="document.getElementById('del-modal').classList.remove('on');confirmDeleteGoal('${id}')">Delete goal</button>
       <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
       <button class="btn-primary" onclick="submitGoal('${id}')">Save changes</button>
     </div>`;
