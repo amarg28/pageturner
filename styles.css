@@ -1086,14 +1086,17 @@ body{font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg1);color
 .goals-add-btn:hover{background:var(--amber);color:#fff}
 .goals-ghost-btn{font-size:11px;padding:3px 10px;border:0.5px solid var(--bd2);border-radius:100px;background:none;color:var(--tx1);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
 .goals-ghost-btn:hover{border-color:var(--tx1)}
-.goal-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:16px 18px;margin-bottom:12px}
-.goal-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px}
-.goal-label{font-family:'Lora',serif;font-size:15px;font-weight:500}
-.goal-meta{font-size:11px;color:var(--tx2);margin-top:3px}
-.goal-progress-wrap{margin-bottom:10px}
-.goal-progress-bar{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:5px}
+.goal-card{background:var(--bg0);border:0.5px solid var(--bd);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.goal-card:hover{border-color:var(--bd2)}
+.goal-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px}
+.goal-label{font-family:'Lora',serif;font-size:14px;font-weight:500}
+.goal-meta{font-size:11px;color:var(--tx2)}
+.goal-progress-bar{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden}
 .goal-progress-fill{height:100%;border-radius:3px;transition:width .4s ease}
 .goal-progress-label{font-size:12px;color:var(--tx1)}
+.goal-expand-btn{font-size:11px;color:var(--tx2);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0;white-space:nowrap}
+.goal-expand-btn:hover{color:var(--tx0)}
+.goal-details{border-top:0.5px solid var(--bd);margin-top:10px;padding-top:10px}
 .goal-stats-row{display:flex;gap:0;border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
 .goal-stat{flex:1;padding:8px 12px;border-right:0.5px solid var(--bd)}
 .goal-stat:last-child{border-right:none}
