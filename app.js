@@ -597,6 +597,7 @@ function onSignedIn() {
   restoreChatHistory();
   go('library');
   loadBooks();
+  loadGoals();
   // Show tour then survey for new users
   const toured = localStorage.getItem('pt_toured');
   const surveyed = localStorage.getItem('pt_survey_done');
@@ -837,7 +838,7 @@ function renderLibrary() {
     if (layoutEl) layoutEl.style.display = '';
     if (mainEl) mainEl.style.display = '';
   }
-  renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks();
+  renderQuickStats(); renderRetroDue(); renderCRTBR(); renderBooks(); renderGoals();
   // Sidebar: show only when 5+ books
   const sidebar = document.getElementById('library-sidebar');
   const layout = document.querySelector('.library-layout');
@@ -4571,3 +4572,254 @@ function addMsg(text,role){
 function addTyping(){const c=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg msg-a';d.innerHTML=`<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function chip(t){document.getElementById('chat-in').value=t;sendMsg();}
 function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
+
+/* ── READING GOALS ─────────────────────────────────────────────────────── */
+let goalsLoaded = false;
+let readingGoals = [];
+
+async function loadGoals() {
+  if (!currentUser) return;
+  try {
+    const data = await sbSelect('reading_goals', `user_id=eq.${currentUser.id}&order=created_at.desc`);
+    readingGoals = data || [];
+    goalsLoaded = true;
+    renderGoals();
+  } catch(e) { console.error('loadGoals error:', e); }
+}
+
+async function saveGoal(goal) {
+  if (goal.id) {
+    await sbUpdate('reading_goals', goal.id, {
+      target: goal.target, start_date: goal.start_date,
+      end_date: goal.end_date, label: goal.label || null
+    });
+  } else {
+    const rows = await sbInsert('reading_goals', {
+      user_id: currentUser.id, target: goal.target,
+      start_date: goal.start_date, end_date: goal.end_date,
+      label: goal.label || null
+    });
+    goal.id = rows[0]?.id;
+    readingGoals.unshift(goal);
+  }
+}
+
+async function deleteGoal(id) {
+  await sbDelete('reading_goals', id);
+  readingGoals = readingGoals.filter(g => g.id !== id);
+  renderGoals();
+}
+
+function booksFinishedInPeriod(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return books.filter(b => {
+    if (b.status !== 'finished' || !b.end_date) return false;
+    const d = new Date(b.end_date);
+    return d >= start && d <= end;
+  });
+}
+
+function goalStats(goal) {
+  const now = new Date();
+  const start = new Date(goal.start_date);
+  const end = new Date(goal.end_date);
+  const finished = booksFinishedInPeriod(goal.start_date, goal.end_date);
+  const count = finished.length;
+  const target = goal.target;
+  const totalDays = Math.max(1, (end - start) / 86400000);
+  const elapsed = Math.max(0, Math.min(totalDays, (now - start) / 86400000));
+  const remaining = Math.max(0, (end - now) / 86400000);
+  const isComplete = now > end;
+  const pct = Math.min(100, Math.round(count / target * 100));
+  const pace = elapsed > 0 ? count / elapsed * 365.25 : 0; // books per year
+  const projected = elapsed > 0 ? Math.round(count / elapsed * totalDays) : 0;
+  const needed = remaining > 0 ? Math.ceil((target - count) / (remaining / 365.25 * 52) * 1) : 0; // books/week needed
+  const paceNeeded = remaining > 0 ? (target - count) / remaining : 0; // books per day
+  const weeksLeft = remaining / 7;
+  const booksPerWeekNeeded = weeksLeft > 0 ? (target - count) / weeksLeft : 0;
+  const booksPerWeekCurrent = elapsed > 0 ? count / (elapsed / 7) : 0;
+  const ahead = projected - target;
+  return { count, target, pct, projected, isComplete, remaining, elapsed,
+           booksPerWeekCurrent, booksPerWeekNeeded, ahead, start, end, totalDays };
+}
+
+function renderGoals() {
+  const el = document.getElementById('goals-section');
+  if (!el || !goalsLoaded) return;
+  const now = new Date();
+
+  // Split into active and past
+  const active = readingGoals.filter(g => new Date(g.end_date) >= now);
+  const past = readingGoals.filter(g => new Date(g.end_date) < now);
+
+  if (!active.length && !past.length) {
+    el.innerHTML = `<div class="goals-empty">
+      <span style="color:var(--tx2);font-size:13px">No reading goals set.</span>
+      <button class="goals-add-btn" onclick="openAddGoal()">+ Set a goal</button>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="goals-wrap">
+      <div class="goals-header">
+        <div class="goals-title">Reading goals</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${past.length ? `<button class="goals-ghost-btn" onclick="openPastGoals()">Past goals (${past.length})</button>` : ''}
+          <button class="goals-add-btn" onclick="openAddGoal()">+ Add goal</button>
+        </div>
+      </div>
+      ${active.map(g => renderGoalCard(g)).join('')}
+    </div>`;
+}
+
+function renderGoalCard(goal) {
+  const s = goalStats(goal);
+  const label = goal.label || `${s.start.getFullYear()} Reading Goal`;
+  const endStr = s.end.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+  const daysLeft = Math.ceil(s.remaining);
+  const paceColor = s.booksPerWeekCurrent >= s.booksPerWeekNeeded ? 'var(--teal)' : 'var(--coral)';
+  const projectedMsg = s.ahead >= 0
+    ? `At your current pace you'll finish <strong>${s.projected}</strong> books — <span style="color:var(--teal)">${s.ahead} ahead of goal 🎉</span>`
+    : `At your current pace you'll finish <strong>${s.projected}</strong> books — <span style="color:var(--coral)">${Math.abs(s.ahead)} short of goal</span>`;
+
+  return `<div class="goal-card">
+    <div class="goal-card-top">
+      <div>
+        <div class="goal-label">${label}</div>
+        <div class="goal-meta">By ${endStr} · ${daysLeft > 0 ? daysLeft + ' days left' : 'ended'}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="goals-ghost-btn" onclick="openEditGoal('${goal.id}')">Edit</button>
+        <button class="goals-ghost-btn" style="color:var(--coral)" onclick="confirmDeleteGoal('${goal.id}')">✕</button>
+      </div>
+    </div>
+    <div class="goal-progress-wrap">
+      <div class="goal-progress-bar">
+        <div class="goal-progress-fill" style="width:${s.pct}%;background:${s.pct>=100?'var(--teal)':s.pct>=50?'var(--amber)':'var(--coral)'}"></div>
+      </div>
+      <div class="goal-progress-label">${s.count} / ${s.target} books (${s.pct}%)</div>
+    </div>
+    <div class="goal-stats-row">
+      <div class="goal-stat">
+        <div class="goal-stat-l">Current pace</div>
+        <div class="goal-stat-v" style="color:${paceColor}">${s.booksPerWeekCurrent.toFixed(1)}/wk</div>
+      </div>
+      <div class="goal-stat">
+        <div class="goal-stat-l">Needed pace</div>
+        <div class="goal-stat-v">${s.booksPerWeekNeeded.toFixed(1)}/wk</div>
+      </div>
+      <div class="goal-stat">
+        <div class="goal-stat-l">Projected</div>
+        <div class="goal-stat-v">${s.projected} books</div>
+      </div>
+    </div>
+    <div class="goal-projection">${projectedMsg}</div>
+  </div>`;
+}
+
+function openAddGoal() {
+  const now = new Date();
+  const jan1 = new Date(now.getFullYear(), 0, 1).toISOString().slice(0,10);
+  const dec31 = new Date(now.getFullYear(), 11, 31).toISOString().slice(0,10);
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Add reading goal</div>
+    <div class="fg" style="margin-bottom:12px"><label class="fl">Label (optional)</label>
+      <input class="fi" id="goal-label" placeholder="e.g. 2026 Reading Challenge"></div>
+    <div class="fg" style="margin-bottom:12px"><label class="fl">Target (books)</label>
+      <input class="fi" type="number" id="goal-target" min="1" placeholder="e.g. 52"></div>
+    <div class="fgrid" style="margin-bottom:16px">
+      <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="goal-start" value="${jan1}"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="goal-end" value="${dec31}"></div>
+    </div>
+    <div class="form-acts">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
+      <button class="btn-primary" onclick="submitGoal(null)">Save goal</button>
+    </div>`;
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
+}
+
+function openEditGoal(id) {
+  const g = readingGoals.find(x => x.id === id); if (!g) return;
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Edit goal</div>
+    <div class="fg" style="margin-bottom:12px"><label class="fl">Label (optional)</label>
+      <input class="fi" id="goal-label" value="${g.label||''}" placeholder="e.g. 2026 Reading Challenge"></div>
+    <div class="fg" style="margin-bottom:12px"><label class="fl">Target (books)</label>
+      <input class="fi" type="number" id="goal-target" min="1" value="${g.target}"></div>
+    <div class="fgrid" style="margin-bottom:16px">
+      <div class="fg"><label class="fl">Start date</label><input class="fi" type="date" id="goal-start" value="${g.start_date}"></div>
+      <div class="fg"><label class="fl">End date</label><input class="fi" type="date" id="goal-end" value="${g.end_date}"></div>
+    </div>
+    <div class="form-acts">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Cancel</button>
+      <button class="btn-primary" onclick="submitGoal('${id}')">Save changes</button>
+    </div>`;
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
+}
+
+async function submitGoal(existingId) {
+  const label = document.getElementById('goal-label').value.trim();
+  const target = parseInt(document.getElementById('goal-target').value);
+  const start = document.getElementById('goal-start').value;
+  const end = document.getElementById('goal-end').value;
+  if (!target || target < 1) { alert('Please enter a target number of books.'); return; }
+  if (!start || !end || end <= start) { alert('Please enter valid start and end dates.'); return; }
+  const goal = existingId
+    ? { ...readingGoals.find(g => g.id === existingId), target, start_date: start, end_date: end, label: label || null }
+    : { target, start_date: start, end_date: end, label: label || null };
+  try {
+    await saveGoal(goal);
+    document.getElementById('del-modal').classList.remove('on');
+    renderGoals();
+    showToast('Goal saved ✓');
+  } catch(e) { alert('Could not save goal: ' + e.message); }
+}
+
+function confirmDeleteGoal(id) {
+  const g = readingGoals.find(x => x.id === id); if (!g) return;
+  if (!confirm(`Delete "${g.label || 'this goal'}"?`)) return;
+  deleteGoal(id).then(() => showToast('Goal deleted'));
+}
+
+function openPastGoals() {
+  const now = new Date();
+  const past = readingGoals.filter(g => new Date(g.end_date) < now);
+  const rows = past.map(g => {
+    const s = goalStats(g);
+    const achieved = s.count >= s.target;
+    const diff = s.count - s.target;
+    const endStr = s.end.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+    return `<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:0.5px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;font-size:13px">${g.label || s.start.getFullYear() + ' Reading Goal'}</div>
+        <div style="font-size:11px;color:var(--tx2);margin-top:2px">Ended ${endStr}</div>
+        <div style="font-size:12px;margin-top:4px">${s.count} / ${s.target} books ·
+          <span style="color:${achieved?'var(--teal)':'var(--coral)'}">
+            ${achieved ? '✓ Achieved' : '✗ Not achieved'} · ${Math.abs(diff)} books ${diff >= 0 ? 'over' : 'short'}
+          </span>
+        </div>
+        <div style="margin-top:6px;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(100,s.pct)}%;background:${achieved?'var(--teal)':'var(--coral)'}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('del-body').innerHTML = `
+    <button class="modal-x" onclick="document.getElementById('del-modal').classList.remove('on')">×</button>
+    <div class="modal-title">Past goals</div>
+    <div style="max-height:60vh;overflow-y:auto">${rows || '<div style="color:var(--tx2);padding:16px 0">No past goals yet.</div>'}</div>
+    <div class="form-acts" style="margin-top:12px">
+      <button class="btn-ghost" onclick="document.getElementById('del-modal').classList.remove('on')">Close</button>
+    </div>`;
+  const delModal = document.getElementById('del-modal');
+  if (delModal.parentNode !== document.body) document.body.appendChild(delModal);
+  delModal.classList.add('on');
+}
