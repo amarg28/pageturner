@@ -2570,10 +2570,24 @@ function openDel(bookId) {
 }
 
 async function confirmDel(bookId) {
+  // Grab book data before deleting for unread page fallback
+  const b = books.find(x=>x.id===bookId);
+  const olBook = b ? {
+    key: b.ol_key||null,
+    title: bTitle(b),
+    author_name: [bAuthor(b)],
+    cover_i: null,
+    first_publish_year: bYear(b)||null,
+    isbn: b.isbn ? [b.isbn] : []
+  } : null;
   const ok=await deleteBookById(bookId);
-  if(ok)books=books.filter(x=>x.id!==bookId);
+  if(ok) books=books.filter(x=>x.id!==bookId);
   document.getElementById('del-modal').classList.remove('on');
-  chartsDrawn=false;renderLibrary();
+  chartsDrawn=false; renderLibrary();
+  // If book modal is open, revert to unread state
+  if (document.getElementById('book-modal')?.classList.contains('on') && olBook) {
+    openUnreadBookPage(olBook);
+  }
 }
 
 function maybeClose(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('on');}
