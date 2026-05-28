@@ -400,10 +400,15 @@ function saveSession(data) {
 function loadSavedSession() {
   try {
     const s = JSON.parse(localStorage.getItem('pt_session') || 'null');
-    if (!s) return false;
-    if (Date.now() > s.expires_at - 60000) { localStorage.removeItem('pt_session'); return false; }
+    if (!s?.refresh_token) return false;
+    // Always load the session - even if access token is expired
+    // refreshSession() will get a new one if needed
     sessionToken = s.access_token;
     currentUser = s.user;
+    // Flag for refresh if access token is expired or within 5 minutes of expiry
+    if (!s.expires_at || Date.now() > s.expires_at - 300000) {
+      window._needsRefresh = true;
+    }
     return true;
   } catch(e) { return false; }
 }
@@ -565,17 +570,14 @@ async function authSubmit() {
 function showAErr(m) { const el = document.getElementById('auth-error'); el.textContent = m; el.style.display = 'block'; }
 
 function startSessionRefreshTimer() {
-  // Refresh token every 50 minutes (tokens expire after 60 min)
+  // Refresh token every 45 minutes (access tokens expire after 60 min by default)
   setInterval(async () => {
     const ok = await refreshSession();
-    if (!ok) {
-      // Only sign out if we're actually logged in
-      if (sessionToken) {
-        console.warn('Session refresh failed — signing out');
-        signOut();
-      }
+    if (!ok && sessionToken) {
+      console.warn('Session refresh failed — signing out');
+      signOut();
     }
-  }, 50 * 60 * 1000);
+  }, 45 * 60 * 1000);
   // Refresh immediately if flagged as stale
   if (window._needsRefresh) {
     window._needsRefresh = false;
@@ -1725,7 +1727,13 @@ async function quickAddBook(status, isbn, olKey, title, author) {
   try {
     await saveBook(newBook);
     books.unshift(newBook);
-    closeBookModal(); renderLibrary(); go('library');
+    renderLibrary();
+    // If called from book modal, switch to library book page
+    if (document.getElementById('book-modal')?.classList.contains('on')) {
+      openBookPage(newBook.id);
+    } else {
+      go('library');
+    }
   } catch(e) { alert('Could not add book: '+e.message); }
 }
 
