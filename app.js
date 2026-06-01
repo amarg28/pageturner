@@ -613,7 +613,9 @@ function showTour() {
   const toured = localStorage.getItem('pt_toured');
   if (toured) return;
   localStorage.setItem('pt_toured', '1');
-  document.getElementById('tour-overlay').classList.add('on');
+  const tourEl = document.getElementById('tour-overlay');
+  if (tourEl && tourEl.parentNode !== document.body) document.body.appendChild(tourEl);
+  tourEl.classList.add('on');
 }
 
 function closeTour() {
@@ -883,7 +885,9 @@ function openStatsOverlay() {
   // Close any stray modals that might be open
   document.getElementById('del-modal')?.classList.remove('on');
   document.getElementById('edit-modal')?.classList.remove('on');
-  document.getElementById('stats-overlay').classList.add('on');
+  const statsEl = document.getElementById('stats-overlay');
+  if (statsEl && statsEl.parentNode !== document.body) document.body.appendChild(statsEl);
+  statsEl.classList.add('on');
   document.body.style.overflow = 'hidden';
   chartsDrawn = false;
   requestAnimationFrame(() => setTimeout(drawStats, 50));
@@ -2046,6 +2050,7 @@ const modalStack = [];
 
 function openBookModal() {
   const modal = document.getElementById('book-modal');
+  if (modal.parentNode !== document.body) document.body.appendChild(modal);
   modal.classList.add('on');
   document.body.style.overflow = 'hidden';
   const inner = document.getElementById('book-modal-inner');
@@ -3001,6 +3006,10 @@ function renderDiscoverSeries() {
 
 /* ── SETTINGS ──────────────────────────────────────────────────────────── */
 function openSettings() {
+  ['settings-drawer','settings-backdrop'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentNode !== document.body) document.body.appendChild(el);
+  });
   addSwipeToClose('settings-drawer', closeSettings);
   // Populate fields
   document.getElementById('s-email').value = currentUser?.email || '';
@@ -3486,7 +3495,9 @@ const SURVEY_STEPS = 5;
 function showSurvey() {
   surveyAnswers = { books: [], mood: '', length: '', reality: '', themes: '' };
   surveyStep = 0;
-  document.getElementById('survey-overlay').style.display = 'flex';
+  const surveyEl = document.getElementById('survey-overlay');
+  if (surveyEl && surveyEl.parentNode !== document.body) document.body.appendChild(surveyEl);
+  surveyEl.style.display = 'flex';
   renderSurveyStep();
 }
 
