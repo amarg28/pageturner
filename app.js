@@ -2449,6 +2449,121 @@ async function genSimilar(bookId) {
   btn.disabled=false;btn.innerHTML='✦ Regenerate';
 }
 
+/* ── SURPRISE ME ───────────────────────────────────────────────────────── */
+async function genSurpriseBook() {
+  const btn = document.getElementById('surprise-btn');
+  const result = document.getElementById('surprise-result');
+  if (!btn || !result) return;
+
+  btn.disabled = true;
+  btn.textContent = '✦ Finding something unexpected…';
+  result.style.display = 'none';
+
+  const tbrTitles = books.filter(b => b.status === 'tbr').map(b => bTitle(b).toLowerCase());
+  const readTitles = books.filter(b => b.status === 'finished' || b.status === 'reading' || b.status === 'dnf').map(b => bTitle(b).toLowerCase());
+  const allKnown = [...tbrTitles, ...readTitles];
+
+  const prompt = `You are a book recommendation expert who knows this reader's taste inside out.
+
+READING HISTORY:
+${booksCtxStr()}
+
+Your task: recommend ONE book this reader has never read and is not on their TBR list that you predict they would rate 8-10 out of 10. The pick should feel a little unexpected — not the obvious choice, but something that will click perfectly with their taste once they read it.
+
+Rules:
+- Must NOT be any book already in their library or TBR
+- Must be a real book with a real author
+- Should feel like a slightly surprising but perfectly matched pick
+- Do NOT disclaim or hedge — just make the call confidently
+
+Respond ONLY with JSON, no other text:
+{"title":"...","author":"...","reason":"1-2 warm sentences explaining why this specific reader will love it, referencing their reading history"}`;
+
+  try {
+    const text = await callClaude(prompt, 400);
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
+    const rec = JSON.parse(clean);
+
+    // Check it's not already in library (double safety)
+    const inLib = books.find(b => bTitle(b).toLowerCase() === rec.title.toLowerCase());
+
+    // Fetch cover from OL
+    let coverUrl = null;
+    let olDoc = null;
+    try {
+      const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(rec.title)}&author=${encodeURIComponent(rec.author)}&limit=1&fields=key,cover_i,first_publish_year,isbn,number_of_pages_median`);
+      const d = await r.json();
+      olDoc = d.docs?.[0] || null;
+      if (olDoc?.cover_i) coverUrl = cUrl(olDoc.cover_i, 'M');
+    } catch(e) {}
+
+    const olBook = olDoc ? {
+      key: olDoc.key,
+      title: rec.title,
+      author_name: [rec.author],
+      cover_i: olDoc.cover_i || null,
+      first_publish_year: olDoc.first_publish_year || null,
+      number_of_pages_median: olDoc.number_of_pages_median || null,
+      isbn: olDoc.isbn || []
+    } : {
+      key: null,
+      title: rec.title,
+      author_name: [rec.author],
+      cover_i: null,
+      first_publish_year: null,
+      number_of_pages_median: null,
+      isbn: []
+    };
+
+    result.style.display = 'block';
+    result.innerHTML = `<div class="surprise-card">
+      <div class="surprise-card-inner" onclick="openUnreadBookPage(window._surpriseBook)" style="cursor:pointer">
+        ${coverUrl
+          ? `<img src="${coverUrl}" class="surprise-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="surprise-cover-ph">📖</div>`}
+        <div class="surprise-info">
+          <div class="surprise-title">${rec.title}</div>
+          <div class="surprise-author">${rec.author}</div>
+          <div class="surprise-reason">${rec.reason}</div>
+          ${inLib ? `<div style="font-size:11px;color:var(--teal);margin-top:4px">✓ Already in your library</div>` : ''}
+        </div>
+      </div>
+      <div class="surprise-acts">
+        ${!inLib ? `<button class="btn-primary" style="font-size:12px;padding:7px 14px" onclick="surpriseAddTBR(this)">+ Add to TBR</button>` : ''}
+        <button class="btn-ghost" style="font-size:12px;padding:7px 14px" onclick="genSurpriseBook()">Roll again ↺</button>
+      </div>
+    </div>`;
+
+    // Store for modal click
+    window._surpriseBook = olBook;
+
+  } catch(e) {
+    result.style.display = 'block';
+    result.innerHTML = `<div style="font-size:13px;color:var(--coral);padding:10px 0">Could not generate a suggestion: ${e.message}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✦ Surprise me';
+}
+
+async function surpriseAddTBR(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  const book = window._surpriseBook;
+  if (!book) return;
+  try {
+    await quickAddBook('tbr', book.isbn?.[0] || '', book.key || '', book.title, (book.author_name||[])[0] || '');
+    btn.textContent = '✓ Added to TBR';
+    btn.style.background = 'var(--teal)';
+    btn.style.borderColor = 'var(--teal)';
+    btn.style.color = '#fff';
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '+ Add to TBR';
+  }
+}
+
+
 /* ── EDIT / DELETE MODALS ──────────────────────────────────────────────── */
 function editStatusChanged(sel) {
   if (sel.value === 'finished' || sel.value === 'dnf') {
@@ -3838,72 +3953,8 @@ function renderDiscoverTBR() {
 /* ── DISCOVER SERIES ───────────────────────────────────────────────────── */
 
 /* ── DISCOVER SEARCH ───────────────────────────────────────────────────── */
-let discoverDebounce = null, discoverResults = [], discoverIdx = -1;
 
-function discoverSearch() {
-  const q = document.getElementById('discover-q').value.trim();
-  clearTimeout(discoverDebounce);
-  if (!q) { closeDiscoverSearch(); return; }
-  if (q.length < 2) return;
-  discoverDebounce = setTimeout(() => doDiscoverSearch(q), 350);
-}
 
-function discoverSearchKey(e) {
-  const box = document.getElementById('discover-results');
-  if (!box.classList.contains('open')) return;
-  if (e.key==='ArrowDown'){e.preventDefault();discoverIdx=Math.min(discoverIdx+1,discoverResults.length-1);highlightDiscover();}
-  else if (e.key==='ArrowUp'){e.preventDefault();discoverIdx=Math.max(discoverIdx-1,0);highlightDiscover();}
-  else if (e.key==='Enter'&&discoverIdx>=0){e.preventDefault();selectDiscoverResult(discoverIdx);}
-  else if (e.key==='Escape'){closeDiscoverSearch();}
-}
-
-function highlightDiscover() {
-  document.querySelectorAll('.gsearch-result').forEach((el,i) => { el.style.background=i===discoverIdx?'var(--bg2)':''; });
-}
-
-function closeDiscoverSearch() {
-  document.getElementById('discover-results').classList.remove('open');
-  discoverResults=[]; discoverIdx=-1;
-}
-
-async function doDiscoverSearch(q) {
-  const box = document.getElementById('discover-results');
-  box.innerHTML=`<div class="gsearch-loading"><div class="spinner"></div>Searching…</div>`;
-  box.classList.add('open');
-  try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=7&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median`);
-    const d = await r.json();
-    discoverResults = d.docs||[];
-    if (!discoverResults.length) { box.innerHTML=`<div class="gsearch-empty">No results found.</div>`; return; }
-    box.innerHTML = discoverResults.map((res,i) => {
-      const inLib = books.find(b => (res.isbn?.[0] && b.isbn===res.isbn[0]) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
-      const author = (res.author_name||[]).slice(0,2).join(', ')||'Unknown';
-      return `<div class="gsearch-result" id="dsr-${i}" onclick="selectDiscoverResult(${i})">
-        ${res.cover_i?`<img class="gsearch-result-cover" src="${cUrl(res.cover_i,'S')}" alt="" loading="lazy">`:`<div class="gsearch-result-cover-ph">📖</div>`}
-        <div style="flex:1;min-width:0">
-          <div class="gsearch-result-title">${res.title}</div>
-          <div class="gsearch-result-author">${author}</div>
-          <div class="gsearch-result-meta">${res.first_publish_year||''}</div>
-          ${inLib?`<div class="gsearch-in-lib">In your library${inLib.rating?' · '+toStars(inLib.rating):''}</div>`:''}
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { box.innerHTML=`<div class="gsearch-empty">Search failed.</div>`; }
-}
-
-function selectDiscoverResult(i) {
-  const res = discoverResults[i]; if (!res) return;
-  closeDiscoverSearch();
-  document.getElementById('discover-q').value='';
-  const isbn = res.isbn?.[0]||null;
-  const inLib = books.find(b => (isbn && b.isbn===isbn) || b.ol_key===res.key || bTitle(b).toLowerCase()===res.title.toLowerCase());
-  if (inLib) openBookPage(inLib.id);
-  else openUnreadBookPage(res);
-}
-
-document.addEventListener('click', e => {
-  if (!document.getElementById('discover-q')?.contains(e.target) && !document.getElementById('discover-results')?.contains(e.target)) closeDiscoverSearch();
-});
 
 /* ── REFLECT TAB ───────────────────────────────────────────────────────── */
 const INITIAL_PROMPTS = [
