@@ -2515,6 +2515,10 @@ Respond ONLY with JSON, no other text:
       isbn: []
     };
 
+    // Strip em-dashes from reason
+    const cleanReason = rec.reason.replace(/—/g, ',').replace(/\s,/g, ',');
+    const yearStr = olDoc?.first_publish_year ? ` · ${olDoc.first_publish_year}` : '';
+
     result.style.display = 'block';
     result.innerHTML = `<div class="surprise-card">
       <div class="surprise-card-inner" onclick="openUnreadBookPage(window._surpriseBook)" style="cursor:pointer">
@@ -2523,15 +2527,14 @@ Respond ONLY with JSON, no other text:
           : `<div class="surprise-cover-ph">📖</div>`}
         <div class="surprise-info">
           <div class="surprise-title">${rec.title}</div>
-          <div class="surprise-author">${rec.author}</div>
-          <div class="surprise-reason">${rec.reason}</div>
+          <div class="surprise-author">${rec.author}${yearStr}</div>
+          <div class="surprise-reason">${cleanReason}</div>
           ${inLib ? `<div style="font-size:11px;color:var(--teal);margin-top:4px">✓ Already in your library</div>` : ''}
         </div>
       </div>
-      <div class="surprise-acts">
-        ${!inLib ? `<button class="btn-primary" style="font-size:12px;padding:7px 14px" onclick="surpriseAddTBR(this)">+ Add to TBR</button>` : ''}
-        <button class="btn-ghost" style="font-size:12px;padding:7px 14px" onclick="genSurpriseBook()">Roll again ↺</button>
-      </div>
+      ${!inLib ? `<div class="surprise-acts">
+        <button class="btn-primary" style="font-size:12px;padding:7px 14px" onclick="surpriseAddTBR(this)">+ Add to TBR</button>
+      </div>` : ''}
     </div>`;
 
     // Store for modal click
@@ -2551,12 +2554,38 @@ async function surpriseAddTBR(btn) {
   btn.textContent = 'Adding…';
   const book = window._surpriseBook;
   if (!book) return;
+  const isbn = book.isbn?.[0] || null;
+  const olKey = book.key || null;
+  const title = book.title;
+  const author = (book.author_name||[])[0] || '';
+  // Check for duplicate
+  const exists = books.find(b =>
+    (isbn && b.isbn === isbn) ||
+    (olKey && b.ol_key === olKey) ||
+    bTitle(b).toLowerCase() === title.toLowerCase()
+  );
+  if (exists) {
+    btn.textContent = '✓ Already in library';
+    btn.style.background = 'var(--teal)';
+    btn.style.color = '#fff';
+    return;
+  }
   try {
-    await quickAddBook('tbr', book.isbn?.[0] || '', book.key || '', book.title, (book.author_name||[])[0] || '');
+    const newBook = {
+      isbn: isbn, ol_key: olKey, google_id: null,
+      status: 'tbr', start_date: null, end_date: null,
+      rating: null, retro_rating: null, notes: '', retro_thoughts: '',
+      mood: '', themes: '', manual_title: title, manual_author: author, import_source: ''
+    };
+    await saveBook(newBook);
+    books.unshift(newBook);
+    renderCRTBR();
+    renderDiscoverTBR();
     btn.textContent = '✓ Added to TBR';
     btn.style.background = 'var(--teal)';
     btn.style.borderColor = 'var(--teal)';
     btn.style.color = '#fff';
+    showToast('"' + title + '" added to TBR ✓');
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '+ Add to TBR';
