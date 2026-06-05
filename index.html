@@ -170,7 +170,7 @@
 
     <!-- TOPBAR -->
     <div class="topbar">
-      <div class="logo" onclick="goHome()">page<em>turner</em></div>
+      <div class="logo" onclick="resetLibrary()">page<em>turner</em></div>
 
       <!-- Global search -->
       <div class="gsearch-wrap" id="gsearch-wrap">
@@ -498,14 +498,14 @@
       </div>
       <div class="chart-card">
         <div class="chart-head">Books read per month</div>
-        <div class="two-col" style="align-items:start;gap:20px">
-          <div style="overflow-x:auto">
+        <div style="display:flex;align-items:start;gap:20px">
+          <div style="overflow-x:auto;flex-shrink:0">
             <table style="border-collapse:collapse;font-size:13px;min-width:200px">
               <thead id="bpm-table-head"></thead>
               <tbody id="bpm-table-body"></tbody>
             </table>
           </div>
-          <div style="position:relative;width:100%;min-height:220px"><canvas id="cBPM"></canvas></div>
+          <div style="position:relative;flex:1;min-width:0;min-height:260px"><canvas id="cBPM"></canvas></div>
         </div>
       </div>
       <div class="two-col" style="align-items:start">
