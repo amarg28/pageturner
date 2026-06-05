@@ -2463,28 +2463,22 @@ async function genSurpriseBook() {
   const readTitles = books.filter(b => b.status === 'finished' || b.status === 'reading' || b.status === 'dnf').map(b => bTitle(b).toLowerCase());
   const allKnown = [...tbrTitles, ...readTitles];
 
-  const prompt = `You are a book recommendation expert who knows this reader's taste inside out.
+  const prompt = `You are a book recommendation expert. Respond ONLY with a single JSON object, no markdown, no explanation, no text before or after.
 
 READING HISTORY:
 ${booksCtxStr()}
 
-Your task: recommend ONE book this reader has never read and is not on their TBR list that you predict they would rate 8-10 out of 10. The pick should feel a little unexpected — not the obvious choice, but something that will click perfectly with their taste once they read it.
+Recommend ONE book this reader has never read and is not on their TBR. It should feel slightly unexpected but perfectly matched. You predict they would rate it 8-10/10.
 
-Rules:
-- Must NOT be any book already in their library or TBR
-- Must be a real book with a real author
-- Should feel like a slightly surprising but perfectly matched pick
-- Do NOT disclaim or hedge — just make the call confidently
-
-Respond ONLY with JSON, no other text:
-{"title":"...","author":"...","reason":"1-2 warm sentences explaining why this specific reader will love it, referencing their reading history"}`;
+Return this exact format with no other text:
+{"title":"Book Title Here","author":"Author Name Here","reason":"One sentence, no quotes inside, explaining why they will love it based on their history."}`;
 
   try {
-    const text = await callClaude(prompt, 400);
-    // Extract JSON object robustly -- Claude sometimes adds preamble or trailing text
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const text = await callClaude(prompt, 300);
+    // Extract JSON robustly
+    const jsonMatch = text.match(/\{[^{}]*\}/);
     if (!jsonMatch) throw new Error('No JSON found in response');
-    const rec = JSON.parse(jsonMatch[0]);
+    const rec = JSON.parse(jsonMatch[0].replace(/\r\n|\n|\r/g, ' '));
 
     // Check it's not already in library (double safety)
     const inLib = books.find(b => bTitle(b).toLowerCase() === rec.title.toLowerCase());
