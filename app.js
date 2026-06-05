@@ -1666,7 +1666,7 @@ async function openUnreadBookPage(olBook) {
       <div class="bp-img">${coverSrc ? `<img src="${coverSrc}" alt="${esc(title)}" loading="lazy">` : `<div class="bp-img-ph"><span>${esc(title)}</span></div>`}</div>
       <div class="bp-hero-info">
         <div class="bp-title">${esc(title)}</div>
-        <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${esc(author)}</span>${year ? ' · ' + year : ''}</div>
+        <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${esc(author)}</span>${year ? ' · ' + year : ''}${fakeB && bPages(fakeB) ? ' · ' + bPages(fakeB) + ' pages' : ''}</div>
         ${addBtns}
       </div>
     </div>
@@ -1710,7 +1710,6 @@ async function quickStatusChange(bookId, newStatus) {
   const b = books.find(x => x.id === bookId); if (!b) return;
   b.status = newStatus;
   if (newStatus === 'reading' && !b.start_date) b.start_date = new Date().toISOString().slice(0,10);
-  if (newStatus === 'finished' && !b.end_date) b.end_date = new Date().toISOString().slice(0,10);
   await saveBook(b);
   renderLibrary();
   openBookPage(bookId);
@@ -1729,8 +1728,7 @@ async function quickAddBook(status, isbn, olKey, title, author) {
     alert(`"${title}" is already ${statusLabel}.`);
     return;
   }
-  const today = new Date().toISOString().slice(0,10);
-  const newBook = { isbn: isbn||null, ol_key: olKey||null, google_id: null, status, start_date: status === 'reading' ? today : null, end_date: null, rating: null, retro_rating: null, notes: '', retro_thoughts: '', mood: '', themes: '', manual_title: title||null, manual_author: author||null, import_source: '' };
+  const newBook = { isbn: isbn||null, ol_key: olKey||null, google_id: null, status, start_date: null, end_date: null, rating: null, retro_rating: null, notes: '', retro_thoughts: '', mood: '', themes: '', manual_title: title||null, manual_author: author||null, import_source: '' };
   try {
     await saveBook(newBook);
     books.unshift(newBook);
@@ -1913,7 +1911,7 @@ function bpHero(b, extraBtns) {
     <div class="bp-img">${coverLg ? `<img src="${coverLg}" alt="${title}" loading="lazy">` : `<div class="bp-img-ph"><span>${title}</span></div>`}</div>
     <div class="bp-hero-info">
       <div class="bp-title">${title}</div>
-      <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${author}</span>${year ? ' · ' + year : ''}</div>
+      <div class="bp-author"><span class="author-link" onclick="pushModal(()=>openAuthorPage('${esc(author)}'))">${author}</span>${year ? ' · ' + year : ''}${pages ? ' · ' + pages + ' pages' : ''}</div>
       <div class="bp-tags">${fntag}${gtags}</div>
       ${b.status !== 'tbr' ? `<div class="bp-scores">
         <div class="bps"><div class="bps-l">Your rating</div><div class="bps-v ${scC(b.rating)}">${b.rating ? toStars(b.rating) : '—'}</div></div>
@@ -2442,10 +2440,6 @@ function editStatusChanged(sel) {
   if (sel.value === 'finished' || sel.value === 'dnf') {
     const endInp = document.getElementById('e-end');
     if (endInp && !endInp.value) endInp.value = new Date().toISOString().slice(0,10);
-  }
-  if (sel.value === 'reading') {
-    const startInp = document.getElementById('e-start');
-    if (startInp && !startInp.value) startInp.value = new Date().toISOString().slice(0,10);
   }
 }
 
@@ -4326,7 +4320,8 @@ function drawStats(){
         tension:.3,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2
       }))
     },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},padding:12,usePointStyle:true}}},scales:{x:{grid:{color:'rgba(128,128,128,0.08)'}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'},min:0}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},padding:12,usePointStyle:true}}},scales:{x:{grid:{color:'rgba(128,128,128,0.08)'}},y:{ticks:{stepSize:1},grid:{color:'rgba(128,128,128,0.1)'},min:0}}},
+    layout:{padding:{top:4}}
   });
 
   // ── DECADE PUBLISHED ─────────────────────────────────────────────────────
@@ -4441,17 +4436,13 @@ function showToast(msg, duration=2000) {
   toast._t = setTimeout(() => toast.style.opacity = '0', duration);
 }
 
-function goHome() {
-  go('library');
-  window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
 function resetLibrary() {
   // Reset all filters and sort to defaults
   const gf = document.getElementById('gf');
   // mf (mood filter) removed
   const sortSel = document.getElementById('sort-sel');
   if (gf) gf.value = '';
+  if (mf) mf.value = '';
   if (sortSel) sortSel.value = 'recent';
   sort = 'recent';
   // Reset view to shelf - must also remove list-mode class
@@ -4459,7 +4450,8 @@ function resetLibrary() {
   const shelf = document.getElementById('shelf');
   if (shelf) shelf.classList.remove('list-mode');
   document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('on', b.dataset.view === 'shelf'));
-  goHome();
+  go('library');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function go(name){
@@ -4497,22 +4489,14 @@ HOW TO RESPOND:
 - Reference specific books from their history to show you really know them ("given how much you loved X...")
 - Use their ratings and reading pace as signals: high ratings and fast pace means they loved it, low ratings or slow pace means they struggled
 - Their notes and reflections reveal what really resonated — lean on these heavily
-- NEVER recommend books they are currently reading
+- NEVER recommend books they are currently reading or have on their TBR list
 - NEVER recommend books already in their finished library
 - NEVER mention retrospective ratings — only reference their star ratings
 - When recommending, always explain WHY this specific reader would enjoy it
 - Estimate a likely rating (1–10) when it feels natural
 - Keep responses warm and readable — not too long, but never thin
 - When recommending a specific book, ALWAYS format it as [[Title by Author]] so the reader can instantly add it to their TBR. Example: I think you'd love [[The Fifth Season by N.K. Jemisin]]
-- NEVER use em-dashes (—) in any response. Use commas, colons, or separate sentences instead.
-- You ONLY exist to talk about books and reading. If someone asks for help with anything else — homework, math, coding, writing essays, general advice — do not help with the task itself. Instead, warmly redirect by recommending a book related to the subject. Always find the book angle.
-
-RECOMMENDATIONS:
-- Always include a mix: roughly 1 book from their TBR list and 2-3 books they have not encountered yet
-- When suggesting a TBR book, note it is already on their list: "You've already got [[X by Y]] on your TBR — this might be the moment"
-- Never lead with TBR books or over-index on them. New discoveries should dominate.
-- If asked about an author, genre, or topic not in their reading history, DO NOT disclaim this. Simply reason confidently from their taste patterns and say something like "Based on what you love, I think you'd really connect with..." — never say things like "I'm working from general knowledge here" or "this author isn't in your history"
-- You always know this reader well enough to make a confident, personalised recommendation on any topic`;
+- You ONLY exist to talk about books and reading. If someone asks for help with anything else — homework, math, coding, writing essays, general advice — do not help with the task itself. Instead, warmly redirect by recommending a book related to the subject. Example: if asked for math help, recommend a great book about mathematics or mathematical thinking. If asked to write an essay, recommend a book on the topic. Always find the book angle.`;
   try{
     const useProxy = !apiKey;
   const chatUrl = useProxy ? 'https://pageturner-bay.vercel.app/api/chat' : 'https://api.anthropic.com/v1/messages';
@@ -4715,7 +4699,7 @@ function renderGoalCard(goal) {
   const barColor = s.pct >= 100 ? 'var(--teal)' : s.pct >= 66 ? '#5BB88A' : s.pct >= 33 ? 'var(--amber)' : 'var(--coral)';
   const gid = 'goal-expand-' + goal.id.replace(/-/g,'');
 
-  return `<div class="goal-card" onclick="toggleGoalExpand('${gid}')" title="Click to expand">
+  return `<div class="goal-card" onclick="toggleGoalExpand('${gid}')" id="${gid}-card" title="Click to expand">
     <div class="goal-card-top">
       <div class="goal-label">${label}</div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -4753,10 +4737,12 @@ function renderGoalCard(goal) {
 function toggleGoalExpand(gid) {
   const details = document.getElementById(gid);
   const btn = document.getElementById(gid + '-btn');
+  const card = document.getElementById(gid + '-card');
   if (!details) return;
   const open = details.style.display !== 'none';
   details.style.display = open ? 'none' : 'block';
   if (btn) btn.textContent = open ? '▾ details' : '▴ less';
+  if (card) card.title = open ? 'Click to expand' : 'Click to collapse';
 }
 
 function openAddGoal() {
