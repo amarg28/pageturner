@@ -189,11 +189,27 @@ function canonicaliseGenres(rawTags) {
 let books = [], currentUser = null, sessionToken = null;
 let sort = 'recent', chartsDrawn = false;
 // Load persisted chat history
-let chatHistory = (() => {
-  try { return JSON.parse(localStorage.getItem('pt_chat_history') || '[]'); } catch(e) { return []; }
-})();
-function saveChatHistory() {
-  try { localStorage.setItem('pt_chat_history', JSON.stringify(chatHistory.slice(-40))); } catch(e) {} // keep last 40 messages
+let chatHistory = [];
+
+async function saveChatHistory(role, content) {
+  if (!currentUser) return;
+  try {
+    await sbInsert('chat_messages', {
+      user_id: currentUser.id,
+      role,
+      content
+    });
+  } catch(e) { console.error('saveChatHistory error:', e); }
+}
+
+async function deleteAllChatMessages() {
+  if (!currentUser) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${currentUser.id}`, {
+      method: 'DELETE',
+      headers: sbHeaders()
+    });
+  } catch(e) { console.error('deleteAllChatMessages error:', e); }
 }
 let apiKey = localStorage.getItem('pt_ak') || '';
 let olResults = [], selResult = null, editions = [], selEdition = null, edFilt = 'all';
@@ -626,7 +642,7 @@ async function signOut() {
   closeSettings();
   await signOutREST();
   sessionToken = null; currentUser = null; books = [];
-  chartsDrawn = false; chatHistory = [];
+  chartsDrawn = false; chatHistory = []; localStorage.removeItem('pt_chat_history');
   localStorage.removeItem('pt_session');
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'block';
@@ -3055,24 +3071,30 @@ async function saveAccountSettings() {
   }
 }
 
-function restoreChatHistory() {
-  if (!chatHistory.length) return;
-  const c = document.getElementById('chat-msgs');
-  if (!c) return;
-  // Keep the welcome message, add history after
-  chatHistory.forEach(msg => {
-    const d = document.createElement('div');
-    d.className = `msg msg-${msg.role==='user'?'u':'a'}`;
-    d.innerHTML = `<div class="bubble">${renderChatText(msg.content)}</div><div class="msg-lbl">${msg.role==='user'?'You':'Book Bot'}</div>`;
-    c.appendChild(d);
-  });
-  c.scrollTop = c.scrollHeight;
+async function restoreChatHistory() {
+  if (!currentUser) return;
+  try {
+    const data = await sbSelect('chat_messages',
+      `user_id=eq.${currentUser.id}&order=created_at.asc&limit=40`
+    );
+    chatHistory = (data || []).map(r => ({ role: r.role, content: r.content }));
+    if (!chatHistory.length) return;
+    const c = document.getElementById('chat-msgs');
+    if (!c) return;
+    chatHistory.forEach(msg => {
+      const d = document.createElement('div');
+      d.className = `msg msg-${msg.role==='user'?'u':'a'}`;
+      d.innerHTML = `<div class="bubble">${renderChatText(msg.content)}</div><div class="msg-lbl">${msg.role==='user'?'You':'Book Bot'}</div>`;
+      c.appendChild(d);
+    });
+    c.scrollTop = c.scrollHeight;
+  } catch(e) { console.error('restoreChatHistory error:', e); }
 }
 
-function clearChat() {
+async function clearChat() {
   if (!confirm('Clear your conversation with Book Bot? This cannot be undone.')) return;
   chatHistory = [];
-  saveChatHistory();
+  await deleteAllChatMessages();
   const c = document.getElementById('chat-msgs');
   if (c) c.innerHTML = `<div class="msg msg-a"><div class="bubble">Hi! I know your reading history well. Tell me what you're in the mood for — or ask me anything about books.</div><div class="msg-lbl">Book Bot</div></div>`;
 }
@@ -4478,7 +4500,7 @@ async function sendMsg(){
   const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
   // API key optional - proxy handles requests if no personal key set
   addMsg(msg,'u');inp.value='';document.getElementById('send-btn').disabled=true;
-  const typing=addTyping();chatHistory.push({role:'user',content:msg});
+  const typing=addTyping();chatHistory.push({role:'user',content:msg});saveChatHistory('user',msg);
   const sys=`You are Book Bot — a warm, enthusiastic reading companion who knows this reader's taste inside out. You're like that friend who always knows exactly what book to press into someone's hands next.
 
 READING HISTORY:
@@ -4506,7 +4528,7 @@ HOW TO RESPOND:
   const r=await fetch(chatUrl,{method:'POST',headers:chatHeaders,body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:chatHistory})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     const reply=d.content?.map(c=>c.text||'').join('')||'Sorry, something went wrong.';
-    chatHistory.push({role:'assistant',content:reply});saveChatHistory();typing.remove();addMsg(reply,'a');
+    chatHistory.push({role:'assistant',content:reply});saveChatHistory('assistant',reply);typing.remove();addMsg(reply,'a');
   }catch(e){typing.remove();addMsg(`Error: ${e.message}`,'a');}
   document.getElementById('send-btn').disabled=false;
 }
