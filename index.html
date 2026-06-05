@@ -304,20 +304,6 @@
     <!-- ── DISCOVER TAB ─────────────────────────────────────────────── -->
     <div id="p-discover" class="panel">
 
-      <!-- Hero search -->
-      <div class="discover-hero">
-        <div class="discover-hero-title">Find your next book</div>
-        <div class="discover-hero-sub">Search any book to see if it's a fit for you, or ask AI for personalised recommendations</div>
-        <div class="discover-search-wrap">
-          <input class="discover-search-in" id="discover-q"
-            placeholder="Search by title, author, or ISBN…"
-            oninput="discoverSearch()"
-            onkeydown="discoverSearchKey(event)"
-            autocomplete="off">
-          <div class="discover-search-results" id="discover-results"></div>
-        </div>
-      </div>
-
       <!-- Two column layout -->
       <div class="discover-cols">
 
@@ -364,22 +350,18 @@
             <button onclick="openManualEntry()" class="btn-ghost" style="width:100%;font-size:13px;margin-bottom:16px">+ Add book manually</button>
             <div id="manual-entry-form" style="display:none"></div>
 
-            <div class="import-sec">
-              <div style="font-size:13px;font-weight:500;margin-bottom:6px">Import your library</div>
-              <div style="font-size:12px;color:var(--tx1);margin-bottom:4px;line-height:1.6">Upload a CSV export from <strong>Goodreads</strong>, <strong>StoryGraph</strong>, or a previous <strong>PageTurner</strong> export. The format is detected automatically.</div>
-              <div style="font-size:11px;color:var(--tx2);margin-bottom:14px;line-height:1.7">
-                <strong>Goodreads:</strong> My Books → Import/Export → Export Library<br>
-                <strong>StoryGraph:</strong> Profile → Import/Export → Export your data<br>
-                <strong>PageTurner:</strong> Settings → Download library
-              </div>
-              <button class="btn-primary" onclick="document.getElementById('csv-any').click()" style="width:100%;padding:10px">📂 Choose CSV file to import</button>
-              <input type="file" id="csv-any" style="display:none" accept=".csv" onchange="handleImport(event,'auto')">
-              <div id="import-preview" style="display:none"></div>
-            </div>
+            <div id="import-preview" style="display:none"></div>
+          </div>
+
+          <!-- Surprise Me -->
+          <div style="margin-bottom:28px">
+            <div class="discover-section-label">Surprise me</div>
+            <div id="surprise-result" style="display:none"></div>
+            <button class="btn-primary" id="surprise-btn" onclick="genSurpriseBook()" style="width:100%;padding:11px;font-size:14px">✦ Surprise me</button>
           </div>
 
           <!-- TBR with AI help -->
-          <div style="margin-top:28px">
+          <div style="margin-top:0">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
               <div class="discover-section-label" style="margin:0">Your TBR <span id="tbr-count" style="font-weight:400;color:var(--tx2)"></span></div>
               <select class="fsel" onchange="setTbrSort(this.value)" style="font-size:11px;padding:4px 8px">
@@ -498,14 +480,14 @@
       </div>
       <div class="chart-card">
         <div class="chart-head">Books read per month</div>
-        <div style="display:flex;align-items:start;gap:20px">
-          <div style="overflow-x:auto;flex-shrink:0">
+        <div class="two-col" style="align-items:start;gap:20px">
+          <div style="overflow-x:auto">
             <table style="border-collapse:collapse;font-size:13px;min-width:200px">
               <thead id="bpm-table-head"></thead>
               <tbody id="bpm-table-body"></tbody>
             </table>
           </div>
-          <div style="position:relative;flex:1;min-width:0;min-height:260px"><canvas id="cBPM"></canvas></div>
+          <div style="position:relative;width:100%;min-height:220px"><canvas id="cBPM"></canvas></div>
         </div>
       </div>
       <div class="two-col" style="align-items:start">
@@ -584,7 +566,11 @@
     <!-- Library management -->
     <div class="settings-section">
       <div class="settings-section-label">Library management</div>
-      <div style="font-size:12px;color:var(--tx1);margin-bottom:10px;line-height:1.5">Find and remove duplicate books that may have been created by multiple imports.</div>
+      <div style="font-size:12px;color:var(--tx1);margin-bottom:6px;line-height:1.5">Import your library from Goodreads, StoryGraph, or a previous PageTurner export.</div>
+      <button class="settings-save-btn" style="display:block;width:100%;margin-bottom:4px" onclick="document.getElementById('csv-any').click()">📂 Import CSV</button>
+      <input type="file" id="csv-any" style="display:none" accept=".csv" onchange="handleImport(event,'auto')">
+      <div id="import-preview" style="display:none;margin-bottom:12px"></div>
+      <div style="font-size:12px;color:var(--tx1);margin-bottom:10px;margin-top:16px;line-height:1.5">Find and remove duplicate books that may have been created by multiple imports.</div>
       <button class="settings-save-btn" style="background:var(--coral);display:block;width:100%;margin-bottom:12px" onclick="closeSettings();showDuplicatesModal()">Find &amp; remove duplicates</button>
       <div style="font-size:12px;color:var(--tx1);margin-bottom:10px;line-height:1.5">Download your full library as a CSV file.</div>
       <button class="settings-save-btn" style="display:block;width:100%" onclick="closeSettings();exportLibrary()">Download library</button>
