@@ -2481,8 +2481,10 @@ Respond ONLY with JSON, no other text:
 
   try {
     const text = await callClaude(prompt, 400);
-    const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
-    const rec = JSON.parse(clean);
+    // Extract JSON object robustly -- Claude sometimes adds preamble or trailing text
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    const rec = JSON.parse(jsonMatch[0]);
 
     // Check it's not already in library (double safety)
     const inLib = books.find(b => bTitle(b).toLowerCase() === rec.title.toLowerCase());
