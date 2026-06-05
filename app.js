@@ -2471,7 +2471,7 @@ ${booksCtxStr()}
 Recommend ONE book this reader has never read and is not on their TBR. It should feel slightly unexpected but perfectly matched. You predict they would rate it 8-10/10.
 
 Return this exact format with no other text:
-{"title":"Book Title Here","author":"Author Name Here","reason":"One sentence, no quotes inside, explaining why they will love it based on their history."}`;
+{"title":"Book Title Here","author":"Author Name Here","reason":"One sentence, no quotes inside, addressing the reader directly using you/your (not they/their/them)."}`;
 
   try {
     const text = await callClaude(prompt, 300);
